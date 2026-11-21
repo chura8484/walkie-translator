@@ -10,26 +10,30 @@
   <meta property="og:title" content="Trò chuyện cùng em bé" />
   <meta property="og:description" content="Phiên dịch trực tiếp Hàn - Việt" />
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; -webkit-tap-highlight-color: transparent; }
     body { background: #121212; color: #fff; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+
+    /* 영상통화 중에는 상단 헤더 숨김 */
+    body.in-video-call header { display: none; }
 
     #inAppBanner { background: #d32f2f; color: #fff; padding: 10px 14px; font-size: 13px; font-weight: bold; line-height: 1.4; text-align: center; }
     #diagBanner { background: #3e2723; color: #ffcc80; padding: 6px 14px; font-size: 12px; border-bottom: 1px solid #5d4037; }
 
-    header { padding: 10px 12px; background: #1e1e1e; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-shrink: 0; }
-    .role-select { display: flex; align-items: center; gap: 6px; }
-    .role-select button { padding: 7px 10px; border: none; border-radius: 6px; background: #333; color: #aaa; font-weight: bold; font-size: 13px; cursor: pointer; }
+    header { padding: 9px 10px; background: #1e1e1e; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-shrink: 0; }
+    .role-select { display: flex; align-items: center; gap: 5px; }
+    .role-select button { padding: 7px 9px; border: none; border-radius: 6px; background: #333; color: #aaa; font-weight: bold; font-size: 12px; cursor: pointer; white-space: nowrap; }
     .role-select button.active { background: #0078ff; color: #fff; }
-    .small-btn { padding: 7px 10px; border: none; border-radius: 6px; background: #383838; color: #90caf9; font-size: 13px; font-weight: bold; cursor: pointer; }
+    .small-btn { padding: 7px 9px; border: none; border-radius: 6px; background: #383838; color: #e0e0e0; font-size: 12px; font-weight: bold; cursor: pointer; white-space: nowrap; }
     #videoCallBtn { background: #2e7d32; color: #fff; }
     #videoCallBtn:disabled { background: #333; color: #666; cursor: not-allowed; }
+    #logoutBtn { background: #424242; color: #ffab91; }
     #status { font-size: 12px; color: #aaa; font-weight: bold; white-space: nowrap; }
 
-    /* 영상통화 영역 */
-    #videoSection { position: relative; width: 100%; height: 45dvh; background: #000; flex-shrink: 0; overflow: hidden; border-bottom: 1px solid #333; transition: height 0.25s ease; }
-    #videoSection.expanded { height: 67dvh; }
+    /* 영상통화 영역: 기본은 입력창까지 꽉 차게 (flex: 1), 분할 시 42dvh */
+    #videoSection { position: relative; width: 100%; flex: 1; min-height: 0; background: #000; overflow: hidden; border-bottom: 1px solid #333; }
+    #videoSection.split { flex: none; height: 42dvh; }
     #remoteVideo { width: 100%; height: 100%; object-fit: cover; background: #0a0a0a; transition: filter 0.2s ease; }
-    #remoteStatusBadge { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.68); color: #fff; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 4; pointer-events: none; }
+    #remoteStatusBadge { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.68); color: #fff; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 4; pointer-events: none; white-space: nowrap; }
     #remoteStatusBadge.test-badge { top: 12px; transform: translateX(-50%); background: rgba(239, 108, 0, 0.85); font-size: 12px; padding: 5px 12px; }
 
     /* 뽀샤시 필터 */
@@ -38,26 +42,26 @@
     .filter-2 { filter: brightness(1.08) sepia(0.14) saturate(1.15); }
 
     /* 내 화면 (PiP) */
-    #localVideoWrap { position: absolute; width: 88px; height: 120px; border-radius: 10px; overflow: hidden; border: 2px solid rgba(255,255,255,0.55); background: #1a1a1a; z-index: 6; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: all 0.2s ease; }
-    #localVideoWrap.pos-br { right: 10px; bottom: 56px; left: auto; top: auto; }
-    #localVideoWrap.pos-tr { right: 10px; top: 10px; left: auto; bottom: auto; }
-    #localVideoWrap.pos-tl { left: 10px; top: 10px; right: auto; bottom: auto; }
-    #localVideoWrap.pos-bl { left: 10px; bottom: 56px; right: auto; top: auto; }
+    #localVideoWrap { position: absolute; width: 92px; height: 126px; border-radius: 10px; overflow: hidden; border: 2px solid rgba(255,255,255,0.55); background: #1a1a1a; z-index: 6; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: all 0.2s ease; }
+    #localVideoWrap.pos-br { right: 10px; bottom: 60px; left: auto; top: auto; }
+    #localVideoWrap.pos-tr { right: 10px; top: 12px; left: auto; bottom: auto; }
+    #localVideoWrap.pos-tl { left: 10px; top: 12px; right: auto; bottom: auto; }
+    #localVideoWrap.pos-bl { left: 10px; bottom: 60px; right: auto; top: auto; }
     #localVideo { width: 100%; height: 100%; object-fit: cover; }
     .mirrored { transform: scaleX(-1); }
     #localCamOffMask { position: absolute; inset: 0; background: #222; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-    #showPipBtn { position: absolute; right: 10px; top: 10px; z-index: 6; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.4); background: rgba(0,0,0,0.55); color: #fff; font-size: 15px; cursor: pointer; }
+    #showPipBtn { position: absolute; right: 10px; top: 12px; z-index: 6; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.4); background: rgba(0,0,0,0.55); color: #fff; font-size: 15px; cursor: pointer; }
 
     /* 영상 컨트롤 바 */
-    #videoControls { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: rgba(0,0,0,0.58); backdrop-filter: blur(6px); border-radius: 26px; z-index: 7; max-width: 96%; }
-    .vc-btn { width: 38px; height: 38px; border-radius: 50%; border: none; background: rgba(255,255,255,0.16); color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+    #videoControls { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 6px 9px; background: rgba(0,0,0,0.58); backdrop-filter: blur(6px); border-radius: 26px; z-index: 7; max-width: 96%; }
+    .vc-btn { width: 38px; height: 38px; border-radius: 50%; border: none; outline: none; background: rgba(255,255,255,0.16); color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
     .vc-btn.off { background: #ef6c00; }
     .vc-btn.active { background: #0078ff; }
-    .vc-btn.end { background: #d32f2f; }
+    .vc-btn.end { background: #c62828; }
 
     /* 하트 날리기 레이어 */
     #heartLayer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 8; }
-    .floating-heart { position: absolute; bottom: 54px; font-size: 28px; animation: floatHeart 1.8s ease-out forwards; }
+    .floating-heart { position: absolute; bottom: 58px; font-size: 28px; animation: floatHeart 1.8s ease-out forwards; }
     @keyframes floatHeart {
       0% { transform: translateY(0) scale(0.7); opacity: 0.95; }
       40% { transform: translateY(-90px) scale(1.2); opacity: 1; }
@@ -138,10 +142,10 @@
 <header>
   <div id="status">⚪ 대기 중...</div>
   <div class="role-select">
-    <button id="videoCallBtn" class="small-btn" onclick="requestVideoCall()" disabled>📹</button>
+    <button id="videoCallBtn" class="small-btn" onclick="requestVideoCall()" disabled>📹 영상통화</button>
     <button id="btnKo" onclick="setRole('ko')">한국어</button>
     <button id="btnVi" onclick="setRole('vi')">Tiếng Việt</button>
-    <button class="small-btn" onclick="logoutRoom()">🔒</button>
+    <button id="logoutBtn" class="small-btn" onclick="logoutRoom()">🚪 나가기</button>
   </div>
 </header>
 
@@ -162,7 +166,7 @@
     <button class="vc-btn" id="vcCamBtn" onclick="toggleCamera()" title="카메라 끄기">📷</button>
     <button class="vc-btn" id="vcFilterBtn" onclick="cycleFilter()" title="뽀샤시 필터">✨</button>
     <button class="vc-btn" id="vcHeartBtn" onclick="sendHeart()" title="하트">❤️</button>
-    <button class="vc-btn" id="vcRatioBtn" onclick="toggleVideoRatio()" title="화면 크기">⤢</button>
+    <button class="vc-btn" id="vcRatioBtn" onclick="toggleVideoRatio()" title="채팅 보기/숨기기">💬</button>
     <button class="vc-btn end" id="vcEndBtn" onclick="endVideoCall()" title="종료">📵</button>
   </div>
 </section>
@@ -190,7 +194,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 13;
+  const APP_VERSION = 14;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const MODEL_ID = "gemini-3.1-flash-lite";
   const MAX_TURNS = 12;
@@ -221,9 +225,11 @@
       lockTitle: "🔒 방 암호 입력",
       unlockBtn: "입장하기",
       wrongPass: "방 암호가 올바르지 않습니다.",
-      partnerOnline: "🟢 상대방 접속 중",
-      partnerOffline: "⚪ 상대방 대기 중",
+      partnerOnline: "🟢 접속 중",
+      partnerOffline: "⚪ 대기 중",
       reconnecting: "🔴 연결 확인 중...",
+      videoBtn: "📹 영상통화",
+      logoutBtn: "🚪 나가기",
       micIdle: "🎤 말하기 (한국어)",
       micBusy: "번역 중...",
       micReserve: "✋ 상대방 말하는 중 (눌러서 다음 차례 예약)",
@@ -258,9 +264,11 @@
       lockTitle: "🔒 Nhập mật khẩu phòng",
       unlockBtn: "Vào phòng",
       wrongPass: "Mật khẩu phòng không đúng.",
-      partnerOnline: "🟢 Đối phương online",
-      partnerOffline: "⚪ Chờ đối phương",
+      partnerOnline: "🟢 Online",
+      partnerOffline: "⚪ Đang chờ",
       reconnecting: "🔴 Đang kiểm tra...",
+      videoBtn: "📹 Gọi video",
+      logoutBtn: "🚪 Thoát",
       micIdle: "🎤 Nói (Tiếng Việt)",
       micBusy: "Đang dịch...",
       micReserve: "✋ Đối phương đang nói (Bấm để đăng ký nói tiếp)",
@@ -353,6 +361,7 @@
   let currentFacingMode = "user";
   let isMuted = false;
   let isCamOff = false;
+  let isVideoFull = true; // 기본값: 입력창까지 꽉 찬 영상
   let myFilterMode = 0; // 0: 원본, 1: 화사, 2: 따뜻
   let pipPosIndex = 0; // 0:br, 1:tr, 2:tl, 3:bl, 4:hidden
   const PIP_CLASSES = ["pos-br", "pos-tr", "pos-tl", "pos-bl"];
@@ -393,6 +402,7 @@
   const diagBanner = document.getElementById("diagBanner");
   const statusEl = document.getElementById("status");
   const videoCallBtn = document.getElementById("videoCallBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
   const btnKo = document.getElementById("btnKo");
   const btnVi = document.getElementById("btnVi");
   const videoSection = document.getElementById("videoSection");
@@ -431,6 +441,8 @@
     const text = t();
     lockTitle.textContent = text.lockTitle;
     unlockBtn.textContent = text.unlockBtn;
+    videoCallBtn.textContent = text.videoBtn;
+    logoutBtn.textContent = text.logoutBtn;
     liveTag.textContent = text.liveTag;
     cancelBtn.textContent = text.cancel;
     sendBtn.textContent = text.send;
@@ -603,7 +615,6 @@
       statusEl.style.color = "#aaaaaa";
     }
 
-    // 한국어 폰은 오프라인이어도 테스트용으로 영상통화 버튼 활성화
     videoCallBtn.disabled = (callState !== "idle") || (!online && systemRole !== "ko");
 
     const diag = roomState.diagnostics?.[getOtherRole()];
@@ -666,7 +677,7 @@
 
   function renderMessages() {
     const msgs = roomState.messages || [];
-    const sig = msgs.map(m => `${m.ts}:${m.hasAudio ? 1 : 0}`).join("|");
+    const sig = msgs.map(m => `${m.ts}:${(m.hasAudio || m.audioData) ? 1 : 0}`).join("|");
     if (sig === lastRenderSig) return;
     lastRenderSig = sig;
 
@@ -684,7 +695,7 @@
       transDiv.textContent = m.translated || "";
       topDiv.appendChild(transDiv);
 
-      if (m.hasAudio) {
+      if (m.hasAudio || (m.audioData && m.audioMime)) {
         const playBtn = document.createElement("button");
         playBtn.className = "play-btn" + (currentPlayingTs === m.ts ? " playing" : "");
         playBtn.dataset.ts = String(m.ts);
@@ -728,6 +739,10 @@
 
     try {
       let cached = audioCache[msg.ts];
+      if (!cached && msg.audioData && msg.audioMime) {
+        cached = { data: msg.audioData, mime: msg.audioMime };
+        audioCache[msg.ts] = cached;
+      }
       if (!cached) {
         btnEl.textContent = "⏳";
         const res = await fetch(`${getAudioBaseUrl()}/${msg.ts}.json`);
@@ -772,7 +787,6 @@
       if (!res.ok) return;
       const data = await res.json();
       if (data) {
-        // 자동 버전 체크 (통화 중이 아닐 때만 새로고침)
         const serverVer = Number(data.appVersion || 0);
         if (serverVer < APP_VERSION) {
           patchRoom({ appVersion: APP_VERSION });
@@ -797,7 +811,6 @@
         const now = Date.now();
         const partnerOnline = isPartnerOnline();
 
-        // 혼자 영상통화 테스트 중에 상대방이 접속하면 즉시 테스트 종료
         if (callState === "test" && partnerOnline) {
           cleanupVideoCall(false);
         }
@@ -877,7 +890,27 @@
     });
   }
 
-  // 한국어 폰 전용: 상대방 오프라인 시 혼자 영상통화 UI 테스트
+  function applyVideoLayout() {
+    if (callState === "active" || callState === "test") {
+      document.body.classList.add("in-video-call");
+      videoSection.classList.remove("hidden");
+      if (isVideoFull) {
+        videoSection.classList.remove("split");
+        subtitlesEl.classList.add("hidden");
+      } else {
+        videoSection.classList.add("split");
+        subtitlesEl.classList.remove("hidden");
+        subtitlesEl.scrollTop = subtitlesEl.scrollHeight;
+      }
+    } else {
+      document.body.classList.remove("in-video-call");
+      videoSection.classList.add("hidden");
+      videoSection.classList.remove("split");
+      subtitlesEl.classList.remove("hidden");
+    }
+    updateVideoControlButtons();
+  }
+
   async function startSoloVideoTest() {
     try {
       currentFacingMode = "user";
@@ -885,24 +918,23 @@
       callState = "test";
       isMuted = false;
       isCamOff = false;
+      isVideoFull = true;
       myFilterMode = 0;
 
       localVideo.srcObject = localStream;
       localVideo.classList.add("mirrored");
       remoteVideo.srcObject = localStream;
-      remoteVideo.muted = true; // 하울링 방지
+      remoteVideo.muted = true;
       remoteVideo.classList.add("mirrored");
       applyLocalFilterUI();
 
-      videoSection.classList.remove("hidden");
       remoteStatusBadge.textContent = t().callTestBadge;
       remoteStatusBadge.classList.add("test-badge");
       remoteStatusBadge.classList.remove("hidden");
 
-      updateVideoControlButtons();
+      applyVideoLayout();
       updatePartnerStatusUI();
       requestWakeLock();
-      subtitlesEl.scrollTop = subtitlesEl.scrollHeight;
     } catch {
       cleanupVideoCall(false);
       alert(t().camDenied);
@@ -930,6 +962,7 @@
       callState = "outgoing";
       isMuted = false;
       isCamOff = false;
+      isVideoFull = true;
       myFilterMode = 0;
       applyLocalFilterUI();
 
@@ -972,6 +1005,7 @@
       callState = "active";
       isMuted = false;
       isCamOff = false;
+      isVideoFull = true;
       myFilterMode = 0;
       applyLocalFilterUI();
 
@@ -993,6 +1027,7 @@
   }
 
   async function endVideoCall() {
+    if (document.activeElement) document.activeElement.blur();
     if (callState === "test") {
       cleanupVideoCall(false);
       return;
@@ -1045,13 +1080,12 @@
   function showVideoUI() {
     remoteVideo.muted = false;
     remoteVideo.classList.remove("mirrored");
-    videoSection.classList.remove("hidden");
     remoteStatusBadge.classList.remove("test-badge");
     remoteStatusBadge.textContent = t().callConnecting;
     remoteStatusBadge.classList.remove("hidden");
-    updateVideoControlButtons();
+    isVideoFull = true;
+    applyVideoLayout();
     requestWakeLock();
-    subtitlesEl.scrollTop = subtitlesEl.scrollHeight;
   }
 
   async function startCallerWebRTC() {
@@ -1198,6 +1232,7 @@
   }
 
   function cleanupVideoCall(resetRemote = false) {
+    if (document.activeElement) document.activeElement.blur();
     if (signalPollTimer) { clearInterval(signalPollTimer); signalPollTimer = null; }
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
     releaseWakeLock();
@@ -1219,8 +1254,6 @@
     remoteVideo.muted = false;
     remoteVideo.className = "filter-0";
     localVideo.srcObject = null;
-    videoSection.classList.add("hidden");
-    videoSection.classList.remove("expanded");
     callModal.classList.add("hidden");
     remoteStatusBadge.classList.add("hidden");
     remoteStatusBadge.classList.remove("test-badge");
@@ -1230,6 +1263,7 @@
     isCaller = false;
     isMuted = false;
     isCamOff = false;
+    isVideoFull = true;
     myFilterMode = 0;
     pipPosIndex = 0;
     localVideoWrap.className = "pos-br";
@@ -1237,34 +1271,56 @@
     showPipBtn.classList.add("hidden");
     localCamOffMask.classList.add("hidden");
 
+    applyVideoLayout();
     if (resetRemote) patchRoom({ "callMeta/status": "idle" });
     updatePartnerStatusUI();
   }
 
-  // 영상통화 컨트롤 버튼 동작들
+  // 카메라 전환: 모바일 하드웨어 점유 해제를 위해 기존 비디오 트랙을 먼저 stop 후 새 카메라 오픈
   async function switchCamera() {
     if ((callState !== "active" && callState !== "test") || !localStream) return;
+    const prevFacing = currentFacingMode;
     const nextFacing = currentFacingMode === "user" ? "environment" : "user";
+
+    const oldVideoTrack = localStream.getVideoTracks()[0];
+    if (oldVideoTrack) {
+      oldVideoTrack.stop();
+      localStream.removeTrack(oldVideoTrack);
+    }
+
+    const requestCam = async (mode) => {
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { exact: mode },
+            width: { ideal: 640, max: 640 },
+            height: { ideal: 480, max: 480 },
+            frameRate: { ideal: 24, max: 24 }
+          }
+        });
+      } catch {
+        return await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: mode },
+            width: { ideal: 640, max: 640 },
+            height: { ideal: 480, max: 480 }
+          }
+        });
+      }
+    };
+
     try {
-      const tempStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { exact: nextFacing },
-          width: { ideal: 640, max: 640 },
-          height: { ideal: 480, max: 480 },
-          frameRate: { ideal: 24, max: 24 }
-        }
-      }).catch(() => navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: nextFacing }, width: { ideal: 640, max: 640 }, height: { ideal: 480, max: 480 } }
-      }));
+      let tempStream;
+      try {
+        tempStream = await requestCam(nextFacing);
+        currentFacingMode = nextFacing;
+      } catch {
+        tempStream = await requestCam(prevFacing);
+        currentFacingMode = prevFacing;
+      }
 
       const newVideoTrack = tempStream.getVideoTracks()[0];
       newVideoTrack.enabled = !isCamOff;
-
-      const oldVideoTrack = localStream.getVideoTracks()[0];
-      if (oldVideoTrack) {
-        localStream.removeTrack(oldVideoTrack);
-        oldVideoTrack.stop();
-      }
       localStream.addTrack(newVideoTrack);
 
       if (pc) {
@@ -1273,10 +1329,11 @@
         applyVideoBitrateLimit();
       }
 
-      currentFacingMode = nextFacing;
+      localVideo.srcObject = null;
       localVideo.srcObject = localStream;
       localVideo.classList.toggle("mirrored", currentFacingMode === "user");
       if (callState === "test") {
+        remoteVideo.srcObject = null;
         remoteVideo.srcObject = localStream;
         remoteVideo.classList.toggle("mirrored", currentFacingMode === "user");
       }
@@ -1317,9 +1374,8 @@
   }
 
   function toggleVideoRatio() {
-    videoSection.classList.toggle("expanded");
-    updateVideoControlButtons();
-    setTimeout(() => { subtitlesEl.scrollTop = subtitlesEl.scrollHeight; }, 260);
+    isVideoFull = !isVideoFull;
+    applyVideoLayout();
   }
 
   function updateVideoControlButtons() {
@@ -1327,7 +1383,8 @@
     vcMuteBtn.classList.toggle("off", isMuted);
     vcCamBtn.classList.toggle("off", isCamOff);
     vcFilterBtn.classList.toggle("active", myFilterMode > 0);
-    vcRatioBtn.classList.toggle("active", videoSection.classList.contains("expanded"));
+    vcRatioBtn.textContent = isVideoFull ? "💬" : "⤢";
+    vcRatioBtn.classList.toggle("active", !isVideoFull);
   }
 
   function cyclePipPosition() {
