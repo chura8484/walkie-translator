@@ -40,7 +40,7 @@
     .filter-2 { filter: brightness(1.18) contrast(0.9) saturate(1.22) hue-rotate(-6deg); }
     .filter-3 { filter: brightness(1.14) contrast(0.92) sepia(0.26) saturate(1.25); }
 
-    /* 소프트 글로우 오버레이 (피부결 부드럽게) */
+    /* 소프트 글로우 오버레이 */
     .glow-overlay { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: soft-light; transition: opacity 0.2s ease, background 0.2s ease; opacity: 0; z-index: 2; }
     .glow-overlay.glow-1 { opacity: 0.42; background: radial-gradient(circle at 50% 42%, rgba(255,255,255,0.85), rgba(255,245,240,0.28)); }
     .glow-overlay.glow-2 { opacity: 0.45; background: radial-gradient(circle at 50% 42%, rgba(255,214,226,0.85), rgba(255,182,193,0.32)); }
@@ -48,6 +48,32 @@
 
     /* 필터 변경 토스트 */
     #filterToast { position: absolute; top: 48px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.68); color: #fff; padding: 6px 14px; border-radius: 18px; font-size: 13px; font-weight: bold; z-index: 9; pointer-events: none; white-space: nowrap; }
+
+    /* 영상통화 하단 번역 자막 오버레이 */
+    #videoSubtitleOverlay {
+      position: absolute;
+      bottom: 66px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 90%;
+      padding: 9px 15px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(4px);
+      color: #fff;
+      font-size: 17px;
+      font-weight: bold;
+      line-height: 1.4;
+      text-align: center;
+      word-break: break-word;
+      z-index: 7;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    #videoSubtitleOverlay.visible { opacity: 1; }
+    #videoSubtitleOverlay.other { border-left: 4px solid #ff9800; }
+    #videoSubtitleOverlay.mine { border-left: 4px solid #42a5f5; }
 
     #localVideoWrap { position: absolute; width: 92px; height: 126px; border-radius: 10px; overflow: hidden; border: 2px solid rgba(255,255,255,0.55); background: #1a1a1a; z-index: 6; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: all 0.2s ease; }
     #localVideoWrap.pos-br { right: 10px; bottom: 60px; left: auto; top: auto; }
@@ -59,7 +85,7 @@
     #localCamOffMask { position: absolute; inset: 0; background: #222; display: flex; align-items: center; justify-content: center; font-size: 24px; z-index: 3; }
     #showPipBtn { position: absolute; right: 10px; top: 12px; z-index: 6; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.4); background: rgba(0,0,0,0.55); color: #fff; font-size: 15px; cursor: pointer; }
 
-    #videoControls { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 6px 9px; background: rgba(0,0,0,0.58); backdrop-filter: blur(6px); border-radius: 26px; z-index: 7; max-width: 96%; }
+    #videoControls { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 6px 9px; background: rgba(0,0,0,0.58); backdrop-filter: blur(6px); border-radius: 26px; z-index: 8; max-width: 96%; }
     .vc-btn { width: 38px; height: 38px; border-radius: 50%; border: none; outline: none; background: rgba(255,255,255,0.16); color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
     .vc-btn.off { background: #ef6c00; }
     .vc-btn.active { background: #0078ff; }
@@ -158,6 +184,7 @@
   <div id="remoteGlow" class="glow-overlay"></div>
   <div id="remoteStatusBadge" class="hidden">연결 중...</div>
   <div id="filterToast" class="hidden"></div>
+  <div id="videoSubtitleOverlay"></div>
   <div id="heartLayer"></div>
 
   <div id="localVideoWrap" class="pos-br" onclick="cyclePipPosition()">
@@ -201,12 +228,13 @@
 </footer>
 
 <script>
-  const APP_VERSION = 16;
+  const APP_VERSION = 17;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const MODEL_ID = "gemini-3.1-flash-lite";
   const MAX_CONTEXT_MSGS = 4;
   const MAX_AUDIO_MSGS = 10;
   const MAX_STORED_MSGS = 30;
+  const SUBTITLE_DISPLAY_MS = 7000;
 
   const ICE_CONFIG = {
     iceServers: [
@@ -369,8 +397,10 @@
   let isMuted = false;
   let isCamOff = false;
   let isVideoFull = true;
-  let myFilterMode = 0; // 0: 원본, 1: 뽀샤시, 2: 복숭아, 3: 따뜻하게
+  let myFilterMode = 0;
   let filterToastTimer = null;
+  let videoSubtitleTimer = null;
+  let lastOverlayMsgTs = 0;
   let pipPosIndex = 0;
   const PIP_CLASSES = ["pos-br", "pos-tr", "pos-tl", "pos-bl"];
   let signalPollTimer = null;
@@ -417,6 +447,7 @@
   const remoteGlow = document.getElementById("remoteGlow");
   const remoteStatusBadge = document.getElementById("remoteStatusBadge");
   const filterToast = document.getElementById("filterToast");
+  const videoSubtitleOverlay = document.getElementById("videoSubtitleOverlay");
   const heartLayer = document.getElementById("heartLayer");
   const localVideoWrap = document.getElementById("localVideoWrap");
   const localVideo = document.getElementById("localVideo");
@@ -685,6 +716,31 @@
     }
   }
 
+  function showVideoSubtitle(msg) {
+    if (!msg || !msg.translated) return;
+    if ((callState !== "active" && callState !== "test") || !isVideoFull) return;
+
+    const isMine = (msg.lang === myRole);
+    videoSubtitleOverlay.textContent = msg.translated;
+    videoSubtitleOverlay.classList.remove("mine", "other");
+    videoSubtitleOverlay.classList.add(isMine ? "mine" : "other", "visible");
+
+    if (videoSubtitleTimer) clearTimeout(videoSubtitleTimer);
+    videoSubtitleTimer = setTimeout(() => {
+      videoSubtitleOverlay.classList.remove("visible");
+    }, SUBTITLE_DISPLAY_MS);
+  }
+
+  function hideVideoSubtitle() {
+    if (videoSubtitleTimer) { clearTimeout(videoSubtitleTimer); videoSubtitleTimer = null; }
+    videoSubtitleOverlay.classList.remove("visible");
+  }
+
+  function getLatestMessageTs() {
+    const msgs = roomState.messages || [];
+    return msgs.length > 0 ? (msgs[msgs.length - 1].ts || 0) : 0;
+  }
+
   function renderMessages() {
     const msgs = roomState.messages || [];
     const sig = msgs.map(m => `${m.ts}:${(m.hasAudio || m.audioData) ? 1 : 0}`).join("|");
@@ -723,6 +779,15 @@
       subtitlesEl.appendChild(div);
     });
     subtitlesEl.scrollTop = subtitlesEl.scrollHeight;
+
+    // 영상통화(꽉 찬 화면) 중 새 메시지가 도착하면 번역 자막 오버레이 표시
+    const latest = msgs[msgs.length - 1];
+    if (latest && latest.ts && latest.ts > lastOverlayMsgTs) {
+      lastOverlayMsgTs = latest.ts;
+      if ((callState === "active" || callState === "test") && isVideoFull) {
+        showVideoSubtitle(latest);
+      }
+    }
   }
 
   function stopCurrentAudio() {
@@ -818,6 +883,10 @@
         roomState.diagnostics = data.diagnostics || {};
         roomState.callMeta = data.callMeta || null;
 
+        if (lastOverlayMsgTs === 0) {
+          lastOverlayMsgTs = getLatestMessageTs();
+        }
+
         const now = Date.now();
         const partnerOnline = isPartnerOnline();
 
@@ -910,6 +979,7 @@
       } else {
         videoSection.classList.add("split");
         subtitlesEl.classList.remove("hidden");
+        hideVideoSubtitle();
         subtitlesEl.scrollTop = subtitlesEl.scrollHeight;
       }
     } else {
@@ -917,6 +987,7 @@
       videoSection.classList.add("hidden");
       videoSection.classList.remove("split");
       subtitlesEl.classList.remove("hidden");
+      hideVideoSubtitle();
     }
     updateVideoControlButtons();
   }
@@ -930,6 +1001,7 @@
       isCamOff = false;
       isVideoFull = true;
       myFilterMode = 0;
+      lastOverlayMsgTs = getLatestMessageTs();
 
       localVideo.srcObject = localStream;
       localVideo.classList.add("mirrored");
@@ -1101,6 +1173,7 @@
     remoteStatusBadge.textContent = t().callConnecting;
     remoteStatusBadge.classList.remove("hidden");
     isVideoFull = true;
+    lastOverlayMsgTs = getLatestMessageTs();
     applyVideoLayout();
     requestWakeLock();
   }
@@ -1253,6 +1326,7 @@
     if (signalPollTimer) { clearInterval(signalPollTimer); signalPollTimer = null; }
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
     if (filterToastTimer) { clearTimeout(filterToastTimer); filterToastTimer = null; }
+    hideVideoSubtitle();
     releaseWakeLock();
 
     if (pc) {
