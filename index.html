@@ -13,7 +13,7 @@
     .role-select button.active { background: #0078ff; color: #fff; }
     .small-btn { padding: 7px 10px; border: none; border-radius: 6px; background: #383838; color: #90caf9; font-size: 12px; font-weight: bold; white-space: nowrap; }
     .danger-btn { color: #ff8a80; }
-    #status { font-size: 12px; color: #4caf50; font-weight: bold; }
+    #status { font-size: 12px; color: #aaa; font-weight: bold; }
     #subtitles { flex: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
     .bubble { padding: 12px 14px; border-radius: 12px; max-width: 90%; line-height: 1.45; }
     .bubble.mine { align-self: flex-end; background: #1e3a5f; }
@@ -44,7 +44,7 @@
 </div>
 
 <header>
-  <div id="status">🟢 준비됨</div>
+  <div id="status">⚪ 대기 중...</div>
   <div class="role-select">
     <button id="btnKo" class="active" onclick="setRole('ko')">한국어</button>
     <button id="btnVi" onclick="setRole('vi')">Tiếng Việt</button>
@@ -81,7 +81,8 @@
 
   const UI = {
     ko: {
-      connected: "🟢 연결됨",
+      partnerOnline: "🟢 상대방 접속 중",
+      partnerOffline: "⚪ 상대방 대기 중",
       reconnecting: "🔴 연결 확인 중...",
       clear: "초기화",
       clearConfirm: "현재 방의 대화 기록과 잠금을 초기화할까요?",
@@ -93,11 +94,11 @@
       cancel: "❌ 취소",
       send: "📤 전송 (번역)",
       noSupport: "이 브라우저는 실시간 음성 인식을 지원하지 않습니다. 크롬이나 사파리를 사용해 주세요.",
-      micDenied: "마이크 권한을 허용해 주세요.",
-      wrongPass: "방 암호가 올바르지 않습니다."
+      micDenied: "마이크 권한을 허용해 주세요."
     },
     vi: {
-      connected: "🟢 Đã kết nối",
+      partnerOnline: "🟢 Đối phương online",
+      partnerOffline: "⚪ Chờ đối phương",
       reconnecting: "🔴 Đang kiểm tra...",
       clear: "Xóa",
       clearConfirm: "Bạn có muốn xóa toàn bộ lịch sử trò chuyện không?",
@@ -109,8 +110,7 @@
       cancel: "❌ Hủy",
       send: "📤 Gửi (Dịch)",
       noSupport: "Trình duyệt này không hỗ trợ nhận dạng giọng nói. Hãy dùng Chrome hoặc Safari.",
-      micDenied: "Vui lòng cấp quyền truy cập micro.",
-      wrongPass: "Mật khẩu phòng không đúng."
+      micDenied: "Vui lòng cấp quyền truy cập micro."
     }
   };
 
@@ -127,8 +127,9 @@
   let finalTranscript = "";
   let interimTranscript = "";
   let pollTimer = null;
+  let heartbeatTimer = null;
 
-  let roomState = { lockedBy: "", messages: [] };
+  let roomState = { lockedBy: "", messages: [], presence: {} };
   let lastRenderedCount = -1;
 
   const lockScreen = document.getElementById("lockScreen");
@@ -161,7 +162,7 @@
     localStorage.setItem("wt_pass", pass);
     lockScreen.classList.add("hidden");
     setRole(myRole);
-    startPolling();
+    startSync();
     return true;
   }
 
@@ -179,6 +180,7 @@
     roomPass = "";
     apiKey = "";
     if (pollTimer) clearInterval(pollTimer);
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
     passInput.value = "";
     lockScreen.classList.remove("hidden");
   }
@@ -187,14 +189,28 @@
     if (!tryEnter(roomPass)) localStorage.removeItem("wt_pass");
   }
 
-  function getRoomUrl() {
-    return `${FIREBASE_DB_URL}/walkie_test/room_${encodeURIComponent(roomPass)}.json`;
+  function getRoomBaseUrl() {
+    return `${FIREBASE_DB_URL}/walkie_test/room_${encodeURIComponent(roomPass)}`;
   }
 
-  function startPolling() {
+  function startSync() {
     if (pollTimer) clearInterval(pollTimer);
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    sendHeartbeat();
     pollRoom();
+    heartbeatTimer = setInterval(sendHeartbeat, 2500);
     pollTimer = setInterval(pollRoom, 800);
+  }
+
+  async function sendHeartbeat() {
+    if (!roomPass) return;
+    try {
+      await fetch(`${getRoomBaseUrl()}/presence.json`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [myRole]: Date.now() })
+      });
+    } catch {}
   }
 
   function setRole(role) {
@@ -208,11 +224,26 @@
     liveTag.textContent = text.liveTag;
     cancelBtn.textContent = text.cancel;
     sendBtn.textContent = text.send;
-    statusEl.textContent = text.connected;
 
+    if (roomPass) sendHeartbeat();
     lastRenderedCount = -1;
     renderMessages();
+    updatePartnerStatusUI();
     updateButtonUI();
+  }
+
+  function updatePartnerStatusUI() {
+    const otherRole = myRole === "ko" ? "vi" : "ko";
+    const otherTs = roomState.presence?.[otherRole] || 0;
+    const isOnline = (Date.now() - otherTs) < 6000;
+
+    if (isOnline) {
+      statusEl.textContent = t().partnerOnline;
+      statusEl.style.color = "#4caf50";
+    } else {
+      statusEl.textContent = t().partnerOffline;
+      statusEl.style.color = "#aaaaaa";
+    }
   }
 
   function updateButtonUI() {
@@ -268,7 +299,7 @@
   }
 
   async function patchRoom(partial) {
-    await fetch(getRoomUrl(), {
+    await fetch(`${getRoomBaseUrl()}.json`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(partial)
@@ -279,11 +310,7 @@
     if (!confirm(t().clearConfirm)) return;
     roomState.lockedBy = "";
     roomState.messages = [];
-    await fetch(getRoomUrl(), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(roomState)
-    });
+    await patchRoom({ lockedBy: "", messages: [] });
     lastRenderedCount = -1;
     renderMessages();
     isLockedByOther = false;
@@ -293,19 +320,21 @@
   async function pollRoom() {
     if (!roomPass) return;
     try {
-      const res = await fetch(getRoomUrl());
+      const res = await fetch(`${getRoomBaseUrl()}.json`);
       if (!res.ok) return;
       const data = await res.json();
       if (data) {
         roomState.lockedBy = data.lockedBy || "";
         roomState.messages = Array.isArray(data.messages) ? data.messages : [];
+        roomState.presence = data.presence || {};
         isLockedByOther = Boolean(roomState.lockedBy && roomState.lockedBy !== myRole);
         renderMessages();
         updateButtonUI();
       }
-      statusEl.textContent = t().connected;
+      updatePartnerStatusUI();
     } catch {
       statusEl.textContent = t().reconnecting;
+      statusEl.style.color = "#e53935";
     }
   }
 
