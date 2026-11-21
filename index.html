@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="vi">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>무전기 자막 통역기</title>
+  <title>Trò chuyện cùng em bé</title>
+  <meta property="og:title" content="Trò chuyện cùng em bé" />
+  <meta property="og:description" content="Phiên dịch trực tiếp Hàn - Việt" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
     body { background: #121212; color: #fff; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
@@ -185,8 +187,10 @@
     return "";
   }
 
+  const systemRole = detectSystemRole();
   const inAppName = detectInAppBrowser();
-  let myRole = localStorage.getItem("wt_role") || detectSystemRole();
+  // 베트남어 폰은 항상 베트남어 고정, 한국어 폰은 테스트용 전환 가능
+  let myRole = systemRole === "vi" ? "vi" : (localStorage.getItem("wt_role") || "ko");
   let roomPass = localStorage.getItem("wt_pass") || "";
   let apiKey = "";
   let joinedAt = Date.now();
@@ -236,6 +240,8 @@
   const inAppBanner = document.getElementById("inAppBanner");
   const diagBanner = document.getElementById("diagBanner");
   const statusEl = document.getElementById("status");
+  const btnKo = document.getElementById("btnKo");
+  const btnVi = document.getElementById("btnVi");
   const subtitlesEl = document.getElementById("subtitles");
   const liveBox = document.getElementById("liveBox");
   const liveTag = document.getElementById("liveTag");
@@ -248,6 +254,12 @@
   const cancelBtn = document.getElementById("cancelBtn");
   const sendBtn = document.getElementById("sendBtn");
 
+  // 베트남어 폰에서는 언어 선택 버튼 숨김
+  if (systemRole === "vi") {
+    btnKo.classList.add("hidden");
+    btnVi.classList.add("hidden");
+  }
+
   function t() { return UI[myRole] || UI.ko; }
 
   function applyStaticText() {
@@ -259,8 +271,8 @@
     sendBtn.textContent = text.send;
     textInput.placeholder = text.textPlaceholder;
     textSendBtn.textContent = text.textSend;
-    document.getElementById("btnKo").classList.toggle("active", myRole === "ko");
-    document.getElementById("btnVi").classList.toggle("active", myRole === "vi");
+    btnKo.classList.toggle("active", myRole === "ko");
+    btnVi.classList.toggle("active", myRole === "vi");
 
     if (inAppName) {
       inAppBanner.textContent = `${text.inAppWarn} (${inAppName})`;
@@ -309,20 +321,22 @@
     if (e.key === "Enter") sendTextMessage();
   });
 
+  // 방 나가기 / 창 닫기 시 접속 상태 및 잠금 즉시 해제
   function releaseMyLocks(keepalive = false) {
     if (!roomPass) return;
-    const patch = {};
+    const patch = {
+      [`presence/${myRole}`]: 0
+    };
     if (roomState.lockedBy === myRole) { patch.lockedBy = ""; patch.lockedAt = 0; }
     if (roomState.reservedBy === myRole) { patch.reservedBy = ""; }
     if (roomState.turnFor === myRole) { patch.turnFor = ""; patch.turnAt = 0; }
-    if (Object.keys(patch).length > 0) {
-      fetch(`${getRoomBaseUrl()}.json`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
-        keepalive
-      }).catch(() => {});
-    }
+
+    fetch(`${getRoomBaseUrl()}.json`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+      keepalive
+    }).catch(() => {});
   }
 
   window.addEventListener("pagehide", () => releaseMyLocks(true));
@@ -383,7 +397,7 @@
   }
 
   function setRole(role) {
-    if (isRecording) return;
+    if (isRecording || systemRole === "vi") return;
     releaseMyLocks(false);
     myRole = role;
     localStorage.setItem("wt_role", role);
@@ -414,7 +428,6 @@
       statusEl.style.color = "#aaaaaa";
     }
 
-    // 상대방 원격 진단 표시
     const otherRole = myRole === "ko" ? "vi" : "ko";
     const diag = roomState.diagnostics?.[otherRole];
     if (online && diag && diag.code && (Date.now() - (diag.ts || 0)) < 120000) {
@@ -495,7 +508,6 @@
       transDiv.textContent = m.translated || "";
       topDiv.appendChild(transDiv);
 
-      // 음성이 남아있는 최근 10개 이내 메시지에만 🔊 버튼 표시
       if (m.audioData && m.audioMime) {
         const playBtn = document.createElement("button");
         playBtn.className = "play-btn" + (currentPlayingTs === m.ts ? " playing" : "");
@@ -582,7 +594,6 @@
         const now = Date.now();
         const partnerOnline = isPartnerOnline();
 
-        // 1) 상대방 오프라인 또는 60초 타임아웃 시 잠금 자동 해제
         if (roomState.lockedBy && roomState.lockedBy !== myRole) {
           const lockTimedOut = roomState.lockedAt && (now - roomState.lockedAt > 60000);
           if (!partnerOnline || lockTimedOut) {
@@ -592,7 +603,6 @@
           }
         }
 
-        // 2) 예약 차례(turnFor)가 15초 지나도 안 시작하면 자동 만료
         if (roomState.turnFor && roomState.turnAt && (now - roomState.turnAt > 15000)) {
           roomState.turnFor = "";
           roomState.turnAt = 0;
@@ -604,7 +614,6 @@
         isMyTurn = (!isLockedByOther && roomState.turnFor === myRole);
         isPartnerTurn = (!isLockedByOther && Boolean(roomState.turnFor) && roomState.turnFor !== myRole);
 
-        // 내 차례가 방금 도착했을 때 진동 알림
         if (isMyTurn && roomState.turnAt !== lastTurnNotifiedAt) {
           lastTurnNotifiedAt = roomState.turnAt;
           if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
@@ -620,11 +629,9 @@
     }
   }
 
-  // 메인 마이크 / 예약 버튼 클릭
   micBtn.addEventListener("click", async () => {
     if (isProcessing || !apiKey) return;
 
-    // 상대방 말하는 중 → 다음 차례 예약 토글
     if (isLockedByOther) {
       const nextVal = isReservedByMe ? "" : myRole;
       isReservedByMe = Boolean(nextVal);
@@ -639,7 +646,6 @@
 
   function pickAudioMimeType() {
     if (typeof MediaRecorder === "undefined") return "";
-    // 아이폰·안드로이드 교차 재생 호환을 위해 audio/mp4 우선 선택
     const candidates = [
       "audio/mp4",
       "audio/mp4;codecs=mp4a.40.2",
@@ -692,7 +698,6 @@
           return;
         }
 
-        // 무음 또는 너무 짧은 녹음 차단
         if (duration < 400 || maxVolumePeak < 0.015 || audioChunks.length === 0) {
           statusEl.textContent = t().noVoice;
           statusEl.style.color = "#ff9800";
@@ -707,7 +712,6 @@
         await translateAudioAndBroadcast(audioBlob, actualMime);
       };
 
-      // 소리 게이지 시작
       startVolumeMeter(currentStream);
 
       mediaRecorder.start();
@@ -715,7 +719,6 @@
       isMyTurn = false;
       updateButtonUI();
 
-      // 잠금 획득 (내 예약 차례였다면 turnFor 해제)
       await patchRoom({
         lockedBy: myRole,
         lockedAt: Date.now(),
@@ -755,7 +758,7 @@
       };
       updateMeter();
     } catch {
-      maxVolumePeak = 1; // AudioContext 미지원 시 무음 컷 우회
+      maxVolumePeak = 1;
     }
 
     recTimer.textContent = "00:00";
@@ -791,7 +794,6 @@
     mediaRecorder.stop();
   }
 
-  // 잠금 해제 시 상대방 예약이 있으면 우선권 넘기기
   async function finishTurnLock(extraPatch = {}) {
     const patch = { ...extraPatch, lockedBy: "", lockedAt: 0 };
     if (roomState.reservedBy && roomState.reservedBy !== myRole) {
@@ -815,7 +817,6 @@
 
   function buildUpdatedMessages(newMsg) {
     const updated = [...(roomState.messages || []), newMsg].slice(-MAX_STORED_MSGS);
-    // 최근 10개 메시지만 음성 데이터 유지, 그 이전은 음성 제거
     const cutoff = updated.length - MAX_AUDIO_MSGS;
     return updated.map((m, idx) => {
       if (idx < cutoff && m.audioData) {
@@ -915,7 +916,6 @@
     }
   }
 
-  // 비상용 키보드 텍스트 전송 (음성 없음 → 🔊 버튼 미표시)
   async function sendTextMessage() {
     const spokenText = textInput.value.trim();
     if (!spokenText || isProcessing || !apiKey) return;
