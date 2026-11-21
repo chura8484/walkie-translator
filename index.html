@@ -15,8 +15,8 @@
 
     body.in-video-call header { display: none; }
 
-    #inAppBanner { background: #d32f2f; color: #fff; padding: 10px 14px; font-size: 13px; font-weight: bold; line-height: 1.4; text-align: center; }
-    #diagBanner { background: #3e2723; color: #ffcc80; padding: 6px 14px; font-size: 12px; border-bottom: 1px solid #5d4037; }
+    #inAppBanner { background: #d32f2f; color: #fff; padding: 10px 14px; font-size: 13px; font-weight: bold; line-height: 1.4; text-align: center; flex-shrink: 0; }
+    #diagBanner { background: #3e2723; color: #ffcc80; padding: 6px 14px; font-size: 12px; border-bottom: 1px solid #5d4037; flex-shrink: 0; }
 
     header { padding: 9px 10px; background: #1e1e1e; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-shrink: 0; }
     .role-select { display: flex; align-items: center; gap: 5px; }
@@ -107,8 +107,9 @@
     .btn-accept { background: #2e7d32; }
     .btn-reject { background: #c62828; }
 
-    #subtitles { flex: 1; padding: 12px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
-    .bubble { padding: 11px 13px; border-radius: 12px; max-width: 90%; line-height: 1.45; }
+    #subtitles { flex: 1; padding: 12px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+    .load-more-hint { text-align: center; font-size: 12px; color: #888; padding: 4px 0 8px; cursor: pointer; }
+    .bubble { position: relative; padding: 11px 13px; border-radius: 12px; max-width: 90%; line-height: 1.45; }
     .bubble.mine { align-self: flex-end; background: #1e3a5f; }
     .bubble.other { align-self: flex-start; background: #2a2a2a; border-left: 4px solid #ff9800; }
     .bubble-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
@@ -116,6 +117,43 @@
     .original { font-size: 12px; color: #bbb; word-break: break-word; }
     .play-btn { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; border: none; background: rgba(255,255,255,0.14); color: #fff; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .play-btn.playing { background: #4caf50; }
+
+    /* Zalo 스타일 메시지 하트 버튼 / 배지 */
+    .msg-heart-btn {
+      position: absolute;
+      bottom: -10px;
+      right: 8px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 1px solid #444;
+      background: #1e1e1e;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.45);
+      padding: 0;
+      line-height: 1;
+    }
+    .msg-heart-btn.liked { border-color: #e91e63; background: #2b151e; }
+    .msg-heart-badge {
+      position: absolute;
+      bottom: -10px;
+      left: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1px solid #e91e63;
+      background: #2b151e;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.45);
+      pointer-events: none;
+    }
 
     #liveBox { margin: 0 14px 8px; padding: 10px 12px; border-radius: 10px; background: #1a2a1a; border: 1.5px solid #4caf50; flex-shrink: 0; }
     .live-header { display: flex; justify-content: space-between; font-size: 12px; color: #81c784; font-weight: bold; margin-bottom: 6px; }
@@ -228,34 +266,40 @@
 </footer>
 
 <script>
-  const APP_VERSION = 18;
+  const APP_VERSION = 19;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const MODEL_ID = "gemini-3.1-flash-lite";
   const MAX_CONTEXT_MSGS = 4;
-  const MAX_AUDIO_MSGS = 10;
-  const MAX_STORED_MSGS = 30;
+  const MAX_AUDIO_MSGS = 100;
+  const MAX_STORED_MSGS = 100;
+  const INITIAL_VISIBLE_MSGS = 30;
+  const LOAD_MORE_STEP = 20;
   const SUBTITLE_DISPLAY_MS = 7000;
 
-  // STUN + 무료 중계(TURN) 서버 (해외망/모바일 데이터 방화벽 우회)
+  // Metered 전용 STUN / TURN / TURNS 서버
   const ICE_CONFIG = {
     iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
       { urls: "stun:stun.relay.metered.ca:80" },
+      { urls: "stun:stun.l.google.com:19302" },
       {
-        urls: "turn:openrelay.metered.ca:80",
-        username: "openrelayproject",
-        credential: "openrelayproject"
+        urls: "turn:standard.relay.metered.ca:80",
+        username: "a758c868c6007a4937aa9c41",
+        credential: "GW5hiUs+/68Kqvdb"
       },
       {
-        urls: "turn:openrelay.metered.ca:443",
-        username: "openrelayproject",
-        credential: "openrelayproject"
+        urls: "turn:standard.relay.metered.ca:80?transport=tcp",
+        username: "a758c868c6007a4937aa9c41",
+        credential: "GW5hiUs+/68Kqvdb"
       },
       {
-        urls: "turn:openrelay.metered.ca:443?transport=tcp",
-        username: "openrelayproject",
-        credential: "openrelayproject"
+        urls: "turn:standard.relay.metered.ca:443",
+        username: "a758c868c6007a4937aa9c41",
+        credential: "GW5hiUs+/68Kqvdb"
+      },
+      {
+        urls: "turns:standard.relay.metered.ca:443?transport=tcp",
+        username: "a758c868c6007a4937aa9c41",
+        credential: "GW5hiUs+/68Kqvdb"
       }
     ]
   };
@@ -295,7 +339,9 @@
       noVoice: "목소리가 들리지 않아 취소되었습니다.",
       micDenied: "마이크 권한을 허용해 주세요.",
       camDenied: "카메라/마이크 권한을 허용해 주세요.",
-      inAppWarn: "⚠️ 앱 내 브라우저입니다. 오른쪽 버튼을 눌러 Safari 또는 Chrome으로 열어주세요.",
+      inAppWarn: "⚠️ 영상통화를 하려면 오른쪽 버튼을 눌러 Safari 또는 Chrome으로 열어주세요.",
+      inAppVideoAlert: "영상통화를 하려면 Safari 또는 Chrome 브라우저로 접속해 주세요!",
+      loadMore: "⬆️ 이전 대화 더보기",
       diagPrefix: "⚠️ 상대방 상태: ",
       diagInApp: "인앱 브라우저 접속 중 (Safari/Chrome 권장)",
       diagMicDenied: "마이크 권한 거부됨",
@@ -335,7 +381,9 @@
       noVoice: "Không nghe thấy giọng nói nên đã hủy.",
       micDenied: "Vui lòng cấp quyền truy cập micro.",
       camDenied: "Vui lòng cấp quyền truy cập camera và micro.",
-      inAppWarn: "⚠️ Bạn đang mở trong ứng dụng (Zalo/FB...). Hãy bấm nút góc phải để mở bằng Safari hoặc Chrome.",
+      inAppWarn: "⚠️ Để gọi video, hãy bấm nút góc phải để mở bằng Safari hoặc Chrome nhé!",
+      inAppVideoAlert: "Để gọi video, vui lòng mở trang này bằng trình duyệt Safari hoặc Chrome nhé!",
+      loadMore: "⬆️ Xem tin nhắn cũ hơn",
       diagPrefix: "⚠️ Trạng thái đối phương: ",
       diagInApp: "Đang dùng trình duyệt trong app",
       diagMicDenied: "Chưa cấp quyền micro",
@@ -403,6 +451,11 @@
   let pollTimer = null;
   let heartbeatTimer = null;
   let myDiagCode = inAppName ? "in_app" : "";
+
+  let visibleMsgCount = INITIAL_VISIBLE_MSGS;
+  let loadedMsgSyncTs = -1;
+  let lastRenderedLatestTs = 0;
+  let isFetchingMsgs = false;
 
   let callState = "idle";
   let activeCallId = 0;
@@ -557,6 +610,23 @@
     if (e.key === "Enter") sendTextMessage();
   });
 
+  // 채팅창 맨 위로 스크롤 시 이전 대화 20개씩 추가 로드
+  subtitlesEl.addEventListener("scroll", () => {
+    if (subtitlesEl.scrollTop <= 10 && visibleMsgCount < roomState.messages.length) {
+      loadMoreMessages();
+    }
+  });
+
+  function loadMoreMessages() {
+    if (visibleMsgCount >= roomState.messages.length) return;
+    const prevHeight = subtitlesEl.scrollHeight;
+    const prevTop = subtitlesEl.scrollTop;
+    visibleMsgCount = Math.min(roomState.messages.length, visibleMsgCount + LOAD_MORE_STEP);
+    lastRenderSig = "";
+    renderMessages(true);
+    subtitlesEl.scrollTop = prevTop + (subtitlesEl.scrollHeight - prevHeight);
+  }
+
   function releaseMyLocks(keepalive = false) {
     if (!roomPass) return;
     const patch = { [`presence/${myRole}`]: 0 };
@@ -584,6 +654,8 @@
     localStorage.removeItem("wt_pass");
     roomPass = "";
     apiKey = "";
+    loadedMsgSyncTs = -1;
+    visibleMsgCount = INITIAL_VISIBLE_MSGS;
     if (pollTimer) clearInterval(pollTimer);
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     passInput.value = "";
@@ -598,6 +670,10 @@
     return `${FIREBASE_DB_URL}/walkie_test/room_${encodeURIComponent(roomPass)}`;
   }
 
+  function getMsgsBaseUrl() {
+    return `${FIREBASE_DB_URL}/walkie_test/msgs_${encodeURIComponent(roomPass)}`;
+  }
+
   function getAudioBaseUrl() {
     return `${FIREBASE_DB_URL}/walkie_test/audios_${encodeURIComponent(roomPass)}`;
   }
@@ -609,6 +685,8 @@
   function startSync() {
     if (pollTimer) clearInterval(pollTimer);
     if (heartbeatTimer) clearInterval(heartbeatTimer);
+    loadedMsgSyncTs = -1;
+    visibleMsgCount = INITIAL_VISIBLE_MSGS;
     sendHeartbeat();
     reportDiag(myDiagCode);
     pollRoom();
@@ -652,7 +730,7 @@
       reportDiag(myDiagCode);
     }
     lastRenderSig = "";
-    renderMessages();
+    renderMessages(false);
     updatePartnerStatusUI();
     updateButtonUI();
   }
@@ -757,14 +835,50 @@
     return msgs.length > 0 ? (msgs[msgs.length - 1].ts || 0) : 0;
   }
 
-  function renderMessages() {
+  async function toggleMessageHeart(msgTs) {
+    const idx = roomState.messages.findIndex(m => m.ts === msgTs);
+    if (idx === -1) return;
+
+    const updated = roomState.messages.map((m, i) =>
+      i === idx ? { ...m, liked: !m.liked } : m
+    );
+    roomState.messages = updated;
+    lastRenderSig = "";
+    renderMessages(true);
+
+    const syncTs = Date.now();
+    loadedMsgSyncTs = syncTs;
+    await saveMessagesToDb(updated, syncTs);
+  }
+
+  function renderMessages(preserveScroll = false) {
     const msgs = roomState.messages || [];
-    const sig = msgs.map(m => `${m.ts}:${(m.hasAudio || m.audioData) ? 1 : 0}`).join("|");
+    const total = msgs.length;
+    const startIdx = Math.max(0, total - visibleMsgCount);
+    const visibleSlice = msgs.slice(startIdx);
+
+    const sig = `${startIdx}|` + visibleSlice.map(m =>
+      `${m.ts}:${(m.hasAudio || m.audioData) ? 1 : 0}:${m.liked ? 1 : 0}`
+    ).join("|");
     if (sig === lastRenderSig) return;
     lastRenderSig = sig;
 
+    const prevScrollTop = subtitlesEl.scrollTop;
+    const latest = msgs[msgs.length - 1];
+    const hasNewMsg = Boolean(latest && latest.ts && latest.ts > lastRenderedLatestTs);
+    if (latest && latest.ts) lastRenderedLatestTs = Math.max(lastRenderedLatestTs, latest.ts);
+
     subtitlesEl.innerHTML = "";
-    msgs.forEach(m => {
+
+    if (startIdx > 0) {
+      const hint = document.createElement("div");
+      hint.className = "load-more-hint";
+      hint.textContent = `${t().loadMore} (${startIdx})`;
+      hint.onclick = loadMoreMessages;
+      subtitlesEl.appendChild(hint);
+    }
+
+    visibleSlice.forEach(m => {
       const isMine = (m.lang === myRole);
       const div = document.createElement("div");
       div.className = `bubble ${isMine ? "mine" : "other"}`;
@@ -792,11 +906,30 @@
 
       div.appendChild(topDiv);
       div.appendChild(origDiv);
+
+      // 상대방 메시지에는 Zalo 스타일 하트 버튼, 내 메시지에는 상대방이 누른 하트 배지 표시
+      if (!isMine) {
+        const heartBtn = document.createElement("button");
+        heartBtn.className = "msg-heart-btn" + (m.liked ? " liked" : "");
+        heartBtn.textContent = m.liked ? "❤️" : "🤍";
+        heartBtn.onclick = () => toggleMessageHeart(m.ts);
+        div.appendChild(heartBtn);
+      } else if (m.liked) {
+        const heartBadge = document.createElement("div");
+        heartBadge.className = "msg-heart-badge";
+        heartBadge.textContent = "❤️";
+        div.appendChild(heartBadge);
+      }
+
       subtitlesEl.appendChild(div);
     });
-    subtitlesEl.scrollTop = subtitlesEl.scrollHeight;
 
-    const latest = msgs[msgs.length - 1];
+    if (preserveScroll && !hasNewMsg) {
+      subtitlesEl.scrollTop = prevScrollTop;
+    } else {
+      subtitlesEl.scrollTop = subtitlesEl.scrollHeight;
+    }
+
     if (latest && latest.ts && latest.ts > lastOverlayMsgTs) {
       lastOverlayMsgTs = latest.ts;
       if ((callState === "active" || callState === "test") && isVideoFull) {
@@ -870,6 +1003,52 @@
     } catch {}
   }
 
+  async function saveMessagesToDb(updatedMessages, syncTs) {
+    try {
+      await fetch(`${getMsgsBaseUrl()}.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedMessages)
+      });
+      await patchRoom({ lastMsgTs: syncTs });
+    } catch {}
+  }
+
+  async function fetchMessagesFromDb(legacyMessages, targetSyncTs) {
+    if (isFetchingMsgs) return;
+    isFetchingMsgs = true;
+    try {
+      const res = await fetch(`${getMsgsBaseUrl()}.json`);
+      let fetched = res.ok ? await res.json() : null;
+
+      if (Array.isArray(fetched) && fetched.length > 0) {
+        roomState.messages = fetched;
+      } else if (Array.isArray(legacyMessages) && legacyMessages.length > 0) {
+        // 기존 방에 저장돼 있던 대화내역 자동 마이그레이션
+        roomState.messages = legacyMessages;
+        const ts = Date.now();
+        await fetch(`${getMsgsBaseUrl()}.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(legacyMessages)
+        });
+        await patchRoom({ lastMsgTs: ts, messages: null });
+        targetSyncTs = ts;
+      } else {
+        roomState.messages = [];
+      }
+
+      loadedMsgSyncTs = targetSyncTs;
+      if (lastOverlayMsgTs === 0) {
+        lastOverlayMsgTs = getLatestMessageTs();
+      }
+      renderMessages(true);
+    } catch {
+    } finally {
+      isFetchingMsgs = false;
+    }
+  }
+
   async function pollRoom() {
     if (!roomPass) return;
     try {
@@ -893,13 +1072,13 @@
         roomState.reservedBy = data.reservedBy || "";
         roomState.turnFor = data.turnFor || "";
         roomState.turnAt = data.turnAt || 0;
-        roomState.messages = Array.isArray(data.messages) ? data.messages : [];
         roomState.presence = data.presence || {};
         roomState.diagnostics = data.diagnostics || {};
         roomState.callMeta = data.callMeta || null;
 
-        if (lastOverlayMsgTs === 0) {
-          lastOverlayMsgTs = getLatestMessageTs();
+        const serverMsgSyncTs = Number(data.lastMsgTs || 0);
+        if (loadedMsgSyncTs === -1 || serverMsgSyncTs !== loadedMsgSyncTs) {
+          fetchMessagesFromDb(data.messages, serverMsgSyncTs);
         }
 
         const now = Date.now();
@@ -935,7 +1114,6 @@
         }
 
         handleCallMetaSync(roomState.callMeta, partnerOnline);
-        renderMessages();
         updateButtonUI();
       }
       updatePartnerStatusUI();
@@ -1040,6 +1218,9 @@
 
   async function requestVideoCall() {
     if (callState !== "idle") return;
+    if (inAppName) {
+      alert(t().inAppVideoAlert);
+    }
     if (!isPartnerOnline()) {
       if (systemRole === "ko") {
         await startSoloVideoTest();
@@ -1092,6 +1273,9 @@
 
   async function acceptVideoCall() {
     if (callState !== "incoming" || !activeCallId) return;
+    if (inAppName) {
+      alert(t().inAppVideoAlert);
+    }
     try {
       currentFacingMode = "user";
       localStream = await acquireVideoStream(currentFacingMode);
@@ -1778,7 +1962,6 @@
     return updated;
   }
 
-  // 이전 대화는 말투 참고용 텍스트로만 전달 (언어 휩쓸림 방지)
   function buildContextReference() {
     const recentMsgs = (roomState.messages || []).slice(-MAX_CONTEXT_MSGS);
     if (recentMsgs.length === 0) return "";
@@ -1870,16 +2053,24 @@
         original: orig,
         translated: trans || orig,
         hasAudio: true,
+        liked: false,
         ts: msgTs
       };
 
       const updatedMessages = buildUpdatedMessages(newMsg);
       roomState.messages = updatedMessages;
       lastRenderSig = "";
-      renderMessages();
+      renderMessages(false);
 
       await audioUploadPromise;
-      await finishTurnLock({ messages: updatedMessages });
+      const syncTs = Date.now();
+      loadedMsgSyncTs = syncTs;
+      await fetch(`${getMsgsBaseUrl()}.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedMessages)
+      });
+      await finishTurnLock({ lastMsgTs: syncTs });
     } catch (err) {
       delete audioCache[msgTs];
       if (audioUploaded) {
@@ -1940,14 +2131,18 @@
         original: spokenText,
         translated: translated || spokenText,
         hasAudio: false,
+        liked: false,
         ts: Date.now()
       };
 
       const updatedMessages = buildUpdatedMessages(newMsg);
       roomState.messages = updatedMessages;
       lastRenderSig = "";
-      renderMessages();
-      await patchRoom({ messages: updatedMessages });
+      renderMessages(false);
+
+      const syncTs = Date.now();
+      loadedMsgSyncTs = syncTs;
+      await saveMessagesToDb(updatedMessages, syncTs);
     } catch (err) {
       alert("Error: " + err.message);
     } finally {
