@@ -30,6 +30,7 @@
     #videoSection.expanded { height: 67dvh; }
     #remoteVideo { width: 100%; height: 100%; object-fit: cover; background: #0a0a0a; transition: filter 0.2s ease; }
     #remoteStatusBadge { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.68); color: #fff; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 4; pointer-events: none; }
+    #remoteStatusBadge.test-badge { top: 12px; transform: translateX(-50%); background: rgba(239, 108, 0, 0.85); font-size: 12px; padding: 5px 12px; }
 
     /* 뽀샤시 필터 */
     .filter-0 { filter: none; }
@@ -43,7 +44,7 @@
     #localVideoWrap.pos-tl { left: 10px; top: 10px; right: auto; bottom: auto; }
     #localVideoWrap.pos-bl { left: 10px; bottom: 56px; right: auto; top: auto; }
     #localVideo { width: 100%; height: 100%; object-fit: cover; }
-    #localVideo.mirrored { transform: scaleX(-1); }
+    .mirrored { transform: scaleX(-1); }
     #localCamOffMask { position: absolute; inset: 0; background: #222; display: flex; align-items: center; justify-content: center; font-size: 24px; }
     #showPipBtn { position: absolute; right: 10px; top: 10px; z-index: 6; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.4); background: rgba(0,0,0,0.55); color: #fff; font-size: 15px; cursor: pointer; }
 
@@ -189,7 +190,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 12;
+  const APP_VERSION = 13;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const MODEL_ID = "gemini-3.1-flash-lite";
   const MAX_TURNS = 12;
@@ -250,6 +251,7 @@
       callCancel: "요청 취소",
       callConnecting: "영상 연결 중...",
       callReconnecting: "네트워크 재연결 중...",
+      callTestBadge: "🧪 테스트 모드 (상대방 접속 시 자동 종료)",
       callPartnerOffline: "상대방이 접속 중일 때 영상통화를 걸 수 있습니다."
     },
     vi: {
@@ -286,6 +288,7 @@
       callCancel: "Hủy gọi",
       callConnecting: "Đang kết nối video...",
       callReconnecting: "Đang kết nối lại mạng...",
+      callTestBadge: "🧪 Chế độ thử nghiệm",
       callPartnerOffline: "Chỉ có thể gọi video khi đối phương đang online."
     }
   };
@@ -342,7 +345,7 @@
   let myDiagCode = inAppName ? "in_app" : "";
 
   // 영상통화 (WebRTC) 상태
-  let callState = "idle"; // idle | outgoing | incoming | active
+  let callState = "idle"; // idle | outgoing | incoming | active | test
   let activeCallId = 0;
   let isCaller = false;
   let pc = null;
@@ -491,7 +494,7 @@
     if (roomState.lockedBy === myRole) { patch.lockedBy = ""; patch.lockedAt = 0; }
     if (roomState.reservedBy === myRole) { patch.reservedBy = ""; }
     if (roomState.turnFor === myRole) { patch.turnFor = ""; patch.turnAt = 0; }
-    if (callState !== "idle") {
+    if (callState !== "idle" && callState !== "test") {
       patch["callMeta/status"] = "idle";
     }
 
@@ -600,7 +603,8 @@
       statusEl.style.color = "#aaaaaa";
     }
 
-    videoCallBtn.disabled = !online || callState !== "idle";
+    // 한국어 폰은 오프라인이어도 테스트용으로 영상통화 버튼 활성화
+    videoCallBtn.disabled = (callState !== "idle") || (!online && systemRole !== "ko");
 
     const diag = roomState.diagnostics?.[getOtherRole()];
     if (online && diag && diag.code && (Date.now() - (diag.ts || 0)) < 120000) {
@@ -793,6 +797,11 @@
         const now = Date.now();
         const partnerOnline = isPartnerOnline();
 
+        // 혼자 영상통화 테스트 중에 상대방이 접속하면 즉시 테스트 종료
+        if (callState === "test" && partnerOnline) {
+          cleanupVideoCall(false);
+        }
+
         if (roomState.lockedBy && roomState.lockedBy !== myRole) {
           const lockTimedOut = roomState.lockedAt && (now - roomState.lockedAt > 60000);
           if (!partnerOnline || lockTimedOut) {
@@ -847,7 +856,7 @@
   }
 
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && callState === "active") {
+    if (document.visibilityState === "visible" && (callState === "active" || callState === "test")) {
       requestWakeLock();
     }
   });
@@ -868,10 +877,46 @@
     });
   }
 
+  // 한국어 폰 전용: 상대방 오프라인 시 혼자 영상통화 UI 테스트
+  async function startSoloVideoTest() {
+    try {
+      currentFacingMode = "user";
+      localStream = await acquireVideoStream(currentFacingMode);
+      callState = "test";
+      isMuted = false;
+      isCamOff = false;
+      myFilterMode = 0;
+
+      localVideo.srcObject = localStream;
+      localVideo.classList.add("mirrored");
+      remoteVideo.srcObject = localStream;
+      remoteVideo.muted = true; // 하울링 방지
+      remoteVideo.classList.add("mirrored");
+      applyLocalFilterUI();
+
+      videoSection.classList.remove("hidden");
+      remoteStatusBadge.textContent = t().callTestBadge;
+      remoteStatusBadge.classList.add("test-badge");
+      remoteStatusBadge.classList.remove("hidden");
+
+      updateVideoControlButtons();
+      updatePartnerStatusUI();
+      requestWakeLock();
+      subtitlesEl.scrollTop = subtitlesEl.scrollHeight;
+    } catch {
+      cleanupVideoCall(false);
+      alert(t().camDenied);
+    }
+  }
+
   async function requestVideoCall() {
     if (callState !== "idle") return;
     if (!isPartnerOnline()) {
-      alert(t().callPartnerOffline);
+      if (systemRole === "ko") {
+        await startSoloVideoTest();
+      } else {
+        alert(t().callPartnerOffline);
+      }
       return;
     }
     try {
@@ -888,7 +933,6 @@
       myFilterMode = 0;
       applyLocalFilterUI();
 
-      // 이전 시그널 데이터 초기화 후 요청 전송
       await fetch(`${getCallSignalUrl(activeCallId)}.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -949,17 +993,22 @@
   }
 
   async function endVideoCall() {
+    if (callState === "test") {
+      cleanupVideoCall(false);
+      return;
+    }
     await patchRoom({ "callMeta/status": "idle" });
     cleanupVideoCall(false);
   }
 
   function handleCallMetaSync(meta, partnerOnline) {
+    if (callState === "test") return;
+
     if (!meta || meta.status === "idle") {
       if (callState !== "idle") cleanupVideoCall(false);
       return;
     }
 
-    // 1. 상대방에게서 영상통화 요청이 옴
     if (meta.status === "ringing" && meta.caller !== myRole) {
       if (callState === "idle" && (Date.now() - (meta.callId || 0)) < 45000) {
         activeCallId = meta.callId;
@@ -973,7 +1022,6 @@
       return;
     }
 
-    // 2. 내가 건 요청을 상대방이 수락함 -> Offer 생성 시작
     if (meta.status === "active" && callState === "outgoing" && meta.callId === activeCallId) {
       callState = "active";
       callModal.classList.add("hidden");
@@ -982,7 +1030,6 @@
       return;
     }
 
-    // 3. 통화 중 필터 및 하트 동기화
     if (callState === "active") {
       const partnerFilter = Number(meta.filter?.[getOtherRole()] || 0);
       remoteVideo.className = `filter-${partnerFilter}`;
@@ -996,7 +1043,10 @@
   }
 
   function showVideoUI() {
+    remoteVideo.muted = false;
+    remoteVideo.classList.remove("mirrored");
     videoSection.classList.remove("hidden");
+    remoteStatusBadge.classList.remove("test-badge");
     remoteStatusBadge.textContent = t().callConnecting;
     remoteStatusBadge.classList.remove("hidden");
     updateVideoControlButtons();
@@ -1025,7 +1075,6 @@
       pc.addTrack(track, localStream);
     });
 
-    // 480p 자동 화질 조절 (최대 500kbps, 프레임 유지 우선)
     applyVideoBitrateLimit();
 
     pc.ontrack = (event) => {
@@ -1053,9 +1102,9 @@
         remoteStatusBadge.classList.add("hidden");
         if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
       } else if (st === "disconnected" || st === "failed") {
+        remoteStatusBadge.classList.remove("test-badge");
         remoteStatusBadge.textContent = t().callReconnecting;
         remoteStatusBadge.classList.remove("hidden");
-        // 자동 재연결 (발신자가 2.5초 후 ICE Restart 시도)
         if (isCaller && !reconnectTimer) {
           reconnectTimer = setTimeout(() => {
             reconnectTimer = null;
@@ -1075,7 +1124,7 @@
       if (!videoSender) return;
       const params = videoSender.getParameters();
       if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-      params.encodings[0].maxBitrate = 500000; // 480p 기준 최대 500kbps
+      params.encodings[0].maxBitrate = 500000;
       params.degradationPreference = "maintain-framerate";
       await videoSender.setParameters(params);
     } catch {}
@@ -1110,7 +1159,6 @@
       const data = await res.json();
       if (!data) return;
 
-      // 수신자: 새 Offer(또는 재연결 Offer) 처리
       if (!isCaller && data.offer && data.offer.ts > lastOfferTs) {
         lastOfferTs = data.offer.ts;
         await pc.setRemoteDescription(new RTCSessionDescription({
@@ -1126,7 +1174,6 @@
         });
       }
 
-      // 발신자: 새 Answer 처리
       if (isCaller && data.answer && data.answer.ts > lastAnswerTs) {
         lastAnswerTs = data.answer.ts;
         if (pc.signalingState === "have-local-offer") {
@@ -1137,7 +1184,6 @@
         }
       }
 
-      // 상대방 ICE 후보 추가
       const otherIce = data[`ice_${getOtherRole()}`];
       if (otherIce && pc.remoteDescription) {
         for (const [key, cand] of Object.entries(otherIce)) {
@@ -1170,11 +1216,14 @@
     }
 
     remoteVideo.srcObject = null;
+    remoteVideo.muted = false;
+    remoteVideo.className = "filter-0";
     localVideo.srcObject = null;
     videoSection.classList.add("hidden");
     videoSection.classList.remove("expanded");
     callModal.classList.add("hidden");
     remoteStatusBadge.classList.add("hidden");
+    remoteStatusBadge.classList.remove("test-badge");
 
     callState = "idle";
     activeCallId = 0;
@@ -1194,7 +1243,7 @@
 
   // 영상통화 컨트롤 버튼 동작들
   async function switchCamera() {
-    if (callState !== "active" || !localStream) return;
+    if ((callState !== "active" && callState !== "test") || !localStream) return;
     const nextFacing = currentFacingMode === "user" ? "environment" : "user";
     try {
       const tempStream = await navigator.mediaDevices.getUserMedia({
@@ -1227,6 +1276,10 @@
       currentFacingMode = nextFacing;
       localVideo.srcObject = localStream;
       localVideo.classList.toggle("mirrored", currentFacingMode === "user");
+      if (callState === "test") {
+        remoteVideo.srcObject = localStream;
+        remoteVideo.classList.toggle("mirrored", currentFacingMode === "user");
+      }
     } catch {}
   }
 
@@ -1249,12 +1302,18 @@
     myFilterMode = (myFilterMode + 1) % 3;
     applyLocalFilterUI();
     updateVideoControlButtons();
-    patchRoom({ [`callMeta/filter/${myRole}`]: myFilterMode });
+    if (callState === "active") {
+      patchRoom({ [`callMeta/filter/${myRole}`]: myFilterMode });
+    }
   }
 
   function applyLocalFilterUI() {
     localVideo.classList.remove("filter-0", "filter-1", "filter-2");
     localVideo.classList.add(`filter-${myFilterMode}`);
+    if (callState === "test") {
+      remoteVideo.classList.remove("filter-0", "filter-1", "filter-2");
+      remoteVideo.classList.add(`filter-${myFilterMode}`);
+    }
   }
 
   function toggleVideoRatio() {
@@ -1291,9 +1350,11 @@
 
   function sendHeart() {
     spawnHearts();
-    const ts = Date.now();
-    lastHeartTs = ts;
-    patchRoom({ callMeta: { ...roomState.callMeta, heart: { from: myRole, ts } } });
+    if (callState === "active") {
+      const ts = Date.now();
+      lastHeartTs = ts;
+      patchRoom({ callMeta: { ...roomState.callMeta, heart: { from: myRole, ts } } });
+    }
   }
 
   function spawnHearts() {
@@ -1351,8 +1412,7 @@
     stopCurrentAudio();
 
     try {
-      // 영상통화 중일 때는 기존 마이크 트랙을 재사용/복제하여 iOS 오디오 충돌 방지
-      if (callState === "active" && localStream && localStream.getAudioTracks().length > 0) {
+      if ((callState === "active" || callState === "test") && localStream && localStream.getAudioTracks().length > 0) {
         try {
           const cloned = localStream.getAudioTracks()[0].clone();
           cloned.enabled = true;
