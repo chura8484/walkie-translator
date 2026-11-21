@@ -25,11 +25,20 @@
     #micBtn { width: 100%; padding: 18px; font-size: 18px; font-weight: bold; border: none; border-radius: 14px; background: #0078ff; color: #fff; cursor: pointer; }
     #micBtn.recording { background: #e53935; }
     #micBtn.locked { background: #444; color: #999; cursor: not-allowed; }
-    #setupPanel { padding: 10px 12px; background: #252525; border-bottom: 1px solid #444; display: flex; flex-direction: column; gap: 6px; }
+    #lockScreen { position: fixed; inset: 0; background: #121212; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; gap: 14px; z-index: 99; }
+    #lockScreen h2 { font-size: 20px; }
+    #lockScreen input { width: 100%; max-width: 280px; padding: 14px; font-size: 18px; text-align: center; letter-spacing: 4px; flex: none; }
+    #lockScreen button { width: 100%; max-width: 280px; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 10px; background: #0078ff; color: #fff; }
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
+
+<div id="lockScreen">
+  <h2>🔒 방 암호 입력</h2>
+  <input id="passInput" type="password" inputmode="numeric" placeholder="암호 입력" />
+  <button onclick="unlockRoom()">입장하기</button>
+</div>
 
 <header>
   <div class="row">
@@ -37,7 +46,7 @@
     <div class="role-select">
       <button id="btnKo" class="active" onclick="setRole('ko')">한국어</button>
       <button id="btnVi" onclick="setRole('vi')">베트남어</button>
-      <button class="small-btn" onclick="toggleSetup()">⚙️ 설정</button>
+      <button class="small-btn" onclick="logoutRoom()">🔒 잠금</button>
     </div>
   </div>
   <div class="row">
@@ -47,14 +56,6 @@
   </div>
 </header>
 
-<div id="setupPanel">
-  <div class="row">
-    <input id="roomInput" type="text" value="test1" placeholder="방 코드 (예: test1)" />
-    <input id="apiKeyInput" type="password" placeholder="Gemini API 키 붙여넣기" />
-    <button class="small-btn" onclick="saveSetup()">저장</button>
-  </div>
-</div>
-
 <main id="subtitles"></main>
 
 <footer>
@@ -62,14 +63,20 @@
 </footer>
 
 <script>
-  // 기존 앱의 Firebase DB 주소 (별도 /walkie_test/ 경로 사용)
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const MODEL_ID = "gemini-3.1-flash-lite";
   const MAX_TURNS = 12;
 
+  // 암호(862534)로 XOR 암호화된 키 데이터
+  const ENC_KEY_BYTES = [
+    121,103,28,116,81,12,106,120,4,127,82,124,79,80,69,102,106,80,
+    103,70,115,82,1,112,79,81,72,121,6,1,93,103,80,120,1,121,85,91,
+    127,6,93,118,115,96,1,102,89,7,21,126,90,123,68
+  ];
+
   let myRole = localStorage.getItem("wt_role") || "ko";
-  let roomCode = localStorage.getItem("wt_room") || "test1";
-  let apiKey = localStorage.getItem("wt_apikey") || "";
+  let roomPass = localStorage.getItem("wt_pass") || "";
+  let apiKey = "";
 
   let isRecording = false;
   let isProcessing = false;
@@ -77,6 +84,7 @@
   let mediaRecorder = null;
   let audioChunks = [];
   let currentStream = null;
+  let pollTimer = null;
 
   let roomState = {
     relationship: "다정한 연인 (반말/친근한 호칭)",
@@ -85,40 +93,63 @@
   };
   let lastRenderedCount = -1;
 
+  const lockScreen = document.getElementById("lockScreen");
+  const passInput = document.getElementById("passInput");
   const micBtn = document.getElementById("micBtn");
   const statusEl = document.getElementById("status");
   const subtitlesEl = document.getElementById("subtitles");
   const relInput = document.getElementById("relInput");
-  const roomInput = document.getElementById("roomInput");
-  const apiKeyInput = document.getElementById("apiKeyInput");
-  const setupPanel = document.getElementById("setupPanel");
 
-  // 초기 UI 세팅
-  roomInput.value = roomCode;
-  apiKeyInput.value = apiKey;
-  if (apiKey) setupPanel.classList.add("hidden");
-  setRole(myRole);
+  function decodeKey(pass) {
+    if (!pass) return "";
+    return ENC_KEY_BYTES.map((b, i) =>
+      String.fromCharCode(b ^ pass.charCodeAt(i % pass.length))
+    ).join("");
+  }
+
+  function tryEnter(pass) {
+    const decoded = decodeKey(pass);
+    if (!decoded.startsWith("AQ.")) return false;
+    roomPass = pass;
+    apiKey = decoded;
+    localStorage.setItem("wt_pass", pass);
+    lockScreen.classList.add("hidden");
+    setRole(myRole);
+    startPolling();
+    return true;
+  }
+
+  function unlockRoom() {
+    const val = passInput.value.trim();
+    if (!tryEnter(val)) {
+      alert("방 암호가 올바르지 않습니다.");
+      passInput.value = "";
+      passInput.focus();
+    }
+  }
+
+  function logoutRoom() {
+    localStorage.removeItem("wt_pass");
+    roomPass = "";
+    apiKey = "";
+    if (pollTimer) clearInterval(pollTimer);
+    passInput.value = "";
+    lockScreen.classList.remove("hidden");
+  }
+
+  // 저장된 암호가 있으면 자동 입장
+  if (roomPass) {
+    if (!tryEnter(roomPass)) localStorage.removeItem("wt_pass");
+  }
 
   function getRoomUrl() {
-    return `${FIREBASE_DB_URL}/walkie_test/${encodeURIComponent(roomCode)}.json`;
+    return `${FIREBASE_DB_URL}/walkie_test/room_${encodeURIComponent(roomPass)}.json`;
   }
 
-  function toggleSetup() {
-    setupPanel.classList.toggle("hidden");
-  }
-
-  function saveSetup() {
-    roomCode = roomInput.value.trim() || "test1";
-    apiKey = apiKeyInput.value.trim();
-    localStorage.setItem("wt_room", roomCode);
-    localStorage.setItem("wt_apikey", apiKey);
-    if (!apiKey) {
-      alert("Gemini API 키를 입력해 주세요.");
-      return;
-    }
-    setupPanel.classList.add("hidden");
-    lastRenderedCount = -1;
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
     pollRoom();
+    pollTimer = setInterval(pollRoom, 800);
   }
 
   function setRole(role) {
@@ -209,8 +240,8 @@
     updateButtonUI();
   }
 
-  // 0.8초마다 Firebase 방 상태 동기화
   async function pollRoom() {
+    if (!roomPass) return;
     try {
       const res = await fetch(getRoomUrl());
       if (!res.ok) return;
@@ -227,22 +258,14 @@
         renderMessages();
         updateButtonUI();
       }
-      statusEl.textContent = `🟢 방[${roomCode}] 연결됨`;
+      statusEl.textContent = "🟢 연결됨";
     } catch {
       statusEl.textContent = "🔴 연결 확인 중...";
     }
   }
-  setInterval(pollRoom, 800);
-  pollRoom();
 
-  // 마이크 버튼 토글
   micBtn.addEventListener("click", async () => {
-    if (isLockedByOther || isProcessing) return;
-    if (!apiKey) {
-      setupPanel.classList.remove("hidden");
-      alert("먼저 상단 설정에서 Gemini API 키를 입력하고 저장해 주세요.");
-      return;
-    }
+    if (isLockedByOther || isProcessing || !apiKey) return;
     if (!isRecording) await startRecording();
     else stopRecording();
   });
@@ -310,7 +333,6 @@
 - 반드시 아래 JSON 형식으로만 응답해:
 {"original": "오디오를 받아쓴 ${sourceLang} 원문", "translated": "번역된 ${targetLang} 문장"}`;
 
-      // 최근 대화 문맥 구성
       const recentMsgs = (roomState.messages || []).slice(-(MAX_TURNS / 2));
       const contents = [];
       recentMsgs.forEach(m => {
