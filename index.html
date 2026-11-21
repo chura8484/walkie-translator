@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>무전기 자막 통역기 (3.1-Lite)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body { background: #121212; color: #fff; display: flex; flex-direction: column; height: 100dvh; }
+    header { padding: 10px 12px; background: #1e1e1e; border-bottom: 1px solid #333; display: flex; flex-direction: column; gap: 8px; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .role-select button { padding: 6px 10px; border: none; border-radius: 6px; background: #333; color: #aaa; font-weight: bold; font-size: 13px; }
+    .role-select button.active { background: #0078ff; color: #fff; }
+    input[type="text"], input[type="password"] { flex: 1; padding: 7px 9px; border-radius: 6px; border: 1px solid #444; background: #262626; color: #fff; font-size: 13px; min-width: 0; }
+    .small-btn { padding: 7px 10px; border: none; border-radius: 6px; background: #383838; color: #90caf9; font-size: 12px; font-weight: bold; white-space: nowrap; }
+    .danger-btn { color: #ff8a80; }
+    #status { font-size: 12px; color: #4caf50; font-weight: bold; }
+    #subtitles { flex: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .bubble { padding: 12px 14px; border-radius: 12px; max-width: 90%; line-height: 1.45; }
+    .bubble.mine { align-self: flex-end; background: #1e3a5f; }
+    .bubble.other { align-self: flex-start; background: #2a2a2a; border-left: 4px solid #ff9800; }
+    .translated { font-size: 19px; font-weight: bold; margin-bottom: 4px; }
+    .original { font-size: 12px; color: #bbb; }
+    footer { padding: 14px; background: #1e1e1e; border-top: 1px solid #333; }
+    #micBtn { width: 100%; padding: 18px; font-size: 18px; font-weight: bold; border: none; border-radius: 14px; background: #0078ff; color: #fff; cursor: pointer; }
+    #micBtn.recording { background: #e53935; }
+    #micBtn.locked { background: #444; color: #999; cursor: not-allowed; }
+    #setupPanel { padding: 10px 12px; background: #252525; border-bottom: 1px solid #444; display: flex; flex-direction: column; gap: 6px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="row">
+    <div id="status">🟢 준비됨</div>
+    <div class="role-select">
+      <button id="btnKo" class="active" onclick="setRole('ko')">한국어</button>
+      <button id="btnVi" onclick="setRole('vi')">베트남어</button>
+      <button class="small-btn" onclick="toggleSetup()">⚙️ 설정</button>
+    </div>
+  </div>
+  <div class="row">
+    <input id="relInput" type="text" value="다정한 연인 (반말/친근한 호칭)" placeholder="관계/호칭 입력" />
+    <button class="small-btn" onclick="saveRelationship()">관계 적용</button>
+    <button class="small-btn danger-btn" onclick="clearRoom()">초기화</button>
+  </div>
+</header>
+
+<div id="setupPanel">
+  <div class="row">
+    <input id="roomInput" type="text" value="test1" placeholder="방 코드 (예: test1)" />
+    <input id="apiKeyInput" type="password" placeholder="Gemini API 키 붙여넣기" />
+    <button class="small-btn" onclick="saveSetup()">저장</button>
+  </div>
+</div>
+
+<main id="subtitles"></main>
+
+<footer>
+  <button id="micBtn">🎤 말하기 (한국어)</button>
+</footer>
+
+<script>
+  // 기존 앱의 Firebase DB 주소 (별도 /walkie_test/ 경로 사용)
+  const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
+  const MODEL_ID = "gemini-3.1-flash-lite";
+  const MAX_TURNS = 12;
+
+  let myRole = localStorage.getItem("wt_role") || "ko";
+  let roomCode = localStorage.getItem("wt_room") || "test1";
+  let apiKey = localStorage.getItem("wt_apikey") || "";
+
+  let isRecording = false;
+  let isProcessing = false;
+  let isLockedByOther = false;
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let currentStream = null;
+
+  let roomState = {
+    relationship: "다정한 연인 (반말/친근한 호칭)",
+    lockedBy: "",
+    messages: []
+  };
+  let lastRenderedCount = -1;
+
+  const micBtn = document.getElementById("micBtn");
+  const statusEl = document.getElementById("status");
+  const subtitlesEl = document.getElementById("subtitles");
+  const relInput = document.getElementById("relInput");
+  const roomInput = document.getElementById("roomInput");
+  const apiKeyInput = document.getElementById("apiKeyInput");
+  const setupPanel = document.getElementById("setupPanel");
+
+  // 초기 UI 세팅
+  roomInput.value = roomCode;
+  apiKeyInput.value = apiKey;
+  if (apiKey) setupPanel.classList.add("hidden");
+  setRole(myRole);
+
+  function getRoomUrl() {
+    return `${FIREBASE_DB_URL}/walkie_test/${encodeURIComponent(roomCode)}.json`;
+  }
+
+  function toggleSetup() {
+    setupPanel.classList.toggle("hidden");
+  }
+
+  function saveSetup() {
+    roomCode = roomInput.value.trim() || "test1";
+    apiKey = apiKeyInput.value.trim();
+    localStorage.setItem("wt_room", roomCode);
+    localStorage.setItem("wt_apikey", apiKey);
+    if (!apiKey) {
+      alert("Gemini API 키를 입력해 주세요.");
+      return;
+    }
+    setupPanel.classList.add("hidden");
+    lastRenderedCount = -1;
+    pollRoom();
+  }
+
+  function setRole(role) {
+    myRole = role;
+    localStorage.setItem("wt_role", role);
+    document.getElementById("btnKo").classList.toggle("active", role === "ko");
+    document.getElementById("btnVi").classList.toggle("active", role === "vi");
+    lastRenderedCount = -1;
+    renderMessages();
+    updateButtonUI();
+  }
+
+  function updateButtonUI() {
+    if (isRecording) {
+      micBtn.disabled = false;
+      micBtn.className = "recording";
+      micBtn.textContent = "⏹ 말하기 종료 (전송)";
+    } else if (isProcessing) {
+      micBtn.disabled = true;
+      micBtn.className = "locked";
+      micBtn.textContent = "번역 중...";
+    } else if (isLockedByOther) {
+      micBtn.disabled = true;
+      micBtn.className = "locked";
+      micBtn.textContent = roomState.lockedBy === "ko"
+        ? "상대방(한국어) 말하는 중..."
+        : "상대방(베트남어) 말하는 중...";
+    } else {
+      micBtn.disabled = false;
+      micBtn.className = "";
+      micBtn.textContent = myRole === "ko" ? "🎤 말하기 (한국어)" : "🎤 말하기 (베트남어)";
+    }
+  }
+
+  function renderMessages() {
+    const msgs = roomState.messages || [];
+    if (msgs.length === lastRenderedCount) return;
+    lastRenderedCount = msgs.length;
+
+    subtitlesEl.innerHTML = "";
+    msgs.forEach(m => {
+      const isMine = (m.lang === myRole);
+      const div = document.createElement("div");
+      div.className = `bubble ${isMine ? "mine" : "other"}`;
+      div.innerHTML = `
+        <div class="translated">${escapeHtml(m.translated)}</div>
+        <div class="original">${escapeHtml(m.original)}</div>
+      `;
+      subtitlesEl.appendChild(div);
+    });
+    subtitlesEl.scrollTop = subtitlesEl.scrollHeight;
+  }
+
+  function escapeHtml(str) {
+    return (str || "").replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  async function patchRoom(partial) {
+    await fetch(getRoomUrl(), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(partial)
+    });
+  }
+
+  async function saveRelationship() {
+    const rel = relInput.value.trim();
+    if (!rel) return;
+    roomState.relationship = rel;
+    await patchRoom({ relationship: rel });
+    statusEl.textContent = "🟢 관계 적용됨";
+  }
+
+  async function clearRoom() {
+    if (!confirm("현재 방의 대화 기록과 잠금을 초기화할까요?")) return;
+    roomState.lockedBy = "";
+    roomState.messages = [];
+    await fetch(getRoomUrl(), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(roomState)
+    });
+    lastRenderedCount = -1;
+    renderMessages();
+    isLockedByOther = false;
+    updateButtonUI();
+  }
+
+  // 0.8초마다 Firebase 방 상태 동기화
+  async function pollRoom() {
+    try {
+      const res = await fetch(getRoomUrl());
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data) {
+        if (data.relationship && document.activeElement !== relInput) {
+          roomState.relationship = data.relationship;
+          relInput.value = data.relationship;
+        }
+        roomState.lockedBy = data.lockedBy || "";
+        roomState.messages = Array.isArray(data.messages) ? data.messages : [];
+
+        isLockedByOther = Boolean(roomState.lockedBy && roomState.lockedBy !== myRole);
+        renderMessages();
+        updateButtonUI();
+      }
+      statusEl.textContent = `🟢 방[${roomCode}] 연결됨`;
+    } catch {
+      statusEl.textContent = "🔴 연결 확인 중...";
+    }
+  }
+  setInterval(pollRoom, 800);
+  pollRoom();
+
+  // 마이크 버튼 토글
+  micBtn.addEventListener("click", async () => {
+    if (isLockedByOther || isProcessing) return;
+    if (!apiKey) {
+      setupPanel.classList.remove("hidden");
+      alert("먼저 상단 설정에서 Gemini API 키를 입력하고 저장해 주세요.");
+      return;
+    }
+    if (!isRecording) await startRecording();
+    else stopRecording();
+  });
+
+  async function startRecording() {
+    try {
+      currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : "audio/mp4";
+
+      audioChunks = [];
+      mediaRecorder = new MediaRecorder(currentStream, { mimeType });
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        currentStream.getTracks().forEach(t => t.stop());
+        const audioBlob = new Blob(audioChunks, { type: mimeType });
+        await translateAndBroadcast(audioBlob, mimeType);
+      };
+
+      await patchRoom({ lockedBy: myRole });
+      mediaRecorder.start();
+      isRecording = true;
+      updateButtonUI();
+    } catch (err) {
+      alert("마이크 권한을 허용해 주세요: " + err.message);
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && isRecording) {
+      isRecording = false;
+      isProcessing = true;
+      updateButtonUI();
+      mediaRecorder.stop();
+    }
+  }
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  async function translateAndBroadcast(audioBlob, mimeType) {
+    try {
+      const base64Audio = await blobToBase64(audioBlob);
+      const cleanMime = mimeType.split(";")[0];
+      const sourceLang = myRole === "ko" ? "한국어" : "베트남어";
+      const targetLang = myRole === "ko" ? "베트남어" : "한국어";
+      const rel = roomState.relationship || "다정한 연인";
+
+      const systemInstruction = `너는 한국어와 베트남어 사이의 실시간 양방향 전문 통역사야.
+현재 두 사람의 관계/상황은 [${rel}]이야.
+대화 내용과 설정된 관계에 맞춰 베트남어 호칭(anh/chị/em, cậu/tớ, mình/bạn 등)과 한국어 말투(반말/존댓말)를 대화 내내 일관되게 유지해.
+[번역 규칙 - 1단계 수준]
+- 원문과 똑같은 문장 수를 유지해(1문장이면 반드시 1문장만).
+- 원문에 없는 새로운 문장이나 인사말을 덧붙이지 말고, 호칭과 자연스러운 구어체 말투만 일관되게 반영해.
+- 반드시 아래 JSON 형식으로만 응답해:
+{"original": "오디오를 받아쓴 ${sourceLang} 원문", "translated": "번역된 ${targetLang} 문장"}`;
+
+      // 최근 대화 문맥 구성
+      const recentMsgs = (roomState.messages || []).slice(-(MAX_TURNS / 2));
+      const contents = [];
+      recentMsgs.forEach(m => {
+        contents.push({ role: "user", parts: [{ text: m.original }] });
+        contents.push({ role: "model", parts: [{ text: m.translated }] });
+      });
+
+      contents.push({
+        role: "user",
+        parts: [
+          { text: `[${sourceLang} 발화 → ${targetLang} 통역]` },
+          { inline_data: { mime_type: cleanMime, data: base64Audio } }
+        ]
+      });
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemInstruction }] },
+          contents,
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 500,
+            responseMimeType: "application/json"
+          }
+        })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Gemini 오류(${res.status}): ${errText}`);
+      }
+
+      const data = await res.json();
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      let rawJson = "{}";
+      for (const p of parts) {
+        if (p.thought) continue;
+        if (p.text) { rawJson = p.text.trim(); break; }
+      }
+
+      const parsed = JSON.parse(rawJson);
+      const newMsg = {
+        lang: myRole,
+        original: parsed.original || "",
+        translated: parsed.translated || "",
+        ts: Date.now()
+      };
+
+      const updatedMessages = [...(roomState.messages || []), newMsg].slice(-30);
+      roomState.messages = updatedMessages;
+      roomState.lockedBy = "";
+
+      await patchRoom({ messages: updatedMessages, lockedBy: "" });
+      lastRenderedCount = -1;
+      renderMessages();
+    } catch (err) {
+      alert("번역 실패: " + err.message);
+      await patchRoom({ lockedBy: "" });
+    } finally {
+      isProcessing = false;
+      updateButtonUI();
+    }
+  }
+</script>
+</body>
+</html>
