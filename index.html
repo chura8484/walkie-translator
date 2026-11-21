@@ -228,7 +228,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 17;
+  const APP_VERSION = 18;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const MODEL_ID = "gemini-3.1-flash-lite";
   const MAX_CONTEXT_MSGS = 4;
@@ -236,11 +236,27 @@
   const MAX_STORED_MSGS = 30;
   const SUBTITLE_DISPLAY_MS = 7000;
 
+  // STUN + 무료 중계(TURN) 서버 (해외망/모바일 데이터 방화벽 우회)
   const ICE_CONFIG = {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
       { urls: "stun:stun1.l.google.com:19302" },
-      { urls: "stun:stun2.l.google.com:19302" }
+      { urls: "stun:stun.relay.metered.ca:80" },
+      {
+        urls: "turn:openrelay.metered.ca:80",
+        username: "openrelayproject",
+        credential: "openrelayproject"
+      },
+      {
+        urls: "turn:openrelay.metered.ca:443",
+        username: "openrelayproject",
+        credential: "openrelayproject"
+      },
+      {
+        urls: "turn:openrelay.metered.ca:443?transport=tcp",
+        username: "openrelayproject",
+        credential: "openrelayproject"
+      }
     ]
   };
 
@@ -780,7 +796,6 @@
     });
     subtitlesEl.scrollTop = subtitlesEl.scrollHeight;
 
-    // 영상통화(꽉 찬 화면) 중 새 메시지가 도착하면 번역 자막 오버레이 표시
     const latest = msgs[msgs.length - 1];
     if (latest && latest.ts && latest.ts > lastOverlayMsgTs) {
       lastOverlayMsgTs = latest.ts;
@@ -1225,9 +1240,13 @@
       if (st === "connected" || st === "completed") {
         remoteStatusBadge.classList.add("hidden");
         if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+      } else if (st === "checking" || st === "new") {
+        remoteStatusBadge.classList.remove("test-badge");
+        remoteStatusBadge.textContent = `${t().callConnecting} (${st})`;
+        remoteStatusBadge.classList.remove("hidden");
       } else if (st === "disconnected" || st === "failed") {
         remoteStatusBadge.classList.remove("test-badge");
-        remoteStatusBadge.textContent = t().callReconnecting;
+        remoteStatusBadge.textContent = `${t().callReconnecting} (${st})`;
         remoteStatusBadge.classList.remove("hidden");
         if (isCaller && !reconnectTimer) {
           reconnectTimer = setTimeout(() => {
@@ -1759,6 +1778,14 @@
     return updated;
   }
 
+  // 이전 대화는 말투 참고용 텍스트로만 전달 (언어 휩쓸림 방지)
+  function buildContextReference() {
+    const recentMsgs = (roomState.messages || []).slice(-MAX_CONTEXT_MSGS);
+    if (recentMsgs.length === 0) return "";
+    const lines = recentMsgs.map(m => `- (${m.lang === "ko" ? "한→베" : "베→한"}) ${m.original} / ${m.translated}`);
+    return `[이전 대화 말투·호칭 참고]\n${lines.join("\n")}\n\n`;
+  }
+
   async function translateAudioAndBroadcast(audioBlob, cleanMime) {
     const msgTs = Date.now();
     let audioUploaded = false;
@@ -1776,25 +1803,23 @@
       }).then(() => { audioUploaded = true; }).catch(() => {});
 
       const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
-대화 흐름에 맞는 한국어 말투(반말/존댓말)와 베트남어 호칭(anh/chị/em 등)을 일관되게 유지해.
+이전 대화의 친밀도에 맞는 한국어 말투(반말/존댓말)와 베트남어 호칭(anh/chị/em 등)을 유지해.
+[규칙]
+- 반드시 ${sourceLang} 오디오를 받아쓰고, 반드시 ${targetLang}로 번역해. (절대 원문과 같은 언어로 번역하지 마)
 - 사람의 말이 없거나 잡음뿐이면 {"original": "", "translated": ""} 반환.
 - 원문과 같은 문장 수 유지, 불필요한 설명 금지.
 - 반드시 JSON으로만 응답: {"original": "${sourceLang} 원문", "translated": "자연스러운 구어체 ${targetLang} 번역문"}`;
 
-      const recentMsgs = (roomState.messages || []).slice(-MAX_CONTEXT_MSGS);
-      const contents = [];
-      recentMsgs.forEach(m => {
-        contents.push({ role: "user", parts: [{ text: m.original }] });
-        contents.push({ role: "model", parts: [{ text: m.translated }] });
-      });
-
-      contents.push({
-        role: "user",
-        parts: [
-          { text: `[${sourceLang} → ${targetLang}]` },
-          { inline_data: { mime_type: cleanMime, data: base64Audio } }
-        ]
-      });
+      const contextText = buildContextReference();
+      const contents = [
+        {
+          role: "user",
+          parts: [
+            { text: `${contextText}[현재 통역 지시: 아래 ${sourceLang} 음성을 받아쓰고 반드시 ${targetLang}로 번역하세요]` },
+            { inline_data: { mime_type: cleanMime, data: base64Audio } }
+          ]
+        }
+      ];
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent?key=${encodeURIComponent(apiKey)}`;
       const res = await fetch(url, {
@@ -1874,18 +1899,21 @@
     updateButtonUI();
 
     try {
+      const sourceLang = myRole === "ko" ? "한국어" : "베트남어";
       const targetLang = myRole === "ko" ? "베트남어" : "한국어";
       const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
-대화 흐름에 맞는 한국어 말투(반말/존댓말)와 베트남어 호칭을 유지해.
-원문과 같은 문장 수로 자연스러운 구어체 ${targetLang} 번역문만 출력해.`;
+이전 대화의 친밀도에 맞는 한국어 말투(반말/존댓말)와 베트남어 호칭을 유지해.
+반드시 입력된 ${sourceLang} 문장을 자연스러운 구어체 ${targetLang}로만 번역해서 출력해. (절대 원문과 같은 언어로 출력하거나 설명을 덧붙이지 마)`;
 
-      const recentMsgs = (roomState.messages || []).slice(-MAX_CONTEXT_MSGS);
-      const contents = [];
-      recentMsgs.forEach(m => {
-        contents.push({ role: "user", parts: [{ text: m.original }] });
-        contents.push({ role: "model", parts: [{ text: m.translated }] });
-      });
-      contents.push({ role: "user", parts: [{ text: spokenText }] });
+      const contextText = buildContextReference();
+      const contents = [
+        {
+          role: "user",
+          parts: [
+            { text: `${contextText}[${sourceLang} → ${targetLang} 번역]\n${spokenText}` }
+          ]
+        }
+      ];
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent?key=${encodeURIComponent(apiKey)}`;
       const res = await fetch(url, {
