@@ -266,10 +266,10 @@
 </footer>
 
 <script>
-  const APP_VERSION = 20;
+  const APP_VERSION = 21;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
-  const PRIMARY_MODEL = "gemini-3.1-flash-lite";
-  const FALLBACK_MODEL = "gemini-3.5-flash-lite";
+  const PRIMARY_MODEL = "gemini-3.5-flash-lite";
+  const FALLBACK_MODEL = "gemini-3.1-flash-lite";
   const MAX_CONTEXT_MSGS = 4;
   const MAX_AUDIO_MSGS = 100;
   const MAX_STORED_MSGS = 100;
@@ -908,7 +908,6 @@
       div.appendChild(topDiv);
       div.appendChild(origDiv);
 
-      // 상대방 메시지에는 Zalo 스타일 하트 버튼, 내 메시지에는 상대방이 누른 하트 배지 표시
       if (!isMine) {
         const heartBtn = document.createElement("button");
         heartBtn.className = "msg-heart-btn" + (m.liked ? " liked" : "");
@@ -1737,6 +1736,13 @@
 
   /* ================= Gemini API 호출 (503/429 재시도 + 백업 모델 전환) ================= */
 
+  function getHonorificRule() {
+    if (myRole === "ko") {
+      return "- 화자(남자) 스스로를 지칭할 때는 'anh', 상대방(여자)을 부르는 호칭은 항상 'em bé'로 고정해서 다정하고 자연스러운 베트남어 구어체로 번역해.";
+    }
+    return "- 화자(여자)가 상대방(남자)을 부르는 호칭(anh, anh yêu 등)은 항상 '자기야'로 고정하고, 연인 사이의 다정하고 자연스러운 한국어 반말로 번역해.";
+  }
+
   async function callGeminiWithFallback(bodyObj) {
     const attempts = [
       { model: PRIMARY_MODEL, delay: 0 },
@@ -1999,7 +2005,7 @@
     const recentMsgs = (roomState.messages || []).slice(-MAX_CONTEXT_MSGS);
     if (recentMsgs.length === 0) return "";
     const lines = recentMsgs.map(m => `- (${m.lang === "ko" ? "한→베" : "베→한"}) ${m.original} / ${m.translated}`);
-    return `[이전 대화 말투·호칭 참고]\n${lines.join("\n")}\n\n`;
+    return `[이전 대화 문맥 참고]\n${lines.join("\n")}\n\n`;
   }
 
   async function translateAudioAndBroadcast(audioBlob, cleanMime) {
@@ -2019,8 +2025,8 @@
       }).then(() => { audioUploaded = true; }).catch(() => {});
 
       const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
-이전 대화의 친밀도에 맞는 한국어 말투(반말/존댓말)와 베트남어 호칭(anh/chị/em 등)을 유지해.
 [규칙]
+${getHonorificRule()}
 - 반드시 ${sourceLang} 오디오를 받아쓰고, 반드시 ${targetLang}로 번역해. (절대 원문과 같은 언어로 번역하지 마)
 - 사람의 말이 없거나 잡음뿐이면 {"original": "", "translated": ""} 반환.
 - 원문과 같은 문장 수 유지, 불필요한 설명 금지.
@@ -2115,8 +2121,9 @@
       const sourceLang = myRole === "ko" ? "한국어" : "베트남어";
       const targetLang = myRole === "ko" ? "베트남어" : "한국어";
       const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
-이전 대화의 친밀도에 맞는 한국어 말투(반말/존댓말)와 베트남어 호칭을 유지해.
-반드시 입력된 ${sourceLang} 문장을 자연스러운 구어체 ${targetLang}로만 번역해서 출력해. (절대 원문과 같은 언어로 출력하거나 설명을 덧붙이지 마)`;
+[규칙]
+${getHonorificRule()}
+- 반드시 입력된 ${sourceLang} 문장을 자연스러운 구어체 ${targetLang}로만 번역해서 출력해. (절대 원문과 같은 언어로 출력하거나 설명을 덧붙이지 마)`;
 
       const contextText = buildContextReference();
       const contents = [
