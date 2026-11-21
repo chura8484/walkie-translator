@@ -7,11 +7,10 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
     body { background: #121212; color: #fff; display: flex; flex-direction: column; height: 100dvh; }
-    header { padding: 10px 12px; background: #1e1e1e; border-bottom: 1px solid #333; display: flex; flex-direction: column; gap: 8px; }
-    .row { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
-    .role-select button { padding: 6px 10px; border: none; border-radius: 6px; background: #333; color: #aaa; font-weight: bold; font-size: 13px; }
+    header { padding: 12px 14px; background: #1e1e1e; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .role-select { display: flex; align-items: center; gap: 6px; }
+    .role-select button { padding: 7px 11px; border: none; border-radius: 6px; background: #333; color: #aaa; font-weight: bold; font-size: 13px; }
     .role-select button.active { background: #0078ff; color: #fff; }
-    input[type="text"], input[type="password"] { flex: 1; padding: 7px 9px; border-radius: 6px; border: 1px solid #444; background: #262626; color: #fff; font-size: 13px; min-width: 0; }
     .small-btn { padding: 7px 10px; border: none; border-radius: 6px; background: #383838; color: #90caf9; font-size: 12px; font-weight: bold; white-space: nowrap; }
     .danger-btn { color: #ff8a80; }
     #status { font-size: 12px; color: #4caf50; font-weight: bold; }
@@ -21,13 +20,17 @@
     .bubble.other { align-self: flex-start; background: #2a2a2a; border-left: 4px solid #ff9800; }
     .translated { font-size: 19px; font-weight: bold; margin-bottom: 4px; }
     .original { font-size: 12px; color: #bbb; }
-    footer { padding: 14px; background: #1e1e1e; border-top: 1px solid #333; }
+    #liveBox { margin: 0 14px 10px; padding: 12px 14px; border-radius: 10px; background: #1a2a1a; border: 1.5px solid #4caf50; color: #e8f5e9; font-size: 15px; line-height: 1.4; min-height: 48px; }
+    #liveBox .live-tag { font-size: 11px; color: #81c784; font-weight: bold; margin-bottom: 4px; }
+    footer { padding: 12px 14px 16px; background: #1e1e1e; border-top: 1px solid #333; }
+    .btn-row { display: flex; gap: 10px; }
     #micBtn { width: 100%; padding: 18px; font-size: 18px; font-weight: bold; border: none; border-radius: 14px; background: #0078ff; color: #fff; cursor: pointer; }
-    #micBtn.recording { background: #e53935; }
     #micBtn.locked { background: #444; color: #999; cursor: not-allowed; }
-    #lockScreen { position: fixed; inset: 0; background: #121212; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; gap: 14px; z-index: 99; }
-    #lockScreen h2 { font-size: 20px; }
-    #lockScreen input { width: 100%; max-width: 280px; padding: 14px; font-size: 18px; text-align: center; letter-spacing: 4px; flex: none; }
+    #cancelBtn { flex: 1; padding: 18px 10px; font-size: 16px; font-weight: bold; border: none; border-radius: 14px; background: #424242; color: #ff8a80; cursor: pointer; }
+    #sendBtn { flex: 2; padding: 18px 10px; font-size: 18px; font-weight: bold; border: none; border-radius: 14px; background: #2e7d32; color: #fff; cursor: pointer; }
+    #lockScreen { position: fixed; inset: 0; background: #121212; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; gap: 14px; z-index: 99; text-align: center; }
+    #lockScreen h2 { font-size: 18px; line-height: 1.4; }
+    #lockScreen input { width: 100%; max-width: 280px; padding: 14px; font-size: 18px; text-align: center; letter-spacing: 4px; border-radius: 8px; border: 1px solid #444; background: #262626; color: #fff; }
     #lockScreen button { width: 100%; max-width: 280px; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 10px; background: #0078ff; color: #fff; }
     .hidden { display: none !important; }
   </style>
@@ -35,31 +38,34 @@
 <body>
 
 <div id="lockScreen">
-  <h2>🔒 방 암호 입력</h2>
-  <input id="passInput" type="password" inputmode="numeric" placeholder="암호 입력" />
-  <button onclick="unlockRoom()">입장하기</button>
+  <h2>🔒 방 암호 입력<br/>Nhập mật khẩu phòng</h2>
+  <input id="passInput" type="password" inputmode="numeric" placeholder="Password" />
+  <button onclick="unlockRoom()">입장 / Vào phòng</button>
 </div>
 
 <header>
-  <div class="row">
-    <div id="status">🟢 준비됨</div>
-    <div class="role-select">
-      <button id="btnKo" class="active" onclick="setRole('ko')">한국어</button>
-      <button id="btnVi" onclick="setRole('vi')">베트남어</button>
-      <button class="small-btn" onclick="logoutRoom()">🔒 잠금</button>
-    </div>
-  </div>
-  <div class="row">
-    <input id="relInput" type="text" value="다정한 연인 (반말/친근한 호칭)" placeholder="관계/호칭 입력" />
-    <button class="small-btn" onclick="saveRelationship()">관계 적용</button>
-    <button class="small-btn danger-btn" onclick="clearRoom()">초기화</button>
+  <div id="status">🟢 준비됨</div>
+  <div class="role-select">
+    <button id="btnKo" class="active" onclick="setRole('ko')">한국어</button>
+    <button id="btnVi" onclick="setRole('vi')">Tiếng Việt</button>
+    <button id="clearBtn" class="small-btn danger-btn" onclick="clearRoom()">초기화</button>
+    <button class="small-btn" onclick="logoutRoom()">🔒</button>
   </div>
 </header>
 
 <main id="subtitles"></main>
 
+<div id="liveBox" class="hidden">
+  <div id="liveTag" class="live-tag">🟢 듣는 중...</div>
+  <div id="liveText">말씀해 주세요...</div>
+</div>
+
 <footer>
-  <button id="micBtn">🎤 말하기 (한국어)</button>
+  <button id="micBtn">🎤 말하기</button>
+  <div id="recordingControls" class="btn-row hidden">
+    <button id="cancelBtn" onclick="cancelListening()">❌ 취소</button>
+    <button id="sendBtn" onclick="finishAndTranslate()">📤 전송</button>
+  </div>
 </footer>
 
 <script>
@@ -67,38 +73,78 @@
   const MODEL_ID = "gemini-3.1-flash-lite";
   const MAX_TURNS = 12;
 
-  // 암호(862534)로 XOR 암호화된 키 데이터
   const ENC_KEY_BYTES = [
     121,103,28,116,81,12,106,120,4,127,82,124,79,80,69,102,106,80,
     103,70,115,82,1,112,79,81,72,121,6,1,93,103,80,120,1,121,85,91,
     127,6,93,118,115,96,1,102,89,7,21,126,90,123,68
   ];
 
+  const UI = {
+    ko: {
+      connected: "🟢 연결됨",
+      reconnecting: "🔴 연결 확인 중...",
+      clear: "초기화",
+      clearConfirm: "현재 방의 대화 기록과 잠금을 초기화할까요?",
+      micIdle: "🎤 말하기 (한국어)",
+      micBusy: "번역 중...",
+      micLocked: "상대방이 말하는 중...",
+      liveTag: "🟢 듣는 중... (잘못 들었으면 취소 후 다시 말하세요)",
+      livePlaceholder: "말씀해 주세요...",
+      cancel: "❌ 취소",
+      send: "📤 전송 (번역)",
+      noSupport: "이 브라우저는 실시간 음성 인식을 지원하지 않습니다. 크롬이나 사파리를 사용해 주세요.",
+      micDenied: "마이크 권한을 허용해 주세요.",
+      wrongPass: "방 암호가 올바르지 않습니다."
+    },
+    vi: {
+      connected: "🟢 Đã kết nối",
+      reconnecting: "🔴 Đang kiểm tra...",
+      clear: "Xóa",
+      clearConfirm: "Bạn có muốn xóa toàn bộ lịch sử trò chuyện không?",
+      micIdle: "🎤 Nói (Tiếng Việt)",
+      micBusy: "Đang dịch...",
+      micLocked: "Đối phương đang nói...",
+      liveTag: "🟢 Đang nghe... (Nếu sai hãy hủy và nói lại)",
+      livePlaceholder: "Hãy nói...",
+      cancel: "❌ Hủy",
+      send: "📤 Gửi (Dịch)",
+      noSupport: "Trình duyệt này không hỗ trợ nhận dạng giọng nói. Hãy dùng Chrome hoặc Safari.",
+      micDenied: "Vui lòng cấp quyền truy cập micro.",
+      wrongPass: "Mật khẩu phòng không đúng."
+    }
+  };
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
   let myRole = localStorage.getItem("wt_role") || "ko";
   let roomPass = localStorage.getItem("wt_pass") || "";
   let apiKey = "";
 
-  let isRecording = false;
+  let isListening = false;
   let isProcessing = false;
   let isLockedByOther = false;
-  let mediaRecorder = null;
-  let audioChunks = [];
-  let currentStream = null;
+  let recognition = null;
+  let finalTranscript = "";
+  let interimTranscript = "";
   let pollTimer = null;
 
-  let roomState = {
-    relationship: "다정한 연인 (반말/친근한 호칭)",
-    lockedBy: "",
-    messages: []
-  };
+  let roomState = { lockedBy: "", messages: [] };
   let lastRenderedCount = -1;
 
   const lockScreen = document.getElementById("lockScreen");
   const passInput = document.getElementById("passInput");
   const micBtn = document.getElementById("micBtn");
+  const recordingControls = document.getElementById("recordingControls");
+  const liveBox = document.getElementById("liveBox");
+  const liveTag = document.getElementById("liveTag");
+  const liveText = document.getElementById("liveText");
   const statusEl = document.getElementById("status");
   const subtitlesEl = document.getElementById("subtitles");
-  const relInput = document.getElementById("relInput");
+  const clearBtn = document.getElementById("clearBtn");
+  const cancelBtn = document.getElementById("cancelBtn");
+  const sendBtn = document.getElementById("sendBtn");
+
+  function t() { return UI[myRole] || UI.ko; }
 
   function decodeKey(pass) {
     if (!pass) return "";
@@ -122,7 +168,7 @@
   function unlockRoom() {
     const val = passInput.value.trim();
     if (!tryEnter(val)) {
-      alert("방 암호가 올바르지 않습니다.");
+      alert("방 암호가 올바르지 않습니다. / Mật khẩu không đúng.");
       passInput.value = "";
       passInput.focus();
     }
@@ -137,7 +183,6 @@
     lockScreen.classList.remove("hidden");
   }
 
-  // 저장된 암호가 있으면 자동 입장
   if (roomPass) {
     if (!tryEnter(roomPass)) localStorage.removeItem("wt_pass");
   }
@@ -157,30 +202,43 @@
     localStorage.setItem("wt_role", role);
     document.getElementById("btnKo").classList.toggle("active", role === "ko");
     document.getElementById("btnVi").classList.toggle("active", role === "vi");
+
+    const text = t();
+    clearBtn.textContent = text.clear;
+    liveTag.textContent = text.liveTag;
+    cancelBtn.textContent = text.cancel;
+    sendBtn.textContent = text.send;
+    statusEl.textContent = text.connected;
+
     lastRenderedCount = -1;
     renderMessages();
     updateButtonUI();
   }
 
   function updateButtonUI() {
-    if (isRecording) {
-      micBtn.disabled = false;
-      micBtn.className = "recording";
-      micBtn.textContent = "⏹ 말하기 종료 (전송)";
-    } else if (isProcessing) {
-      micBtn.disabled = true;
-      micBtn.className = "locked";
-      micBtn.textContent = "번역 중...";
-    } else if (isLockedByOther) {
-      micBtn.disabled = true;
-      micBtn.className = "locked";
-      micBtn.textContent = roomState.lockedBy === "ko"
-        ? "상대방(한국어) 말하는 중..."
-        : "상대방(베트남어) 말하는 중...";
+    const text = t();
+    if (isListening) {
+      micBtn.classList.add("hidden");
+      recordingControls.classList.remove("hidden");
+      liveBox.classList.remove("hidden");
     } else {
-      micBtn.disabled = false;
-      micBtn.className = "";
-      micBtn.textContent = myRole === "ko" ? "🎤 말하기 (한국어)" : "🎤 말하기 (베트남어)";
+      recordingControls.classList.add("hidden");
+      liveBox.classList.add("hidden");
+      micBtn.classList.remove("hidden");
+
+      if (isProcessing) {
+        micBtn.disabled = true;
+        micBtn.className = "locked";
+        micBtn.textContent = text.micBusy;
+      } else if (isLockedByOther) {
+        micBtn.disabled = true;
+        micBtn.className = "locked";
+        micBtn.textContent = text.micLocked;
+      } else {
+        micBtn.disabled = false;
+        micBtn.className = "";
+        micBtn.textContent = text.micIdle;
+      }
     }
   }
 
@@ -217,16 +275,8 @@
     });
   }
 
-  async function saveRelationship() {
-    const rel = relInput.value.trim();
-    if (!rel) return;
-    roomState.relationship = rel;
-    await patchRoom({ relationship: rel });
-    statusEl.textContent = "🟢 관계 적용됨";
-  }
-
   async function clearRoom() {
-    if (!confirm("현재 방의 대화 기록과 잠금을 초기화할까요?")) return;
+    if (!confirm(t().clearConfirm)) return;
     roomState.lockedBy = "";
     roomState.messages = [];
     await fetch(getRoomUrl(), {
@@ -247,91 +297,119 @@
       if (!res.ok) return;
       const data = await res.json();
       if (data) {
-        if (data.relationship && document.activeElement !== relInput) {
-          roomState.relationship = data.relationship;
-          relInput.value = data.relationship;
-        }
         roomState.lockedBy = data.lockedBy || "";
         roomState.messages = Array.isArray(data.messages) ? data.messages : [];
-
         isLockedByOther = Boolean(roomState.lockedBy && roomState.lockedBy !== myRole);
         renderMessages();
         updateButtonUI();
       }
-      statusEl.textContent = "🟢 연결됨";
+      statusEl.textContent = t().connected;
     } catch {
-      statusEl.textContent = "🔴 연결 확인 중...";
+      statusEl.textContent = t().reconnecting;
     }
   }
 
   micBtn.addEventListener("click", async () => {
     if (isLockedByOther || isProcessing || !apiKey) return;
-    if (!isRecording) await startRecording();
-    else stopRecording();
+    if (!SpeechRecognition) {
+      alert(t().noSupport);
+      return;
+    }
+
+    finalTranscript = "";
+    interimTranscript = "";
+    liveText.textContent = t().livePlaceholder;
+    isListening = true;
+    updateButtonUI();
+
+    await patchRoom({ lockedBy: myRole });
+    startRecognition();
   });
 
-  async function startRecording() {
+  function startRecognition() {
+    if (!isListening) return;
     try {
-      currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/mp4";
+      recognition = new SpeechRecognition();
+      recognition.lang = myRole === "ko" ? "ko-KR" : "vi-VN";
+      recognition.continuous = true;
+      recognition.interimResults = true;
 
-      audioChunks = [];
-      mediaRecorder = new MediaRecorder(currentStream, { mimeType });
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunks.push(e.data);
+      recognition.onresult = (event) => {
+        interimTranscript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const text = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += (finalTranscript ? " " : "") + text.trim();
+          } else {
+            interimTranscript += text;
+          }
+        }
+        const combined = (finalTranscript + " " + interimTranscript).trim();
+        liveText.textContent = combined || t().livePlaceholder;
       };
 
-      mediaRecorder.onstop = async () => {
-        currentStream.getTracks().forEach(t => t.stop());
-        const audioBlob = new Blob(audioChunks, { type: mimeType });
-        await translateAndBroadcast(audioBlob, mimeType);
+      recognition.onerror = (e) => {
+        if (e.error === "not-allowed") {
+          alert(t().micDenied);
+          cancelListening();
+        }
       };
 
-      await patchRoom({ lockedBy: myRole });
-      mediaRecorder.start();
-      isRecording = true;
-      updateButtonUI();
+      recognition.onend = () => {
+        if (isListening) {
+          try { recognition.start(); } catch {}
+        }
+      };
+
+      recognition.start();
     } catch (err) {
-      alert("마이크 권한을 허용해 주세요: " + err.message);
+      alert("Error: " + err.message);
+      cancelListening();
     }
   }
 
-  function stopRecording() {
-    if (mediaRecorder && isRecording) {
-      isRecording = false;
-      isProcessing = true;
+  function stopRecognitionInstance() {
+    isListening = false;
+    if (recognition) {
+      recognition.onend = null;
+      try { recognition.stop(); } catch {}
+      recognition = null;
+    }
+  }
+
+  async function cancelListening() {
+    stopRecognitionInstance();
+    finalTranscript = "";
+    interimTranscript = "";
+    updateButtonUI();
+    await patchRoom({ lockedBy: "" });
+  }
+
+  async function finishAndTranslate() {
+    stopRecognitionInstance();
+    const spokenText = (finalTranscript + " " + interimTranscript).trim();
+
+    if (!spokenText) {
       updateButtonUI();
-      mediaRecorder.stop();
+      await patchRoom({ lockedBy: "" });
+      return;
     }
+
+    isProcessing = true;
+    updateButtonUI();
+    await translateTextAndBroadcast(spokenText);
   }
 
-  function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result.split(",")[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  }
-
-  async function translateAndBroadcast(audioBlob, mimeType) {
+  async function translateTextAndBroadcast(spokenText) {
     try {
-      const base64Audio = await blobToBase64(audioBlob);
-      const cleanMime = mimeType.split(";")[0];
-      const sourceLang = myRole === "ko" ? "한국어" : "베트남어";
       const targetLang = myRole === "ko" ? "베트남어" : "한국어";
-      const rel = roomState.relationship || "다정한 연인";
 
       const systemInstruction = `너는 한국어와 베트남어 사이의 실시간 양방향 전문 통역사야.
-현재 두 사람의 관계/상황은 [${rel}]이야.
-대화 내용과 설정된 관계에 맞춰 베트남어 호칭(anh/chị/em, cậu/tớ, mình/bạn 등)과 한국어 말투(반말/존댓말)를 대화 내내 일관되게 유지해.
+대화 흐름과 말투를 자연스럽게 파악해서 두 사람의 친밀도에 맞는 한국어 말투(반말/존댓말)와 베트남어 호칭(anh/chị/em, cậu/tớ, mình/bạn 등)을 대화 내내 일관되게 유지해.
 [번역 규칙 - 1단계 수준]
 - 원문과 똑같은 문장 수를 유지해(1문장이면 반드시 1문장만).
-- 원문에 없는 새로운 문장이나 인사말을 덧붙이지 말고, 호칭과 자연스러운 구어체 말투만 일관되게 반영해.
-- 반드시 아래 JSON 형식으로만 응답해:
-{"original": "오디오를 받아쓴 ${sourceLang} 원문", "translated": "번역된 ${targetLang} 문장"}`;
+- 원문에 없는 새로운 문장이나 인사말을 덧붙이지 말고, 자연스러운 구어체 ${targetLang} 번역문만 딱 출력해.
+- 머리말, 설명, 원문 반복 없이 오직 번역된 ${targetLang} 문장만 출력해.`;
 
       const recentMsgs = (roomState.messages || []).slice(-(MAX_TURNS / 2));
       const contents = [];
@@ -339,14 +417,7 @@
         contents.push({ role: "user", parts: [{ text: m.original }] });
         contents.push({ role: "model", parts: [{ text: m.translated }] });
       });
-
-      contents.push({
-        role: "user",
-        parts: [
-          { text: `[${sourceLang} 발화 → ${targetLang} 통역]` },
-          { inline_data: { mime_type: cleanMime, data: base64Audio } }
-        ]
-      });
+      contents.push({ role: "user", parts: [{ text: spokenText }] });
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent?key=${encodeURIComponent(apiKey)}`;
       const res = await fetch(url, {
@@ -357,30 +428,28 @@
           contents,
           generationConfig: {
             temperature: 0.2,
-            maxOutputTokens: 500,
-            responseMimeType: "application/json"
+            maxOutputTokens: 300
           }
         })
       });
 
       if (!res.ok) {
         const errText = await res.text();
-        throw new Error(`Gemini 오류(${res.status}): ${errText}`);
+        throw new Error(`Gemini (${res.status}): ${errText}`);
       }
 
       const data = await res.json();
       const parts = data.candidates?.[0]?.content?.parts || [];
-      let rawJson = "{}";
+      let translated = "";
       for (const p of parts) {
         if (p.thought) continue;
-        if (p.text) { rawJson = p.text.trim(); break; }
+        if (p.text) { translated = p.text.trim(); break; }
       }
 
-      const parsed = JSON.parse(rawJson);
       const newMsg = {
         lang: myRole,
-        original: parsed.original || "",
-        translated: parsed.translated || "",
+        original: spokenText,
+        translated: translated || spokenText,
         ts: Date.now()
       };
 
@@ -392,7 +461,7 @@
       lastRenderedCount = -1;
       renderMessages();
     } catch (err) {
-      alert("번역 실패: " + err.message);
+      alert("Error: " + err.message);
       await patchRoom({ lockedBy: "" });
     } finally {
       isProcessing = false;
