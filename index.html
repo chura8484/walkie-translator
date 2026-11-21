@@ -3,52 +3,75 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>무전기 자막 통역기 (3.1-Lite)</title>
+  <title>무전기 자막 통역기</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
-    body { background: #121212; color: #fff; display: flex; flex-direction: column; height: 100dvh; }
-    header { padding: 12px 14px; background: #1e1e1e; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { background: #121212; color: #fff; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+
+    #inAppBanner { background: #d32f2f; color: #fff; padding: 10px 14px; font-size: 13px; font-weight: bold; line-height: 1.4; text-align: center; }
+    #diagBanner { background: #3e2723; color: #ffcc80; padding: 6px 14px; font-size: 12px; border-bottom: 1px solid #5d4037; }
+
+    header { padding: 11px 14px; background: #1e1e1e; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
     .role-select { display: flex; align-items: center; gap: 6px; }
-    .role-select button { padding: 7px 11px; border: none; border-radius: 6px; background: #333; color: #aaa; font-weight: bold; font-size: 13px; }
+    .role-select button { padding: 7px 11px; border: none; border-radius: 6px; background: #333; color: #aaa; font-weight: bold; font-size: 13px; cursor: pointer; }
     .role-select button.active { background: #0078ff; color: #fff; }
-    .small-btn { padding: 7px 10px; border: none; border-radius: 6px; background: #383838; color: #90caf9; font-size: 12px; font-weight: bold; white-space: nowrap; }
-    .danger-btn { color: #ff8a80; }
-    #status { font-size: 12px; color: #aaa; font-weight: bold; }
+    .small-btn { padding: 7px 10px; border: none; border-radius: 6px; background: #383838; color: #90caf9; font-size: 12px; font-weight: bold; cursor: pointer; }
+    #status { font-size: 12px; color: #aaa; font-weight: bold; white-space: nowrap; }
+
     #subtitles { flex: 1; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
     .bubble { padding: 12px 14px; border-radius: 12px; max-width: 90%; line-height: 1.45; }
     .bubble.mine { align-self: flex-end; background: #1e3a5f; }
     .bubble.other { align-self: flex-start; background: #2a2a2a; border-left: 4px solid #ff9800; }
-    .translated { font-size: 19px; font-weight: bold; margin-bottom: 4px; }
-    .original { font-size: 12px; color: #bbb; }
-    #liveBox { margin: 0 14px 10px; padding: 12px 14px; border-radius: 10px; background: #1a2a1a; border: 1.5px solid #4caf50; color: #e8f5e9; font-size: 15px; line-height: 1.4; min-height: 48px; }
-    #liveBox .live-tag { font-size: 11px; color: #81c784; font-weight: bold; margin-bottom: 4px; }
-    footer { padding: 12px 14px 16px; background: #1e1e1e; border-top: 1px solid #333; }
+    .bubble-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+    .translated { font-size: 18px; font-weight: bold; word-break: break-word; }
+    .original { font-size: 12px; color: #bbb; word-break: break-word; }
+    .play-btn { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: none; background: rgba(255,255,255,0.14); color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .play-btn.playing { background: #4caf50; }
+
+    #liveBox { margin: 0 14px 10px; padding: 12px 14px; border-radius: 10px; background: #1a2a1a; border: 1.5px solid #4caf50; }
+    .live-header { display: flex; justify-content: space-between; font-size: 12px; color: #81c784; font-weight: bold; margin-bottom: 8px; }
+    .meter-track { width: 100%; height: 10px; background: #2e3b2e; border-radius: 5px; overflow: hidden; }
+    #volBar { width: 4%; height: 100%; background: #4caf50; transition: width 0.06s linear; }
+
+    footer { padding: 10px 14px 14px; background: #1e1e1e; border-top: 1px solid #333; display: flex; flex-direction: column; gap: 10px; }
+    .text-row { display: flex; gap: 8px; }
+    #textInput { flex: 1; padding: 10px 12px; border-radius: 10px; border: 1px solid #444; background: #262626; color: #fff; font-size: 14px; min-width: 0; }
+    #textSendBtn { padding: 0 14px; border: none; border-radius: 10px; background: #383838; color: #90caf9; font-weight: bold; font-size: 14px; cursor: pointer; white-space: nowrap; }
+
     .btn-row { display: flex; gap: 10px; }
-    #micBtn { width: 100%; padding: 18px; font-size: 18px; font-weight: bold; border: none; border-radius: 14px; background: #0078ff; color: #fff; cursor: pointer; }
+    #micBtn { width: 100%; padding: 17px; font-size: 17px; font-weight: bold; border: none; border-radius: 14px; background: #0078ff; color: #fff; cursor: pointer; transition: background 0.15s; }
     #micBtn.locked { background: #444; color: #999; cursor: not-allowed; }
-    #cancelBtn { flex: 1; padding: 18px 10px; font-size: 16px; font-weight: bold; border: none; border-radius: 14px; background: #424242; color: #ff8a80; cursor: pointer; }
-    #sendBtn { flex: 2; padding: 18px 10px; font-size: 18px; font-weight: bold; border: none; border-radius: 14px; background: #2e7d32; color: #fff; cursor: pointer; }
+    #micBtn.reserve { background: #ef6c00; color: #fff; }
+    #micBtn.reserved { background: #2e7d32; color: #fff; }
+    #micBtn.my-turn { background: #00c853; color: #fff; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.015); } }
+
+    #cancelBtn { flex: 1; padding: 17px 10px; font-size: 16px; font-weight: bold; border: none; border-radius: 14px; background: #424242; color: #ff8a80; cursor: pointer; }
+    #sendBtn { flex: 2; padding: 17px 10px; font-size: 17px; font-weight: bold; border: none; border-radius: 14px; background: #2e7d32; color: #fff; cursor: pointer; }
+
     #lockScreen { position: fixed; inset: 0; background: #121212; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; gap: 14px; z-index: 99; text-align: center; }
-    #lockScreen h2 { font-size: 18px; line-height: 1.4; }
+    #lockScreen h2 { font-size: 19px; line-height: 1.45; }
     #lockScreen input { width: 100%; max-width: 280px; padding: 14px; font-size: 18px; text-align: center; letter-spacing: 4px; border-radius: 8px; border: 1px solid #444; background: #262626; color: #fff; }
-    #lockScreen button { width: 100%; max-width: 280px; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 10px; background: #0078ff; color: #fff; }
+    #lockScreen button { width: 100%; max-width: 280px; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 10px; background: #0078ff; color: #fff; cursor: pointer; }
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
 <div id="lockScreen">
-  <h2>🔒 방 암호 입력<br/>Nhập mật khẩu phòng</h2>
+  <h2 id="lockTitle">🔒 방 암호 입력</h2>
   <input id="passInput" type="password" inputmode="numeric" placeholder="Password" />
-  <button onclick="unlockRoom()">입장 / Vào phòng</button>
+  <button id="unlockBtn" onclick="unlockRoom()">입장하기</button>
 </div>
+
+<div id="inAppBanner" class="hidden"></div>
+<div id="diagBanner" class="hidden"></div>
 
 <header>
   <div id="status">⚪ 대기 중...</div>
   <div class="role-select">
-    <button id="btnKo" class="active" onclick="setRole('ko')">한국어</button>
+    <button id="btnKo" onclick="setRole('ko')">한국어</button>
     <button id="btnVi" onclick="setRole('vi')">Tiếng Việt</button>
-    <button id="clearBtn" class="small-btn danger-btn" onclick="clearRoom()">초기화</button>
     <button class="small-btn" onclick="logoutRoom()">🔒</button>
   </div>
 </header>
@@ -56,15 +79,22 @@
 <main id="subtitles"></main>
 
 <div id="liveBox" class="hidden">
-  <div id="liveTag" class="live-tag">🟢 듣는 중...</div>
-  <div id="liveText">말씀해 주세요...</div>
+  <div class="live-header">
+    <span id="liveTag">🔴 녹음 중...</span>
+    <span id="recTimer">00:00</span>
+  </div>
+  <div class="meter-track"><div id="volBar"></div></div>
 </div>
 
 <footer>
+  <div class="text-row">
+    <input id="textInput" type="text" placeholder="직접 입력 (키보드)" />
+    <button id="textSendBtn" onclick="sendTextMessage()">전송</button>
+  </div>
   <button id="micBtn">🎤 말하기</button>
   <div id="recordingControls" class="btn-row hidden">
-    <button id="cancelBtn" onclick="cancelListening()">❌ 취소</button>
-    <button id="sendBtn" onclick="finishAndTranslate()">📤 전송</button>
+    <button id="cancelBtn" onclick="cancelRecording()">❌ 취소</button>
+    <button id="sendBtn" onclick="finishRecording()">📤 전송 (번역)</button>
   </div>
 </footer>
 
@@ -72,7 +102,10 @@
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const MODEL_ID = "gemini-3.1-flash-lite";
   const MAX_TURNS = 12;
+  const MAX_AUDIO_MSGS = 10;
+  const MAX_STORED_MSGS = 30;
 
+  // 암호(862534)로 XOR 암호화된 키 데이터
   const ENC_KEY_BYTES = [
     121,103,28,116,81,12,106,120,4,127,82,124,79,80,69,102,106,80,
     103,70,115,82,1,112,79,81,72,121,6,1,93,103,80,120,1,121,85,91,
@@ -81,71 +114,163 @@
 
   const UI = {
     ko: {
+      lockTitle: "🔒 방 암호 입력",
+      unlockBtn: "입장하기",
+      wrongPass: "방 암호가 올바르지 않습니다.",
       partnerOnline: "🟢 상대방 접속 중",
       partnerOffline: "⚪ 상대방 대기 중",
       reconnecting: "🔴 연결 확인 중...",
-      clear: "초기화",
-      clearConfirm: "현재 방의 대화 기록과 잠금을 초기화할까요?",
       micIdle: "🎤 말하기 (한국어)",
       micBusy: "번역 중...",
-      micLocked: "상대방이 말하는 중...",
-      liveTag: "🟢 듣는 중... (잘못 들었으면 취소 후 다시 말하세요)",
-      livePlaceholder: "말씀해 주세요...",
+      micReserve: "✋ 상대방 말하는 중 (눌러서 다음 차례 예약)",
+      micReserved: "✅ 다음 차례 예약됨 (다시 누르면 취소)",
+      micMyTurn: "🎤 내 차례! 눌러서 말하기",
+      micPartnerTurn: "상대방 차례 대기 중...",
+      liveTag: "🔴 녹음 중... (말씀해 주세요)",
       cancel: "❌ 취소",
       send: "📤 전송 (번역)",
-      noSupport: "이 브라우저는 실시간 음성 인식을 지원하지 않습니다. 크롬이나 사파리를 사용해 주세요.",
-      micDenied: "마이크 권한을 허용해 주세요."
+      textPlaceholder: "키보드로 직접 입력...",
+      textSend: "전송",
+      noVoice: "목소리가 들리지 않아 취소되었습니다.",
+      micDenied: "마이크 권한을 허용해 주세요.",
+      inAppWarn: "⚠️ 앱 내 브라우저입니다. 오른쪽 버튼을 눌러 Safari 또는 Chrome으로 열어주세요.",
+      diagPrefix: "⚠️ 상대방 상태: ",
+      diagInApp: "인앱 브라우저 접속 중 (Safari/Chrome 권장)",
+      diagMicDenied: "마이크 권한 거부됨",
+      diagNoSupport: "녹음 미지원 브라우저",
+      diagRecErr: "녹음 오류 발생"
     },
     vi: {
+      lockTitle: "🔒 Nhập mật khẩu phòng",
+      unlockBtn: "Vào phòng",
+      wrongPass: "Mật khẩu phòng không đúng.",
       partnerOnline: "🟢 Đối phương online",
       partnerOffline: "⚪ Chờ đối phương",
       reconnecting: "🔴 Đang kiểm tra...",
-      clear: "Xóa",
-      clearConfirm: "Bạn có muốn xóa toàn bộ lịch sử trò chuyện không?",
       micIdle: "🎤 Nói (Tiếng Việt)",
       micBusy: "Đang dịch...",
-      micLocked: "Đối phương đang nói...",
-      liveTag: "🟢 Đang nghe... (Nếu sai hãy hủy và nói lại)",
-      livePlaceholder: "Hãy nói...",
+      micReserve: "✋ Đối phương đang nói (Bấm để đăng ký nói tiếp)",
+      micReserved: "✅ Đã đăng ký nói tiếp (Bấm để hủy)",
+      micMyTurn: "🎤 Đến lượt bạn! Bấm để nói",
+      micPartnerTurn: "Đang chờ đối phương nói...",
+      liveTag: "🔴 Đang ghi âm... (Hãy nói)",
       cancel: "❌ Hủy",
       send: "📤 Gửi (Dịch)",
-      noSupport: "Trình duyệt này không hỗ trợ nhận dạng giọng nói. Hãy dùng Chrome hoặc Safari.",
-      micDenied: "Vui lòng cấp quyền truy cập micro."
+      textPlaceholder: "Nhập tin nhắn bằng bàn phím...",
+      textSend: "Gửi",
+      noVoice: "Không nghe thấy giọng nói nên đã hủy.",
+      micDenied: "Vui lòng cấp quyền truy cập micro.",
+      inAppWarn: "⚠️ Bạn đang mở trong ứng dụng (Zalo/FB...). Hãy bấm nút góc phải để mở bằng Safari hoặc Chrome.",
+      diagPrefix: "⚠️ Trạng thái đối phương: ",
+      diagInApp: "Đang dùng trình duyệt trong app",
+      diagMicDenied: "Chưa cấp quyền micro",
+      diagNoSupport: "Trình duyệt không hỗ trợ ghi âm",
+      diagRecErr: "Lỗi ghi âm"
     }
   };
 
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  function detectSystemRole() {
+    const lang = (navigator.language || navigator.userLanguage || "ko").toLowerCase();
+    return lang.startsWith("vi") ? "vi" : "ko";
+  }
 
-  let myRole = localStorage.getItem("wt_role") || "ko";
+  function detectInAppBrowser() {
+    const ua = navigator.userAgent || "";
+    if (/Zalo/i.test(ua)) return "Zalo";
+    if (/KAKAOTALK/i.test(ua)) return "KakaoTalk";
+    if (/FBAN|FBAV/i.test(ua)) return "Facebook";
+    if (/Instagram/i.test(ua)) return "Instagram";
+    if (/Line\//i.test(ua)) return "LINE";
+    if (/NAVER/i.test(ua)) return "Naver";
+    return "";
+  }
+
+  const inAppName = detectInAppBrowser();
+  let myRole = localStorage.getItem("wt_role") || detectSystemRole();
   let roomPass = localStorage.getItem("wt_pass") || "";
   let apiKey = "";
+  let joinedAt = Date.now();
 
-  let isListening = false;
+  let isRecording = false;
   let isProcessing = false;
   let isLockedByOther = false;
-  let recognition = null;
-  let finalTranscript = "";
-  let interimTranscript = "";
+  let isMyTurn = false;
+  let isPartnerTurn = false;
+  let isReservedByMe = false;
+  let lastTurnNotifiedAt = 0;
+
+  let mediaRecorder = null;
+  let currentStream = null;
+  let audioChunks = [];
+  let audioCtx = null;
+  let analyser = null;
+  let meterRaf = null;
+  let recTimerId = null;
+  let recStartTime = 0;
+  let maxVolumePeak = 0;
+  let cancelRequested = false;
+
+  let currentAudioEl = null;
+  let currentPlayingTs = null;
+
   let pollTimer = null;
   let heartbeatTimer = null;
+  let myDiagCode = inAppName ? "in_app" : "";
 
-  let roomState = { lockedBy: "", messages: [], presence: {} };
-  let lastRenderedCount = -1;
+  let roomState = {
+    lockedBy: "",
+    lockedAt: 0,
+    reservedBy: "",
+    turnFor: "",
+    turnAt: 0,
+    messages: [],
+    presence: {},
+    diagnostics: {}
+  };
+  let lastRenderSig = "";
 
   const lockScreen = document.getElementById("lockScreen");
+  const lockTitle = document.getElementById("lockTitle");
+  const unlockBtn = document.getElementById("unlockBtn");
   const passInput = document.getElementById("passInput");
-  const micBtn = document.getElementById("micBtn");
-  const recordingControls = document.getElementById("recordingControls");
-  const liveBox = document.getElementById("liveBox");
-  const liveTag = document.getElementById("liveTag");
-  const liveText = document.getElementById("liveText");
+  const inAppBanner = document.getElementById("inAppBanner");
+  const diagBanner = document.getElementById("diagBanner");
   const statusEl = document.getElementById("status");
   const subtitlesEl = document.getElementById("subtitles");
-  const clearBtn = document.getElementById("clearBtn");
+  const liveBox = document.getElementById("liveBox");
+  const liveTag = document.getElementById("liveTag");
+  const recTimer = document.getElementById("recTimer");
+  const volBar = document.getElementById("volBar");
+  const textInput = document.getElementById("textInput");
+  const textSendBtn = document.getElementById("textSendBtn");
+  const micBtn = document.getElementById("micBtn");
+  const recordingControls = document.getElementById("recordingControls");
   const cancelBtn = document.getElementById("cancelBtn");
   const sendBtn = document.getElementById("sendBtn");
 
   function t() { return UI[myRole] || UI.ko; }
+
+  function applyStaticText() {
+    const text = t();
+    lockTitle.textContent = text.lockTitle;
+    unlockBtn.textContent = text.unlockBtn;
+    liveTag.textContent = text.liveTag;
+    cancelBtn.textContent = text.cancel;
+    sendBtn.textContent = text.send;
+    textInput.placeholder = text.textPlaceholder;
+    textSendBtn.textContent = text.textSend;
+    document.getElementById("btnKo").classList.toggle("active", myRole === "ko");
+    document.getElementById("btnVi").classList.toggle("active", myRole === "vi");
+
+    if (inAppName) {
+      inAppBanner.textContent = `${text.inAppWarn} (${inAppName})`;
+      inAppBanner.classList.remove("hidden");
+    } else {
+      inAppBanner.classList.add("hidden");
+    }
+  }
+
+  applyStaticText();
 
   function decodeKey(pass) {
     if (!pass) return "";
@@ -159,9 +284,10 @@
     if (!decoded.startsWith("AQ.")) return false;
     roomPass = pass;
     apiKey = decoded;
+    joinedAt = Date.now();
     localStorage.setItem("wt_pass", pass);
     lockScreen.classList.add("hidden");
-    setRole(myRole);
+    applyStaticText();
     startSync();
     return true;
   }
@@ -169,13 +295,41 @@
   function unlockRoom() {
     const val = passInput.value.trim();
     if (!tryEnter(val)) {
-      alert("방 암호가 올바르지 않습니다. / Mật khẩu không đúng.");
+      alert(t().wrongPass);
       passInput.value = "";
       passInput.focus();
     }
   }
 
+  passInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") unlockRoom();
+  });
+
+  textInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendTextMessage();
+  });
+
+  function releaseMyLocks(keepalive = false) {
+    if (!roomPass) return;
+    const patch = {};
+    if (roomState.lockedBy === myRole) { patch.lockedBy = ""; patch.lockedAt = 0; }
+    if (roomState.reservedBy === myRole) { patch.reservedBy = ""; }
+    if (roomState.turnFor === myRole) { patch.turnFor = ""; patch.turnAt = 0; }
+    if (Object.keys(patch).length > 0) {
+      fetch(`${getRoomBaseUrl()}.json`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+        keepalive
+      }).catch(() => {});
+    }
+  }
+
+  window.addEventListener("pagehide", () => releaseMyLocks(true));
+
   function logoutRoom() {
+    releaseMyLocks(true);
+    stopCurrentAudio();
     localStorage.removeItem("wt_pass");
     roomPass = "";
     apiKey = "";
@@ -197,9 +351,10 @@
     if (pollTimer) clearInterval(pollTimer);
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     sendHeartbeat();
+    reportDiag(myDiagCode);
     pollRoom();
     heartbeatTimer = setInterval(sendHeartbeat, 2500);
-    pollTimer = setInterval(pollRoom, 800);
+    pollTimer = setInterval(pollRoom, 900);
   }
 
   async function sendHeartbeat() {
@@ -213,108 +368,199 @@
     } catch {}
   }
 
+  async function reportDiag(code) {
+    myDiagCode = code || "";
+    if (!roomPass) return;
+    try {
+      await fetch(`${getRoomBaseUrl()}/diagnostics.json`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          [myRole]: { code: myDiagCode, env: inAppName || "browser", ts: Date.now() }
+        })
+      });
+    } catch {}
+  }
+
   function setRole(role) {
+    if (isRecording) return;
+    releaseMyLocks(false);
     myRole = role;
     localStorage.setItem("wt_role", role);
-    document.getElementById("btnKo").classList.toggle("active", role === "ko");
-    document.getElementById("btnVi").classList.toggle("active", role === "vi");
-
-    const text = t();
-    clearBtn.textContent = text.clear;
-    liveTag.textContent = text.liveTag;
-    cancelBtn.textContent = text.cancel;
-    sendBtn.textContent = text.send;
-
-    if (roomPass) sendHeartbeat();
-    lastRenderedCount = -1;
+    applyStaticText();
+    if (roomPass) {
+      sendHeartbeat();
+      reportDiag(myDiagCode);
+    }
+    lastRenderSig = "";
     renderMessages();
     updatePartnerStatusUI();
     updateButtonUI();
   }
 
-  function updatePartnerStatusUI() {
+  function isPartnerOnline() {
     const otherRole = myRole === "ko" ? "vi" : "ko";
     const otherTs = roomState.presence?.[otherRole] || 0;
-    const isOnline = (Date.now() - otherTs) < 6000;
+    return (Date.now() - otherTs) < 6000;
+  }
 
-    if (isOnline) {
+  function updatePartnerStatusUI() {
+    const online = isPartnerOnline();
+    if (online) {
       statusEl.textContent = t().partnerOnline;
       statusEl.style.color = "#4caf50";
     } else {
       statusEl.textContent = t().partnerOffline;
       statusEl.style.color = "#aaaaaa";
     }
+
+    // 상대방 원격 진단 표시
+    const otherRole = myRole === "ko" ? "vi" : "ko";
+    const diag = roomState.diagnostics?.[otherRole];
+    if (online && diag && diag.code && (Date.now() - (diag.ts || 0)) < 120000) {
+      const map = {
+        in_app: `${t().diagInApp}${diag.env ? ` (${diag.env})` : ""}`,
+        mic_denied: t().diagMicDenied,
+        no_support: t().diagNoSupport,
+        rec_err: t().diagRecErr
+      };
+      if (map[diag.code]) {
+        diagBanner.textContent = t().diagPrefix + map[diag.code];
+        diagBanner.classList.remove("hidden");
+        return;
+      }
+    }
+    diagBanner.classList.add("hidden");
   }
 
   function updateButtonUI() {
     const text = t();
-    if (isListening) {
+    if (isRecording) {
       micBtn.classList.add("hidden");
       recordingControls.classList.remove("hidden");
       liveBox.classList.remove("hidden");
-    } else {
-      recordingControls.classList.add("hidden");
-      liveBox.classList.add("hidden");
-      micBtn.classList.remove("hidden");
+      return;
+    }
 
-      if (isProcessing) {
-        micBtn.disabled = true;
-        micBtn.className = "locked";
-        micBtn.textContent = text.micBusy;
-      } else if (isLockedByOther) {
-        micBtn.disabled = true;
-        micBtn.className = "locked";
-        micBtn.textContent = text.micLocked;
+    recordingControls.classList.add("hidden");
+    liveBox.classList.add("hidden");
+    micBtn.classList.remove("hidden");
+
+    if (isProcessing) {
+      micBtn.disabled = true;
+      micBtn.className = "locked";
+      micBtn.textContent = text.micBusy;
+    } else if (isLockedByOther) {
+      micBtn.disabled = false;
+      if (isReservedByMe) {
+        micBtn.className = "reserved";
+        micBtn.textContent = text.micReserved;
       } else {
-        micBtn.disabled = false;
-        micBtn.className = "";
-        micBtn.textContent = text.micIdle;
+        micBtn.className = "reserve";
+        micBtn.textContent = text.micReserve;
       }
+    } else if (isPartnerTurn) {
+      micBtn.disabled = true;
+      micBtn.className = "locked";
+      micBtn.textContent = text.micPartnerTurn;
+    } else if (isMyTurn) {
+      micBtn.disabled = false;
+      micBtn.className = "my-turn";
+      micBtn.textContent = text.micMyTurn;
+    } else {
+      micBtn.disabled = false;
+      micBtn.className = "";
+      micBtn.textContent = text.micIdle;
     }
   }
 
   function renderMessages() {
-    const msgs = roomState.messages || [];
-    if (msgs.length === lastRenderedCount) return;
-    lastRenderedCount = msgs.length;
+    const allMsgs = roomState.messages || [];
+    const visibleMsgs = allMsgs.filter(m => (m.ts || 0) >= joinedAt);
+    const sig = visibleMsgs.map(m => `${m.ts}:${m.audioData ? 1 : 0}`).join("|");
+    if (sig === lastRenderSig) return;
+    lastRenderSig = sig;
 
     subtitlesEl.innerHTML = "";
-    msgs.forEach(m => {
+    visibleMsgs.forEach(m => {
       const isMine = (m.lang === myRole);
       const div = document.createElement("div");
       div.className = `bubble ${isMine ? "mine" : "other"}`;
-      div.innerHTML = `
-        <div class="translated">${escapeHtml(m.translated)}</div>
-        <div class="original">${escapeHtml(m.original)}</div>
-      `;
+
+      const topDiv = document.createElement("div");
+      topDiv.className = "bubble-top";
+
+      const transDiv = document.createElement("div");
+      transDiv.className = "translated";
+      transDiv.textContent = m.translated || "";
+      topDiv.appendChild(transDiv);
+
+      // 음성이 남아있는 최근 10개 이내 메시지에만 🔊 버튼 표시
+      if (m.audioData && m.audioMime) {
+        const playBtn = document.createElement("button");
+        playBtn.className = "play-btn" + (currentPlayingTs === m.ts ? " playing" : "");
+        playBtn.dataset.ts = String(m.ts);
+        playBtn.textContent = currentPlayingTs === m.ts ? "⏹" : "🔊";
+        playBtn.onclick = () => toggleAudio(m, playBtn);
+        topDiv.appendChild(playBtn);
+      }
+
+      const origDiv = document.createElement("div");
+      origDiv.className = "original";
+      origDiv.textContent = m.original || "";
+
+      div.appendChild(topDiv);
+      div.appendChild(origDiv);
       subtitlesEl.appendChild(div);
     });
     subtitlesEl.scrollTop = subtitlesEl.scrollHeight;
   }
 
-  function escapeHtml(str) {
-    return (str || "").replace(/[&<>"']/g, c => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-    }[c]));
+  function stopCurrentAudio() {
+    if (currentAudioEl) {
+      currentAudioEl.pause();
+      currentAudioEl = null;
+    }
+    if (currentPlayingTs !== null) {
+      const prevBtn = subtitlesEl.querySelector(`.play-btn[data-ts="${currentPlayingTs}"]`);
+      if (prevBtn) {
+        prevBtn.classList.remove("playing");
+        prevBtn.textContent = "🔊";
+      }
+      currentPlayingTs = null;
+    }
+  }
+
+  function toggleAudio(msg, btnEl) {
+    if (currentPlayingTs === msg.ts) {
+      stopCurrentAudio();
+      return;
+    }
+    stopCurrentAudio();
+
+    try {
+      const audio = new Audio(`data:${msg.audioMime};base64,${msg.audioData}`);
+      currentAudioEl = audio;
+      currentPlayingTs = msg.ts;
+      btnEl.classList.add("playing");
+      btnEl.textContent = "⏹";
+
+      audio.onended = () => stopCurrentAudio();
+      audio.onerror = () => stopCurrentAudio();
+      audio.play().catch(() => stopCurrentAudio());
+    } catch {
+      stopCurrentAudio();
+    }
   }
 
   async function patchRoom(partial) {
-    await fetch(`${getRoomBaseUrl()}.json`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(partial)
-    });
-  }
-
-  async function clearRoom() {
-    if (!confirm(t().clearConfirm)) return;
-    roomState.lockedBy = "";
-    roomState.messages = [];
-    await patchRoom({ lockedBy: "", messages: [] });
-    lastRenderedCount = -1;
-    renderMessages();
-    isLockedByOther = false;
-    updateButtonUI();
+    try {
+      await fetch(`${getRoomBaseUrl()}.json`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(partial)
+      });
+    } catch {}
   }
 
   async function pollRoom() {
@@ -325,9 +571,45 @@
       const data = await res.json();
       if (data) {
         roomState.lockedBy = data.lockedBy || "";
+        roomState.lockedAt = data.lockedAt || 0;
+        roomState.reservedBy = data.reservedBy || "";
+        roomState.turnFor = data.turnFor || "";
+        roomState.turnAt = data.turnAt || 0;
         roomState.messages = Array.isArray(data.messages) ? data.messages : [];
         roomState.presence = data.presence || {};
+        roomState.diagnostics = data.diagnostics || {};
+
+        const now = Date.now();
+        const partnerOnline = isPartnerOnline();
+
+        // 1) 상대방 오프라인 또는 60초 타임아웃 시 잠금 자동 해제
+        if (roomState.lockedBy && roomState.lockedBy !== myRole) {
+          const lockTimedOut = roomState.lockedAt && (now - roomState.lockedAt > 60000);
+          if (!partnerOnline || lockTimedOut) {
+            roomState.lockedBy = "";
+            roomState.lockedAt = 0;
+            patchRoom({ lockedBy: "", lockedAt: 0 });
+          }
+        }
+
+        // 2) 예약 차례(turnFor)가 15초 지나도 안 시작하면 자동 만료
+        if (roomState.turnFor && roomState.turnAt && (now - roomState.turnAt > 15000)) {
+          roomState.turnFor = "";
+          roomState.turnAt = 0;
+          patchRoom({ turnFor: "", turnAt: 0 });
+        }
+
         isLockedByOther = Boolean(roomState.lockedBy && roomState.lockedBy !== myRole);
+        isReservedByMe = (roomState.reservedBy === myRole);
+        isMyTurn = (!isLockedByOther && roomState.turnFor === myRole);
+        isPartnerTurn = (!isLockedByOther && Boolean(roomState.turnFor) && roomState.turnFor !== myRole);
+
+        // 내 차례가 방금 도착했을 때 진동 알림
+        if (isMyTurn && roomState.turnAt !== lastTurnNotifiedAt) {
+          lastTurnNotifiedAt = roomState.turnAt;
+          if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
+        }
+
         renderMessages();
         updateButtonUI();
       }
@@ -338,107 +620,315 @@
     }
   }
 
+  // 메인 마이크 / 예약 버튼 클릭
   micBtn.addEventListener("click", async () => {
-    if (isLockedByOther || isProcessing || !apiKey) return;
-    if (!SpeechRecognition) {
-      alert(t().noSupport);
+    if (isProcessing || !apiKey) return;
+
+    // 상대방 말하는 중 → 다음 차례 예약 토글
+    if (isLockedByOther) {
+      const nextVal = isReservedByMe ? "" : myRole;
+      isReservedByMe = Boolean(nextVal);
+      updateButtonUI();
+      await patchRoom({ reservedBy: nextVal });
       return;
     }
 
-    finalTranscript = "";
-    interimTranscript = "";
-    liveText.textContent = t().livePlaceholder;
-    isListening = true;
-    updateButtonUI();
-
-    await patchRoom({ lockedBy: myRole });
-    startRecognition();
+    if (isPartnerTurn) return;
+    await startRecording();
   });
 
-  function startRecognition() {
-    if (!isListening) return;
-    try {
-      recognition = new SpeechRecognition();
-      recognition.lang = myRole === "ko" ? "ko-KR" : "vi-VN";
-      recognition.continuous = true;
-      recognition.interimResults = true;
-
-      recognition.onresult = (event) => {
-        interimTranscript = "";
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const text = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += (finalTranscript ? " " : "") + text.trim();
-          } else {
-            interimTranscript += text;
-          }
-        }
-        const combined = (finalTranscript + " " + interimTranscript).trim();
-        liveText.textContent = combined || t().livePlaceholder;
-      };
-
-      recognition.onerror = (e) => {
-        if (e.error === "not-allowed") {
-          alert(t().micDenied);
-          cancelListening();
-        }
-      };
-
-      recognition.onend = () => {
-        if (isListening) {
-          try { recognition.start(); } catch {}
-        }
-      };
-
-      recognition.start();
-    } catch (err) {
-      alert("Error: " + err.message);
-      cancelListening();
+  function pickAudioMimeType() {
+    if (typeof MediaRecorder === "undefined") return "";
+    // 아이폰·안드로이드 교차 재생 호환을 위해 audio/mp4 우선 선택
+    const candidates = [
+      "audio/mp4",
+      "audio/mp4;codecs=mp4a.40.2",
+      "audio/webm;codecs=opus",
+      "audio/webm"
+    ];
+    for (const c of candidates) {
+      if (MediaRecorder.isTypeSupported(c)) return c;
     }
+    return "";
   }
 
-  function stopRecognitionInstance() {
-    isListening = false;
-    if (recognition) {
-      recognition.onend = null;
-      try { recognition.stop(); } catch {}
-      recognition = null;
-    }
-  }
-
-  async function cancelListening() {
-    stopRecognitionInstance();
-    finalTranscript = "";
-    interimTranscript = "";
-    updateButtonUI();
-    await patchRoom({ lockedBy: "" });
-  }
-
-  async function finishAndTranslate() {
-    stopRecognitionInstance();
-    const spokenText = (finalTranscript + " " + interimTranscript).trim();
-
-    if (!spokenText) {
-      updateButtonUI();
-      await patchRoom({ lockedBy: "" });
+  async function startRecording() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === "undefined") {
+      reportDiag("no_support");
+      alert(t().diagNoSupport);
       return;
     }
 
-    isProcessing = true;
-    updateButtonUI();
-    await translateTextAndBroadcast(spokenText);
+    stopCurrentAudio();
+
+    try {
+      currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (myDiagCode === "mic_denied" || myDiagCode === "rec_err") {
+        reportDiag(inAppName ? "in_app" : "");
+      }
+
+      const mimeType = pickAudioMimeType();
+      const options = { audioBitsPerSecond: 24000 };
+      if (mimeType) options.mimeType = mimeType;
+
+      audioChunks = [];
+      maxVolumePeak = 0;
+      cancelRequested = false;
+      recStartTime = Date.now();
+
+      mediaRecorder = new MediaRecorder(currentStream, options);
+      const actualMime = (mediaRecorder.mimeType || mimeType || "audio/mp4").split(";")[0];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) audioChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stopMeterAndStream();
+        const duration = Date.now() - recStartTime;
+
+        if (cancelRequested) {
+          await finishTurnLock();
+          return;
+        }
+
+        // 무음 또는 너무 짧은 녹음 차단
+        if (duration < 400 || maxVolumePeak < 0.015 || audioChunks.length === 0) {
+          statusEl.textContent = t().noVoice;
+          statusEl.style.color = "#ff9800";
+          setTimeout(updatePartnerStatusUI, 2500);
+          await finishTurnLock();
+          return;
+        }
+
+        const audioBlob = new Blob(audioChunks, { type: actualMime });
+        isProcessing = true;
+        updateButtonUI();
+        await translateAudioAndBroadcast(audioBlob, actualMime);
+      };
+
+      // 소리 게이지 시작
+      startVolumeMeter(currentStream);
+
+      mediaRecorder.start();
+      isRecording = true;
+      isMyTurn = false;
+      updateButtonUI();
+
+      // 잠금 획득 (내 예약 차례였다면 turnFor 해제)
+      await patchRoom({
+        lockedBy: myRole,
+        lockedAt: Date.now(),
+        turnFor: "",
+        turnAt: 0
+      });
+    } catch (err) {
+      stopMeterAndStream();
+      const isDenied = err.name === "NotAllowedError" || err.name === "PermissionDeniedError";
+      reportDiag(isDenied ? "mic_denied" : "rec_err");
+      alert(isDenied ? t().micDenied : `Mic Error: ${err.message}`);
+    }
   }
 
-  async function translateTextAndBroadcast(spokenText) {
+  function startVolumeMeter(stream) {
     try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContextClass();
+      const src = audioCtx.createMediaStreamSource(stream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      src.connect(analyser);
+
+      const dataArr = new Uint8Array(analyser.fftSize);
+      const updateMeter = () => {
+        if (!analyser) return;
+        analyser.getByteTimeDomainData(dataArr);
+        let peak = 0;
+        for (let i = 0; i < dataArr.length; i++) {
+          const v = Math.abs(dataArr[i] - 128) / 128;
+          if (v > peak) peak = v;
+        }
+        if (peak > maxVolumePeak) maxVolumePeak = peak;
+        const pct = Math.min(100, Math.max(4, Math.round(peak * 220)));
+        volBar.style.width = pct + "%";
+        meterRaf = requestAnimationFrame(updateMeter);
+      };
+      updateMeter();
+    } catch {
+      maxVolumePeak = 1; // AudioContext 미지원 시 무음 컷 우회
+    }
+
+    recTimer.textContent = "00:00";
+    recTimerId = setInterval(() => {
+      const sec = Math.floor((Date.now() - recStartTime) / 1000);
+      const mm = String(Math.floor(sec / 60)).padStart(2, "0");
+      const ss = String(sec % 60).padStart(2, "0");
+      recTimer.textContent = `${mm}:${ss}`;
+    }, 300);
+  }
+
+  function stopMeterAndStream() {
+    if (meterRaf) { cancelAnimationFrame(meterRaf); meterRaf = null; }
+    if (recTimerId) { clearInterval(recTimerId); recTimerId = null; }
+    if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; analyser = null; }
+    if (currentStream) { currentStream.getTracks().forEach(tr => tr.stop()); currentStream = null; }
+    volBar.style.width = "4%";
+  }
+
+  function cancelRecording() {
+    if (!isRecording || !mediaRecorder) return;
+    cancelRequested = true;
+    isRecording = false;
+    updateButtonUI();
+    mediaRecorder.stop();
+  }
+
+  function finishRecording() {
+    if (!isRecording || !mediaRecorder) return;
+    cancelRequested = false;
+    isRecording = false;
+    updateButtonUI();
+    mediaRecorder.stop();
+  }
+
+  // 잠금 해제 시 상대방 예약이 있으면 우선권 넘기기
+  async function finishTurnLock(extraPatch = {}) {
+    const patch = { ...extraPatch, lockedBy: "", lockedAt: 0 };
+    if (roomState.reservedBy && roomState.reservedBy !== myRole) {
+      patch.turnFor = roomState.reservedBy;
+      patch.turnAt = Date.now();
+      patch.reservedBy = "";
+    }
+    await patchRoom(patch);
+    isProcessing = false;
+    updateButtonUI();
+  }
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function buildUpdatedMessages(newMsg) {
+    const updated = [...(roomState.messages || []), newMsg].slice(-MAX_STORED_MSGS);
+    // 최근 10개 메시지만 음성 데이터 유지, 그 이전은 음성 제거
+    const cutoff = updated.length - MAX_AUDIO_MSGS;
+    return updated.map((m, idx) => {
+      if (idx < cutoff && m.audioData) {
+        const { audioData, audioMime, ...rest } = m;
+        return rest;
+      }
+      return m;
+    });
+  }
+
+  async function translateAudioAndBroadcast(audioBlob, cleanMime) {
+    try {
+      const base64Audio = await blobToBase64(audioBlob);
+      const sourceLang = myRole === "ko" ? "한국어" : "베트남어";
       const targetLang = myRole === "ko" ? "베트남어" : "한국어";
 
       const systemInstruction = `너는 한국어와 베트남어 사이의 실시간 양방향 전문 통역사야.
 대화 흐름과 말투를 자연스럽게 파악해서 두 사람의 친밀도에 맞는 한국어 말투(반말/존댓말)와 베트남어 호칭(anh/chị/em, cậu/tớ, mình/bạn 등)을 대화 내내 일관되게 유지해.
-[번역 규칙 - 1단계 수준]
-- 원문과 똑같은 문장 수를 유지해(1문장이면 반드시 1문장만).
-- 원문에 없는 새로운 문장이나 인사말을 덧붙이지 말고, 자연스러운 구어체 ${targetLang} 번역문만 딱 출력해.
-- 머리말, 설명, 원문 반복 없이 오직 번역된 ${targetLang} 문장만 출력해.`;
+[규칙]
+- 오디오에 사람의 말이 전혀 없거나 잡음뿐이라면 반드시 {"original": "", "translated": ""}를 반환해.
+- 원문과 똑같은 문장 수를 유지하고, 원문에 없는 인사말이나 설명을 덧붙이지 마.
+- 반드시 아래 JSON 형식으로만 응답해:
+{"original": "오디오를 받아쓴 ${sourceLang} 원문", "translated": "자연스러운 구어체 ${targetLang} 번역문"}`;
+
+      const recentMsgs = (roomState.messages || []).slice(-(MAX_TURNS / 2));
+      const contents = [];
+      recentMsgs.forEach(m => {
+        contents.push({ role: "user", parts: [{ text: m.original }] });
+        contents.push({ role: "model", parts: [{ text: m.translated }] });
+      });
+
+      contents.push({
+        role: "user",
+        parts: [
+          { text: `[${sourceLang} 발화 → ${targetLang} 통역]` },
+          { inline_data: { mime_type: cleanMime, data: base64Audio } }
+        ]
+      });
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemInstruction }] },
+          contents,
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 400,
+            responseMimeType: "application/json"
+          }
+        })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Gemini (${res.status}): ${errText}`);
+      }
+
+      const data = await res.json();
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      let rawJson = "{}";
+      for (const p of parts) {
+        if (p.thought) continue;
+        if (p.text) { rawJson = p.text.trim(); break; }
+      }
+
+      const parsed = JSON.parse(rawJson);
+      const orig = (parsed.original || "").trim();
+      const trans = (parsed.translated || "").trim();
+
+      if (!orig) {
+        statusEl.textContent = t().noVoice;
+        statusEl.style.color = "#ff9800";
+        setTimeout(updatePartnerStatusUI, 2500);
+        await finishTurnLock();
+        return;
+      }
+
+      const newMsg = {
+        lang: myRole,
+        original: orig,
+        translated: trans || orig,
+        audioData: base64Audio,
+        audioMime: cleanMime,
+        ts: Date.now()
+      };
+
+      const updatedMessages = buildUpdatedMessages(newMsg);
+      roomState.messages = updatedMessages;
+      await finishTurnLock({ messages: updatedMessages });
+      lastRenderSig = "";
+      renderMessages();
+    } catch (err) {
+      alert("Error: " + err.message);
+      await finishTurnLock();
+    }
+  }
+
+  // 비상용 키보드 텍스트 전송 (음성 없음 → 🔊 버튼 미표시)
+  async function sendTextMessage() {
+    const spokenText = textInput.value.trim();
+    if (!spokenText || isProcessing || !apiKey) return;
+
+    textInput.value = "";
+    isProcessing = true;
+    updateButtonUI();
+
+    try {
+      const targetLang = myRole === "ko" ? "베트남어" : "한국어";
+      const systemInstruction = `너는 한국어와 베트남어 사이의 실시간 양방향 전문 통역사야.
+대화 흐름에 맞는 한국어 말투(반말/존댓말)와 베트남어 호칭을 일관되게 유지해.
+원문과 같은 문장 수로 자연스러운 구어체 ${targetLang} 번역문만 딱 출력해.`;
 
       const recentMsgs = (roomState.messages || []).slice(-(MAX_TURNS / 2));
       const contents = [];
@@ -455,18 +945,11 @@
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemInstruction }] },
           contents,
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 300
-          }
+          generationConfig: { temperature: 0.2, maxOutputTokens: 300 }
         })
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Gemini (${res.status}): ${errText}`);
-      }
-
+      if (!res.ok) throw new Error(`Gemini (${res.status})`);
       const data = await res.json();
       const parts = data.candidates?.[0]?.content?.parts || [];
       let translated = "";
@@ -482,16 +965,13 @@
         ts: Date.now()
       };
 
-      const updatedMessages = [...(roomState.messages || []), newMsg].slice(-30);
+      const updatedMessages = buildUpdatedMessages(newMsg);
       roomState.messages = updatedMessages;
-      roomState.lockedBy = "";
-
-      await patchRoom({ messages: updatedMessages, lockedBy: "" });
-      lastRenderedCount = -1;
+      await patchRoom({ messages: updatedMessages });
+      lastRenderSig = "";
       renderMessages();
     } catch (err) {
       alert("Error: " + err.message);
-      await patchRoom({ lockedBy: "" });
     } finally {
       isProcessing = false;
       updateButtonUI();
