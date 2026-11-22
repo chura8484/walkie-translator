@@ -253,7 +253,6 @@
     .btn-accept { background: #2e7d32; }
     .btn-reject { background: #c62828; }
 
-    /* 사진 100% 전체화면 뷰어 + 멀티터치 확대/축소 */
     #photoModal {
       position: fixed;
       inset: 0;
@@ -733,7 +732,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 31;
+  const APP_VERSION = 32;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const PRIMARY_MODEL = "gemini-3.5-flash-lite";
   const FALLBACK_MODEL = "gemini-3.1-flash-lite";
@@ -744,6 +743,8 @@
   const INITIAL_VISIBLE_MSGS = 30;
   const LOAD_MORE_STEP = 20;
   const SUBTITLE_DISPLAY_MS = 7000;
+  const POLL_FAST_MS = 900;
+  const POLL_IDLE_MS = 4000;
 
   // Metered 전용 STUN / TURN / TURNS 서버
   const ICE_CONFIG = {
@@ -913,6 +914,65 @@
     }
   };
 
+  /* ================= IndexedDB 영구 미디어 캐시 (사진·음성 중복 다운로드 방지) ================= */
+
+  let mediaDbPromise = null;
+
+  function openMediaDb() {
+    if (mediaDbPromise) return mediaDbPromise;
+    mediaDbPromise = new Promise((resolve) => {
+      if (typeof indexedDB === "undefined") { resolve(null); return; }
+      try {
+        const req = indexedDB.open("wt_media_cache_v1", 1);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains("photos")) db.createObjectStore("photos", { keyPath: "ts" });
+          if (!db.objectStoreNames.contains("audios")) db.createObjectStore("audios", { keyPath: "ts" });
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+    return mediaDbPromise;
+  }
+
+  async function idbGet(storeName, ts) {
+    const db = await openMediaDb();
+    if (!db) return null;
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction(storeName, "readonly");
+        const req = tx.objectStore(storeName).get(ts);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
+  async function idbPut(storeName, value) {
+    const db = await openMediaDb();
+    if (!db) return;
+    try {
+      const tx = db.transaction(storeName, "readwrite");
+      tx.objectStore(storeName).put(value);
+    } catch {}
+  }
+
+  async function idbDelete(storeName, ts) {
+    const db = await openMediaDb();
+    if (!db) return;
+    try {
+      const tx = db.transaction(storeName, "readwrite");
+      tx.objectStore(storeName).delete(ts);
+    } catch {}
+  }
+
+  /* ================= 앱 상태 ================= */
+
   function detectSystemRole() {
     const lang = (navigator.language || navigator.userLanguage || "ko").toLowerCase();
     return lang.startsWith("vi") ? "vi" : "ko";
@@ -989,6 +1049,7 @@
   let myEmojiEvents = [];
   let seenEmojiIds = new Set();
   let emojiInitialized = false;
+  let emojiClearTimer = null;
 
   let activeDoodles = [];
   let currentDoodleStroke = null;
@@ -996,10 +1057,12 @@
   let myDoodleEvents = [];
   let seenDoodleIds = new Set();
   let doodleInitialized = false;
+  let doodleClearTimer = null;
   let doodlePointerId = null;
   let doodleTotalDist = 0;
 
   let pollTimer = null;
+  let isPollingNow = false;
   let heartbeatTimer = null;
   let clockTimer = null;
   let myDiagCode = inAppName ? "in_app" : "";
@@ -1401,7 +1464,9 @@
     if (!roomPass) return;
     const patch = {
       [`presence/${myRole}`]: 0,
-      [`typing/${myRole}`]: 0
+      [`typing/${myRole}`]: 0,
+      [`emojiBurst/${myRole}`]: null,
+      [`doodleBurst/${myRole}`]: null
     };
     if (roomState.lockedBy === myRole) { patch.lockedBy = ""; patch.lockedAt = 0; }
     if (roomState.reservedBy === myRole) { patch.reservedBy = ""; }
@@ -1420,6 +1485,19 @@
 
   window.addEventListener("pagehide", () => releaseMyLocks(true));
 
+  function stopPolling() {
+    if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+  }
+
+  function scheduleNextPoll() {
+    stopPolling();
+    if (!roomPass) return;
+    if (document.hidden && callState === "idle") return;
+    const fast = isPartnerOnline() || callState !== "idle" || isRecording || isProcessing;
+    const delay = fast ? POLL_FAST_MS : POLL_IDLE_MS;
+    pollTimer = setTimeout(pollRoom, delay);
+  }
+
   function logoutRoom() {
     settingsMenu.classList.add("hidden");
     if (callState !== "idle") cleanupVideoCall(false);
@@ -1436,8 +1514,10 @@
     doodleInitialized = false;
     seenDoodleIds.clear();
     visibleMsgCount = INITIAL_VISIBLE_MSGS;
-    if (pollTimer) clearInterval(pollTimer);
-    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    stopPolling();
+    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+    if (emojiClearTimer) { clearTimeout(emojiClearTimer); emojiClearTimer = null; }
+    if (doodleClearTimer) { clearTimeout(doodleClearTimer); doodleClearTimer = null; }
     passInput.value = "";
     lockScreen.classList.remove("hidden");
   }
@@ -1467,7 +1547,7 @@
   }
 
   function startSync() {
-    if (pollTimer) clearInterval(pollTimer);
+    stopPolling();
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     loadedMsgSyncTs = -1;
     wasPartnerOnline = null;
@@ -1479,8 +1559,10 @@
     sendHeartbeat();
     reportDiag(myDiagCode);
     pollRoom();
-    heartbeatTimer = setInterval(sendHeartbeat, 2500);
-    pollTimer = setInterval(pollRoom, 900);
+    heartbeatTimer = setInterval(() => {
+      if (document.hidden && callState === "idle") return;
+      sendHeartbeat();
+    }, 2500);
   }
 
   async function sendHeartbeat() {
@@ -1683,10 +1765,12 @@
     if (currentPlayingTs === msgTs) stopCurrentAudio();
     if (target.hasAudio) {
       delete audioCache[msgTs];
+      idbDelete("audios", msgTs);
       fetch(`${getAudioBaseUrl()}/${msgTs}.json`, { method: "DELETE" }).catch(() => {});
     }
     if (target.hasPhoto) {
       delete photoCache[msgTs];
+      idbDelete("photos", msgTs);
       fetch(`${getPhotoBaseUrl()}/${msgTs}.json`, { method: "DELETE" }).catch(() => {});
     }
 
@@ -1790,7 +1874,7 @@ ${getHonorificRule(msgLang)}
     }
   }
 
-  /* ================= 사진 메뉴 / 미리보기 스티커 편집 / 압축 / 전송 ================= */
+  /* ================= 사진 메뉴 / 미리보기 스티커 편집 / 압축(800px, 0.68) / 전송 ================= */
 
   function togglePhotoMenu(e) {
     if (e) e.stopPropagation();
@@ -1813,7 +1897,7 @@ ${getHonorificRule(msgLang)}
   photoCameraInput.addEventListener("change", (e) => handlePhotoFileSelected(e.target.files?.[0]));
   photoGalleryInput.addEventListener("change", (e) => handlePhotoFileSelected(e.target.files?.[0]));
 
-  function loadImageFromFile(file, maxDim = 1024) {
+  function loadImageFromFile(file, maxDim = 800) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -1838,7 +1922,7 @@ ${getHonorificRule(msgLang)}
   async function handlePhotoFileSelected(file) {
     if (!file) return;
     try {
-      const { img, w, h } = await loadImageFromFile(file, 1024);
+      const { img, w, h } = await loadImageFromFile(file, 800);
       pendingPhotoImg = img;
       pendingStickers = [];
       selectedStickerId = null;
@@ -1995,7 +2079,7 @@ ${getHonorificRule(msgLang)}
   async function confirmSendPendingPhoto() {
     if (!pendingPhotoImg || isProcessing) return;
     renderPhotoPreviewCanvas(false);
-    const finalDataUrl = photoPreviewCanvas.toDataURL("image/jpeg", 0.76);
+    const finalDataUrl = photoPreviewCanvas.toDataURL("image/jpeg", 0.68);
     cancelPendingPhoto();
     await sendCompressedPhoto(finalDataUrl);
   }
@@ -2006,6 +2090,7 @@ ${getHonorificRule(msgLang)}
     updateButtonUI();
     try {
       photoCache[msgTs] = dataUrl;
+      idbPut("photos", { ts: msgTs, dataUrl });
 
       await fetch(`${getPhotoBaseUrl()}/${msgTs}.json`, {
         method: "PUT",
@@ -2035,6 +2120,7 @@ ${getHonorificRule(msgLang)}
       await saveMessagesToDb(updatedMessages, syncTs);
     } catch (err) {
       delete photoCache[msgTs];
+      idbDelete("photos", msgTs);
       alert("Photo Error: " + err.message);
     } finally {
       isProcessing = false;
@@ -2061,12 +2147,21 @@ ${getHonorificRule(msgLang)}
       attachSrc(photoCache[ts]);
       return;
     }
+
+    const cachedIdb = await idbGet("photos", ts);
+    if (cachedIdb && cachedIdb.dataUrl) {
+      photoCache[ts] = cachedIdb.dataUrl;
+      attachSrc(cachedIdb.dataUrl);
+      return;
+    }
+
     try {
       const res = await fetch(`${getPhotoBaseUrl()}/${ts}.json`);
       if (!res.ok) throw new Error();
       const obj = await res.json();
       if (obj && obj.dataUrl) {
         photoCache[ts] = obj.dataUrl;
+        idbPut("photos", { ts, dataUrl: obj.dataUrl });
         attachSrc(obj.dataUrl);
       } else {
         placeholderEl.textContent = t().photoExpired;
@@ -2206,7 +2301,7 @@ ${getHonorificRule(msgLang)}
     a.remove();
   }
 
-  /* ================= 실시간 전용 연속 이모티콘 팝업 (❤️는 날아오르는 하트도 동시 표시) ================= */
+  /* ================= 실시간 전용 연속 이모티콘 팝업 + DB 자동 청소 ================= */
 
   function triggerEmojiEffect(emoji) {
     spawnPopupEmoji(emoji);
@@ -2227,6 +2322,12 @@ ${getHonorificRule(msgLang)}
     if (myEmojiEvents.length > 15) myEmojiEvents = myEmojiEvents.slice(-15);
 
     patchRoom({ [`emojiBurst/${myRole}`]: myEmojiEvents });
+
+    if (emojiClearTimer) clearTimeout(emojiClearTimer);
+    emojiClearTimer = setTimeout(() => {
+      myEmojiEvents = [];
+      if (roomPass) patchRoom({ [`emojiBurst/${myRole}`]: null });
+    }, 9000);
   }
 
   function handleIncomingEmojiBurst(burstMap) {
@@ -2250,7 +2351,7 @@ ${getHonorificRule(msgLang)}
     }
   }
 
-  /* ================= 영상통화 상시 실시간 낙서 (길이 제한 해제 + 전송 시 자동 경량화) ================= */
+  /* ================= 영상통화 상시 실시간 낙서 + DB 자동 청소 ================= */
 
   function downsamplePoints(points, maxCount = 140) {
     if (!points || points.length <= maxCount) return points;
@@ -2398,6 +2499,12 @@ ${getHonorificRule(msgLang)}
         myDoodleEvents.push({ id, points: compactPoints, color: finished.color, ts: now });
         if (myDoodleEvents.length > 6) myDoodleEvents = myDoodleEvents.slice(-6);
         patchRoom({ [`doodleBurst/${myRole}`]: myDoodleEvents });
+
+        if (doodleClearTimer) clearTimeout(doodleClearTimer);
+        doodleClearTimer = setTimeout(() => {
+          myDoodleEvents = [];
+          if (roomPass) patchRoom({ [`doodleBurst/${myRole}`]: null });
+        }, 9000);
       }
     }
   }
@@ -2648,6 +2755,13 @@ ${getHonorificRule(msgLang)}
         audioCache[targetTs] = cached;
       }
       if (!cached) {
+        const fromIdb = await idbGet("audios", targetTs);
+        if (fromIdb && fromIdb.data) {
+          cached = { data: fromIdb.data, mime: fromIdb.mime };
+          audioCache[targetTs] = cached;
+        }
+      }
+      if (!cached) {
         const liveBtn = subtitlesEl.querySelector(`.play-btn[data-ts="${targetTs}"]`);
         if (liveBtn) liveBtn.textContent = "⏳";
         const res = await fetch(`${getAudioBaseUrl()}/${targetTs}.json`);
@@ -2661,6 +2775,7 @@ ${getHonorificRule(msgLang)}
           return;
         }
         audioCache[targetTs] = cached;
+        idbPut("audios", { ts: targetTs, data: cached.data, mime: cached.mime });
       }
 
       if (currentPlayingTs !== targetTs) return;
@@ -2791,80 +2906,87 @@ ${getHonorificRule(msgLang)}
   }
 
   async function pollRoom() {
-    if (!roomPass) return;
+    if (!roomPass || isPollingNow) return;
+    if (document.hidden && callState === "idle") return;
+
+    isPollingNow = true;
     try {
       const res = await fetch(`${getRoomBaseUrl()}.json`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data) {
-        const serverVer = Number(data.appVersion || 0);
-        if (serverVer < APP_VERSION) {
-          patchRoom({ appVersion: APP_VERSION });
-        } else if (serverVer > APP_VERSION && !isRecording && !isProcessing && callState === "idle") {
-          if (sessionStorage.getItem("wt_reloaded_ver") !== String(serverVer)) {
-            sessionStorage.setItem("wt_reloaded_ver", String(serverVer));
-            window.location.replace(`${window.location.pathname}?v=${serverVer}`);
-            return;
+      if (res.ok) {
+        const data = await res.json();
+        if (data) {
+          const serverVer = Number(data.appVersion || 0);
+          if (serverVer < APP_VERSION) {
+            patchRoom({ appVersion: APP_VERSION });
+          } else if (serverVer > APP_VERSION && !isRecording && !isProcessing && callState === "idle") {
+            if (sessionStorage.getItem("wt_reloaded_ver") !== String(serverVer)) {
+              sessionStorage.setItem("wt_reloaded_ver", String(serverVer));
+              window.location.replace(`${window.location.pathname}?v=${serverVer}`);
+              return;
+            }
           }
-        }
 
-        roomState.lockedBy = data.lockedBy || "";
-        roomState.lockedAt = data.lockedAt || 0;
-        roomState.reservedBy = data.reservedBy || "";
-        roomState.turnFor = data.turnFor || "";
-        roomState.turnAt = data.turnAt || 0;
-        roomState.presence = data.presence || {};
-        roomState.typing = data.typing || {};
-        roomState.diagnostics = data.diagnostics || {};
-        roomState.callMeta = data.callMeta || null;
+          roomState.lockedBy = data.lockedBy || "";
+          roomState.lockedAt = data.lockedAt || 0;
+          roomState.reservedBy = data.reservedBy || "";
+          roomState.turnFor = data.turnFor || "";
+          roomState.turnAt = data.turnAt || 0;
+          roomState.presence = data.presence || {};
+          roomState.typing = data.typing || {};
+          roomState.diagnostics = data.diagnostics || {};
+          roomState.callMeta = data.callMeta || null;
 
-        handleIncomingEmojiBurst(data.emojiBurst);
-        handleIncomingDoodleBurst(data.doodleBurst);
+          handleIncomingEmojiBurst(data.emojiBurst);
+          handleIncomingDoodleBurst(data.doodleBurst);
 
-        const serverMsgSyncTs = Number(data.lastMsgTs || 0);
-        if (pendingSaveCount === 0 && (loadedMsgSyncTs === -1 || serverMsgSyncTs !== loadedMsgSyncTs)) {
-          fetchMessagesFromDb(data.messages, serverMsgSyncTs);
-        }
-
-        const now = Date.now();
-        const partnerOnline = isPartnerOnline();
-
-        if (callState === "test" && partnerOnline) {
-          cleanupVideoCall(false);
-        }
-
-        if (roomState.lockedBy && roomState.lockedBy !== myRole) {
-          const lockTimedOut = roomState.lockedAt && (now - roomState.lockedAt > 60000);
-          if (!partnerOnline || lockTimedOut) {
-            roomState.lockedBy = "";
-            roomState.lockedAt = 0;
-            patchRoom({ lockedBy: "", lockedAt: 0 });
+          const serverMsgSyncTs = Number(data.lastMsgTs || 0);
+          if (pendingSaveCount === 0 && (loadedMsgSyncTs === -1 || serverMsgSyncTs !== loadedMsgSyncTs)) {
+            fetchMessagesFromDb(data.messages, serverMsgSyncTs);
           }
+
+          const now = Date.now();
+          const partnerOnline = isPartnerOnline();
+
+          if (callState === "test" && partnerOnline) {
+            cleanupVideoCall(false);
+          }
+
+          if (roomState.lockedBy && roomState.lockedBy !== myRole) {
+            const lockTimedOut = roomState.lockedAt && (now - roomState.lockedAt > 60000);
+            if (!partnerOnline || lockTimedOut) {
+              roomState.lockedBy = "";
+              roomState.lockedAt = 0;
+              patchRoom({ lockedBy: "", lockedAt: 0 });
+            }
+          }
+
+          if (roomState.turnFor && roomState.turnAt && (now - roomState.turnAt > 15000)) {
+            roomState.turnFor = "";
+            roomState.turnAt = 0;
+            patchRoom({ turnFor: "", turnAt: 0 });
+          }
+
+          isLockedByOther = Boolean(roomState.lockedBy && roomState.lockedBy !== myRole);
+          isReservedByMe = (roomState.reservedBy === myRole);
+          isMyTurn = (!isLockedByOther && roomState.turnFor === myRole);
+          isPartnerTurn = (!isLockedByOther && Boolean(roomState.turnFor) && roomState.turnFor !== myRole);
+
+          if (isMyTurn && roomState.turnAt !== lastTurnNotifiedAt) {
+            lastTurnNotifiedAt = roomState.turnAt;
+            if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
+          }
+
+          handleCallMetaSync(roomState.callMeta, partnerOnline);
+          updateButtonUI();
         }
-
-        if (roomState.turnFor && roomState.turnAt && (now - roomState.turnAt > 15000)) {
-          roomState.turnFor = "";
-          roomState.turnAt = 0;
-          patchRoom({ turnFor: "", turnAt: 0 });
-        }
-
-        isLockedByOther = Boolean(roomState.lockedBy && roomState.lockedBy !== myRole);
-        isReservedByMe = (roomState.reservedBy === myRole);
-        isMyTurn = (!isLockedByOther && roomState.turnFor === myRole);
-        isPartnerTurn = (!isLockedByOther && Boolean(roomState.turnFor) && roomState.turnFor !== myRole);
-
-        if (isMyTurn && roomState.turnAt !== lastTurnNotifiedAt) {
-          lastTurnNotifiedAt = roomState.turnAt;
-          if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
-        }
-
-        handleCallMetaSync(roomState.callMeta, partnerOnline);
-        updateButtonUI();
+        updatePartnerStatusUI();
       }
-      updatePartnerStatusUI();
     } catch {
       statusEl.textContent = t().reconnecting;
       statusEl.style.color = "#e53935";
+    } finally {
+      isPollingNow = false;
+      scheduleNextPoll();
     }
   }
 
@@ -2909,8 +3031,16 @@ ${getHonorificRule(msgLang)}
   }
 
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && (callState === "active" || callState === "test" || callState === "outgoing")) {
-      requestWakeLock();
+    if (document.visibilityState === "visible") {
+      if (callState === "active" || callState === "test" || callState === "outgoing") {
+        requestWakeLock();
+      }
+      if (roomPass) {
+        sendHeartbeat();
+        pollRoom();
+      }
+    } else if (callState === "idle") {
+      stopPolling();
     }
   });
 
@@ -3822,10 +3952,12 @@ ${getHonorificRule(msgLang)}
       if (m.hasAudio) {
         fetch(`${getAudioBaseUrl()}/${m.ts}.json`, { method: "DELETE" }).catch(() => {});
         delete audioCache[m.ts];
+        idbDelete("audios", m.ts);
       }
       if (m.hasPhoto) {
         fetch(`${getPhotoBaseUrl()}/${m.ts}.json`, { method: "DELETE" }).catch(() => {});
         delete photoCache[m.ts];
+        idbDelete("photos", m.ts);
       }
     });
 
@@ -3838,6 +3970,7 @@ ${getHonorificRule(msgLang)}
           const ts = updated[i].ts;
           fetch(`${getAudioBaseUrl()}/${ts}.json`, { method: "DELETE" }).catch(() => {});
           delete audioCache[ts];
+          idbDelete("audios", ts);
           updated[i] = { ...updated[i], hasAudio: false };
         }
       }
@@ -3847,6 +3980,7 @@ ${getHonorificRule(msgLang)}
           const ts = updated[i].ts;
           fetch(`${getPhotoBaseUrl()}/${ts}.json`, { method: "DELETE" }).catch(() => {});
           delete photoCache[ts];
+          idbDelete("photos", ts);
           updated[i] = { ...updated[i], hasPhoto: false, original: t().photoExpired, translated: t().photoExpired };
         }
       }
@@ -3873,6 +4007,7 @@ ${getHonorificRule(msgLang)}
       const targetLang = myRole === "ko" ? "베트남어" : "한국어";
 
       audioCache[msgTs] = { data: base64Audio, mime: cleanMime };
+      idbPut("audios", { ts: msgTs, data: base64Audio, mime: cleanMime });
       const audioUploadPromise = fetch(`${getAudioBaseUrl()}/${msgTs}.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -3922,6 +4057,7 @@ ${getHonorificRule(myRole)}
 
       if (!orig) {
         delete audioCache[msgTs];
+        idbDelete("audios", msgTs);
         audioUploadPromise.then(() => {
           fetch(`${getAudioBaseUrl()}/${msgTs}.json`, { method: "DELETE" }).catch(() => {});
         });
@@ -3965,6 +4101,7 @@ ${getHonorificRule(myRole)}
       }
     } catch (err) {
       delete audioCache[msgTs];
+      idbDelete("audios", msgTs);
       if (audioUploaded) {
         fetch(`${getAudioBaseUrl()}/${msgTs}.json`, { method: "DELETE" }).catch(() => {});
       }
