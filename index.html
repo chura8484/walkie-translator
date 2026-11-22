@@ -68,10 +68,27 @@
     #videoSection { position: relative; width: 100%; flex: 1; min-height: 0; background: #000; overflow: hidden; border-bottom: 1px solid var(--border); }
     #videoSection.split { flex: none; height: 42dvh; }
     #remoteVideo { width: 100%; height: 100%; object-fit: cover; background: #0a0a0a; }
+    #remoteVideo.fit-contain { object-fit: contain; }
     #doodleCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; touch-action: none; }
+    #callTimerBadge {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.58);
+      backdrop-filter: blur(4px);
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+      z-index: 5;
+      pointer-events: none;
+    }
     #remoteStatusBadge { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.68); color: #fff; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 4; pointer-events: none; white-space: nowrap; }
     #remoteStatusBadge.top-badge { top: 14px; transform: translateX(-50%); background: rgba(0, 0, 0, 0.72); font-size: 13px; padding: 6px 14px; }
-    #remoteStatusBadge.test-badge { top: 14px; transform: translateX(-50%); background: rgba(239, 108, 0, 0.85); font-size: 12px; padding: 5px 12px; }
+    #remoteStatusBadge.test-badge { top: 44px; transform: translateX(-50%); background: rgba(239, 108, 0, 0.85); font-size: 12px; padding: 5px 12px; }
 
     #videoSubtitleOverlay {
       position: absolute;
@@ -108,8 +125,8 @@
     #localCamOffMask { position: absolute; inset: 0; background: #222; display: flex; align-items: center; justify-content: center; font-size: 24px; z-index: 3; }
     #showPipBtn { position: absolute; right: 10px; top: 12px; z-index: 6; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.4); background: rgba(0,0,0,0.55); color: #fff; font-size: 15px; cursor: pointer; }
 
-    #videoControls { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 7px; padding: 6px 10px; background: rgba(0,0,0,0.58); backdrop-filter: blur(6px); border-radius: 26px; z-index: 8; max-width: 96%; }
-    .vc-btn { width: 38px; height: 38px; border-radius: 50%; border: none; outline: none; background: rgba(255,255,255,0.16); color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+    #videoControls { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 6px 9px; background: rgba(0,0,0,0.58); backdrop-filter: blur(6px); border-radius: 26px; z-index: 8; max-width: 96%; }
+    .vc-btn { width: 36px; height: 36px; border-radius: 50%; border: none; outline: none; background: rgba(255,255,255,0.16); color: #fff; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
     .vc-btn.off { background: #ef6c00; }
     .vc-btn.active { background: #0078ff; }
     .vc-btn.end { background: #c62828; }
@@ -166,10 +183,13 @@
     .load-more-hint { text-align: center; font-size: 12px; color: var(--text-muted); padding: 4px 0 8px; cursor: pointer; }
 
     .date-divider { align-self: center; background: var(--divider-bg); color: var(--text-sub); font-size: 11px; font-weight: bold; padding: 4px 12px; border-radius: 12px; margin: 4px 0; }
+    .call-log-pill { align-self: center; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-sub); font-size: 12px; font-weight: bold; padding: 6px 14px; border-radius: 16px; display: flex; align-items: center; gap: 6px; }
+    .call-log-time { font-size: 10px; color: var(--text-muted); font-weight: normal; }
 
-    .bubble { position: relative; padding: 10px 13px; border-radius: 12px; max-width: 90%; line-height: 1.45; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
+    .bubble { position: relative; padding: 10px 13px; border-radius: 12px; max-width: 90%; line-height: 1.45; box-shadow: 0 1px 2px rgba(0,0,0,0.12); transition: box-shadow 0.2s; }
     .bubble.mine { align-self: flex-end; background: var(--bubble-mine); }
     .bubble.other { align-self: flex-start; background: var(--bubble-other); border-left: 4px solid #ff9800; }
+    .bubble.playing-bubble { box-shadow: 0 0 0 2px #4caf50, 0 2px 12px rgba(76, 175, 80, 0.35); }
 
     .reply-quote { background: var(--quote-bg); border-left: 3px solid #42a5f5; padding: 4px 8px; border-radius: 6px; margin-bottom: 6px; font-size: 12px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
 
@@ -187,8 +207,31 @@
     .msg-act-btn { border: none; background: transparent; color: var(--text-muted); font-size: 12px; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
     .msg-act-btn:active { opacity: 0.6; }
 
-    .play-btn { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; border: none; background: rgba(128,128,128,0.22); color: var(--text); font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .play-btn {
+      flex-shrink: 0;
+      height: 30px;
+      min-width: 34px;
+      padding: 0 9px;
+      border-radius: 15px;
+      border: none;
+      background: rgba(128,128,128,0.22);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: bold;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      cursor: pointer;
+    }
     .play-btn.playing { background: #4caf50; color: #fff; }
+    .audio-dur { font-size: 11px; opacity: 0.9; }
+    .eq-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
+    .eq-bars span { width: 2.5px; background: #fff; border-radius: 2px; animation: eqBounce 0.55s ease-in-out infinite alternate; }
+    .eq-bars span:nth-child(1) { height: 5px; animation-delay: 0s; }
+    .eq-bars span:nth-child(2) { height: 12px; animation-delay: 0.18s; }
+    .eq-bars span:nth-child(3) { height: 7px; animation-delay: 0.36s; }
+    @keyframes eqBounce { 0% { transform: scaleY(0.3); } 100% { transform: scaleY(1); } }
 
     .msg-heart-btn {
       position: absolute;
@@ -386,6 +429,7 @@
 <section id="videoSection" class="hidden">
   <video id="remoteVideo" autoplay playsinline></video>
   <canvas id="doodleCanvas"></canvas>
+  <div id="callTimerBadge" class="hidden">00:00</div>
   <div id="remoteStatusBadge" class="hidden">연결 중...</div>
   <div id="videoSubtitleOverlay"></div>
   <div id="heartLayer"></div>
@@ -400,6 +444,7 @@
     <button class="vc-btn" id="vcFlipBtn" onclick="switchCamera()" title="전면/후면">🔄</button>
     <button class="vc-btn" id="vcMuteBtn" onclick="toggleMute()" title="음소거">🎤</button>
     <button class="vc-btn" id="vcCamBtn" onclick="toggleCamera()" title="카메라 끄기">📷</button>
+    <button class="vc-btn" id="vcFitBtn" onclick="toggleVideoFit()" title="화면 비율 전환">⛶</button>
     <button class="vc-btn" id="vcHeartBtn" onclick="sendHeart()" title="하트">❤️</button>
     <button class="vc-btn" id="vcRatioBtn" onclick="toggleVideoRatio()" title="채팅 보기/숨기기">💬</button>
     <button class="vc-btn end" id="vcEndBtn" onclick="endVideoCall()" title="종료">📵</button>
@@ -457,7 +502,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 26;
+  const APP_VERSION = 27;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const PRIMARY_MODEL = "gemini-3.5-flash-lite";
   const FALLBACK_MODEL = "gemini-3.1-flash-lite";
@@ -547,6 +592,7 @@
       callReconnecting: "네트워크 재연결 중...",
       callTestBadge: "🧪 테스트 모드 (화면 낙서 테스트 가능)",
       callPartnerOffline: "상대방이 접속 중일 때 영상통화를 걸 수 있습니다.",
+      callLogLabel: "📹 영상통화",
       typing: "✏️ 상대방이 입력 중...",
       replyPrefix: "↩ 답장: ",
       photoLabel: "📷 사진",
@@ -604,6 +650,7 @@
       callReconnecting: "Đang kết nối lại mạng...",
       callTestBadge: "🧪 Chế độ thử nghiệm",
       callPartnerOffline: "Chỉ có thể gọi video khi đối phương đang online.",
+      callLogLabel: "📹 Cuộc gọi video",
       typing: "✏️ Đối phương đang nhập...",
       replyPrefix: "↩ Trả lời: ",
       photoLabel: "📷 Hình ảnh",
@@ -676,7 +723,6 @@
   let currentModalPhotoDataUrl = "";
   let currentModalPhotoTs = 0;
 
-  // 사진 미리보기 & 스티커 상태
   let pendingPhotoImg = null;
   let pendingStickers = [];
   let selectedStickerId = null;
@@ -690,7 +736,6 @@
   let seenEmojiIds = new Set();
   let emojiInitialized = false;
 
-  // 영상통화 실시간 낙서 상태
   let activeDoodles = [];
   let currentDoodleStroke = null;
   let doodleRaf = null;
@@ -720,6 +765,9 @@
   let isMuted = false;
   let isCamOff = false;
   let isVideoFull = true;
+  let isVideoContain = false;
+  let callConnectedAt = 0;
+  let callTimerInterval = null;
   let videoSubtitleTimer = null;
   let lastOverlayMsgTs = 0;
   let pipPosIndex = 0;
@@ -780,6 +828,7 @@
   const videoSection = document.getElementById("videoSection");
   const remoteVideo = document.getElementById("remoteVideo");
   const doodleCanvas = document.getElementById("doodleCanvas");
+  const callTimerBadge = document.getElementById("callTimerBadge");
   const remoteStatusBadge = document.getElementById("remoteStatusBadge");
   const videoSubtitleOverlay = document.getElementById("videoSubtitleOverlay");
   const heartLayer = document.getElementById("heartLayer");
@@ -789,6 +838,7 @@
   const showPipBtn = document.getElementById("showPipBtn");
   const vcMuteBtn = document.getElementById("vcMuteBtn");
   const vcCamBtn = document.getElementById("vcCamBtn");
+  const vcFitBtn = document.getElementById("vcFitBtn");
   const vcRatioBtn = document.getElementById("vcRatioBtn");
   const subtitlesEl = document.getElementById("subtitles");
   const scrollBottomBtn = document.getElementById("scrollBottomBtn");
@@ -819,6 +869,23 @@
 
   function t() { return UI[myRole] || UI.ko; }
   function getOtherRole() { return myRole === "ko" ? "vi" : "ko"; }
+
+  function formatDuration(sec, padMin = true) {
+    const s = Math.max(0, Math.floor(sec || 0));
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    const mm = padMin ? String(m).padStart(2, "0") : String(m);
+    const ss = String(r).padStart(2, "0");
+    return `${mm}:${ss}`;
+  }
+
+  function buildPlayBtnHTML(isPlaying, durationSec) {
+    const durHtml = durationSec ? `<span class="audio-dur">${formatDuration(durationSec, false)}</span>` : "";
+    if (isPlaying) {
+      return `<span class="eq-bars"><span></span><span></span><span></span></span>${durHtml}`;
+    }
+    return `🔊${durHtml}`;
+  }
 
   function applyThemeAndFont() {
     document.body.classList.toggle("light-theme", isLightTheme);
@@ -1360,7 +1427,7 @@
     await saveMessagesToDb(updated, syncTs);
   }
 
-  /* ================= 어색한 번역 다시 번역하기 ================= */
+  /* ================= 어색한 번역 다시 번역하기 (본인 메시지 전용) ================= */
 
   async function retranslateMessage(msgTs, btnEl) {
     if (isProcessing || !apiKey) return;
@@ -1781,7 +1848,7 @@ ${getHonorificRule(msgLang)}
     }
   }
 
-  /* ================= 영상통화 상시 실시간 낙서 ================= */
+  /* ================= 영상통화 상시 실시간 낙서 (1.5초 유지 + 1초 소멸) ================= */
 
   function resizeDoodleCanvas() {
     const w = doodleCanvas.clientWidth;
@@ -1804,8 +1871,8 @@ ${getHonorificRule(msgLang)}
       ctx.clearRect(0, 0, w, h);
 
       const now = Date.now();
-      const HOLD_MS = 2500;
-      const FADE_MS = 1200;
+      const HOLD_MS = 1500;
+      const FADE_MS = 1000;
 
       activeDoodles = activeDoodles.filter(st => (now - st.createdAt) < (HOLD_MS + FADE_MS));
 
@@ -1889,7 +1956,6 @@ ${getHonorificRule(msgLang)}
     currentDoodleStroke = null;
     doodlePointerId = null;
 
-    // 단순 오터치(점)는 무시하고 드래그한 선만 표시·전송
     if (doodleTotalDist >= 14 && finished.points.length >= 3) {
       const now = Date.now();
       activeDoodles.push({ points: finished.points, color: finished.color, createdAt: now });
@@ -1946,8 +2012,8 @@ ${getHonorificRule(msgLang)}
     const startIdx = Math.max(0, total - visibleMsgCount);
     const visibleSlice = msgs.slice(startIdx);
 
-    const sig = `${startIdx}|${myRole}|` + visibleSlice.map(m =>
-      `${m.ts}:${(m.hasAudio || m.audioData) ? 1 : 0}:${m.hasPhoto ? 1 : 0}:${m.liked ? 1 : 0}:${(m.translated || "").length}`
+    const sig = `${startIdx}|${myRole}|${currentPlayingTs}|` + visibleSlice.map(m =>
+      `${m.ts}:${m.type || ""}:${(m.hasAudio || m.audioData) ? 1 : 0}:${m.audioDuration || 0}:${m.hasPhoto ? 1 : 0}:${m.liked ? 1 : 0}:${(m.translated || "").length}`
     ).join("|");
     if (sig === lastRenderSig) return;
     lastRenderSig = sig;
@@ -1981,9 +2047,21 @@ ${getHonorificRule(msgLang)}
         }
       }
 
+      // 영상통화 종료 기록
+      if (m.type === "call_log") {
+        const pill = document.createElement("div");
+        pill.className = "call-log-pill";
+        const durText = formatDuration(m.durationSec || 0, true);
+        pill.innerHTML = `<span>${t().callLogLabel} (${durText})</span><span class="call-log-time">${formatMsgTime(m.ts)}</span>`;
+        subtitlesEl.appendChild(pill);
+        return;
+      }
+
       const isMine = (m.lang === myRole);
+      const isPlayingThis = (currentPlayingTs === m.ts);
       const div = document.createElement("div");
-      div.className = `bubble ${isMine ? "mine" : "other"}`;
+      div.className = `bubble ${isMine ? "mine" : "other"}${isPlayingThis ? " playing-bubble" : ""}`;
+      div.dataset.ts = String(m.ts);
 
       if (m.replyTo && m.replyTo.text) {
         const quoteDiv = document.createElement("div");
@@ -2019,9 +2097,10 @@ ${getHonorificRule(msgLang)}
 
         if (m.hasAudio || (m.audioData && m.audioMime)) {
           const playBtn = document.createElement("button");
-          playBtn.className = "play-btn" + (currentPlayingTs === m.ts ? " playing" : "");
+          playBtn.className = "play-btn" + (isPlayingThis ? " playing" : "");
           playBtn.dataset.ts = String(m.ts);
-          playBtn.textContent = currentPlayingTs === m.ts ? "⏹" : "🔊";
+          playBtn.dataset.dur = String(m.audioDuration || 0);
+          playBtn.innerHTML = buildPlayBtnHTML(isPlayingThis, m.audioDuration || 0);
           playBtn.onclick = () => toggleAudio(m, playBtn);
           topDiv.appendChild(playBtn);
         }
@@ -2045,7 +2124,8 @@ ${getHonorificRule(msgLang)}
       const actDiv = document.createElement("div");
       actDiv.className = "msg-actions";
 
-      if (!m.hasPhoto && m.original) {
+      // 재번역 버튼은 본인이 보낸 메시지에만 표시
+      if (isMine && !m.hasPhoto && m.original) {
         const retransBtn = document.createElement("button");
         retransBtn.className = "msg-act-btn";
         retransBtn.textContent = "🔄";
@@ -2094,7 +2174,7 @@ ${getHonorificRule(msgLang)}
 
     if (latest && latest.ts && latest.ts > lastOverlayMsgTs) {
       lastOverlayMsgTs = latest.ts;
-      if ((callState === "active" || callState === "test" || callState === "outgoing") && isVideoFull && !latest.hasPhoto) {
+      if ((callState === "active" || callState === "test" || callState === "outgoing") && isVideoFull && !latest.hasPhoto && latest.type !== "call_log") {
         showVideoSubtitle(latest);
       }
     }
@@ -2109,8 +2189,10 @@ ${getHonorificRule(msgLang)}
       const prevBtn = subtitlesEl.querySelector(`.play-btn[data-ts="${currentPlayingTs}"]`);
       if (prevBtn) {
         prevBtn.classList.remove("playing");
-        prevBtn.textContent = "🔊";
+        prevBtn.innerHTML = buildPlayBtnHTML(false, Number(prevBtn.dataset.dur || 0));
       }
+      const prevBubble = subtitlesEl.querySelector(`.bubble[data-ts="${currentPlayingTs}"]`);
+      if (prevBubble) prevBubble.classList.remove("playing-bubble");
       currentPlayingTs = null;
     }
   }
@@ -2145,13 +2227,15 @@ ${getHonorificRule(msgLang)}
       currentAudioEl = audio;
       currentPlayingTs = msg.ts;
       btnEl.classList.add("playing");
-      btnEl.textContent = "⏹";
+      btnEl.innerHTML = buildPlayBtnHTML(true, msg.audioDuration || 0);
+      const bubbleEl = subtitlesEl.querySelector(`.bubble[data-ts="${msg.ts}"]`);
+      if (bubbleEl) bubbleEl.classList.add("playing-bubble");
 
       audio.onended = () => stopCurrentAudio();
       audio.onerror = () => stopCurrentAudio();
       audio.play().catch(() => stopCurrentAudio());
     } catch {
-      btnEl.textContent = "🔊";
+      btnEl.innerHTML = buildPlayBtnHTML(false, msg.audioDuration || 0);
       stopCurrentAudio();
     }
   }
@@ -2175,6 +2259,27 @@ ${getHonorificRule(msgLang)}
       });
       await patchRoom({ lastMsgTs: syncTs });
     } catch {}
+  }
+
+  async function appendCallLogMessage(callId, durationSec) {
+    if (!callId || durationSec < 1) return;
+    if ((roomState.messages || []).some(m => m.type === "call_log" && m.callId === callId)) return;
+
+    const logMsg = {
+      type: "call_log",
+      callId,
+      durationSec,
+      lang: myRole,
+      ts: Date.now()
+    };
+    const updatedMessages = buildUpdatedMessages(logMsg);
+    roomState.messages = updatedMessages;
+    lastRenderSig = "";
+    renderMessages(false);
+
+    const syncTs = Date.now();
+    loadedMsgSyncTs = syncTs;
+    await saveMessagesToDb(updatedMessages, syncTs);
   }
 
   async function fetchMessagesFromDb(legacyMessages, targetSyncTs) {
@@ -2303,6 +2408,29 @@ ${getHonorificRule(msgLang)}
 
   /* ================= 영상통화 (WebRTC) 로직 ================= */
 
+  function startCallTimer() {
+    if (callConnectedAt > 0) return;
+    callConnectedAt = Date.now();
+    callTimerBadge.textContent = "00:00";
+    callTimerBadge.classList.remove("hidden");
+    if (callTimerInterval) clearInterval(callTimerInterval);
+    callTimerInterval = setInterval(() => {
+      if (!callConnectedAt) return;
+      const sec = Math.floor((Date.now() - callConnectedAt) / 1000);
+      callTimerBadge.textContent = formatDuration(sec, true);
+    }, 500);
+  }
+
+  function stopCallTimer() {
+    if (callTimerInterval) {
+      clearInterval(callTimerInterval);
+      callTimerInterval = null;
+    }
+    callConnectedAt = 0;
+    callTimerBadge.classList.add("hidden");
+    callTimerBadge.textContent = "00:00";
+  }
+
   async function requestWakeLock() {
     try {
       if ("wakeLock" in navigator) {
@@ -2361,6 +2489,7 @@ ${getHonorificRule(msgLang)}
       document.getElementById("chatArea").classList.remove("hidden");
       hideVideoSubtitle();
     }
+    remoteVideo.classList.toggle("fit-contain", isVideoContain);
     updateVideoControlButtons();
   }
 
@@ -2372,6 +2501,7 @@ ${getHonorificRule(msgLang)}
       isMuted = false;
       isCamOff = false;
       isVideoFull = true;
+      isVideoContain = false;
       lastOverlayMsgTs = getLatestMessageTs();
 
       localVideo.srcObject = localStream;
@@ -2386,6 +2516,7 @@ ${getHonorificRule(msgLang)}
       remoteStatusBadge.classList.add("test-badge");
       remoteStatusBadge.classList.remove("hidden");
 
+      startCallTimer();
       applyVideoLayout();
       updatePartnerStatusUI();
       requestWakeLock();
@@ -2416,6 +2547,7 @@ ${getHonorificRule(msgLang)}
       isMuted = false;
       isCamOff = false;
       isVideoFull = true;
+      isVideoContain = false;
       lastOverlayMsgTs = getLatestMessageTs();
 
       localVideo.srcObject = localStream;
@@ -2471,6 +2603,7 @@ ${getHonorificRule(msgLang)}
       isMuted = false;
       isCamOff = false;
       isVideoFull = true;
+      isVideoContain = false;
 
       callModal.classList.add("hidden");
       showVideoUI(false);
@@ -2495,8 +2628,13 @@ ${getHonorificRule(msgLang)}
       cleanupVideoCall(false);
       return;
     }
+    const endedCallId = activeCallId;
+    const durSec = callConnectedAt > 0 ? Math.max(1, Math.floor((Date.now() - callConnectedAt) / 1000)) : 0;
     await patchRoom({ "callMeta/status": "idle" });
     cleanupVideoCall(false);
+    if (durSec > 0) {
+      await appendCallLogMessage(endedCallId, durSec);
+    }
   }
 
   function handleCallMetaSync(meta, partnerOnline) {
@@ -2580,6 +2718,7 @@ ${getHonorificRule(msgLang)}
         remoteVideo.srcObject = event.streams[0];
         remoteVideo.play().catch(() => {});
         remoteStatusBadge.classList.add("hidden");
+        startCallTimer();
       }
     };
 
@@ -2598,6 +2737,7 @@ ${getHonorificRule(msgLang)}
       const st = pc.iceConnectionState;
       if (st === "connected" || st === "completed") {
         remoteStatusBadge.classList.add("hidden");
+        startCallTimer();
         if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
       } else if (st === "checking" || st === "new") {
         remoteStatusBadge.classList.remove("test-badge", "top-badge");
@@ -2709,6 +2849,7 @@ ${getHonorificRule(msgLang)}
     const dCtx = doodleCanvas.getContext("2d");
     if (dCtx) dCtx.clearRect(0, 0, doodleCanvas.width, doodleCanvas.height);
 
+    stopCallTimer();
     hideVideoSubtitle();
     releaseWakeLock();
 
@@ -2727,7 +2868,7 @@ ${getHonorificRule(msgLang)}
 
     remoteVideo.srcObject = null;
     remoteVideo.muted = false;
-    remoteVideo.classList.remove("mirrored");
+    remoteVideo.classList.remove("mirrored", "fit-contain");
     localVideo.srcObject = null;
     callModal.classList.add("hidden");
     remoteStatusBadge.classList.add("hidden");
@@ -2739,6 +2880,7 @@ ${getHonorificRule(msgLang)}
     isMuted = false;
     isCamOff = false;
     isVideoFull = true;
+    isVideoContain = false;
     pipPosIndex = 0;
     localVideoWrap.className = "pos-br";
     localVideoWrap.classList.remove("hidden");
@@ -2828,6 +2970,12 @@ ${getHonorificRule(msgLang)}
     updateVideoControlButtons();
   }
 
+  function toggleVideoFit() {
+    isVideoContain = !isVideoContain;
+    remoteVideo.classList.toggle("fit-contain", isVideoContain);
+    updateVideoControlButtons();
+  }
+
   function toggleVideoRatio() {
     isVideoFull = !isVideoFull;
     applyVideoLayout();
@@ -2837,6 +2985,7 @@ ${getHonorificRule(msgLang)}
     vcMuteBtn.textContent = isMuted ? "🔇" : "🎤";
     vcMuteBtn.classList.toggle("off", isMuted);
     vcCamBtn.classList.toggle("off", isCamOff);
+    vcFitBtn.classList.toggle("active", isVideoContain);
     vcRatioBtn.textContent = isVideoFull ? "💬" : "⤢";
     vcRatioBtn.classList.toggle("active", !isVideoFull);
   }
@@ -3036,10 +3185,11 @@ ${getHonorificRule(msgLang)}
           return;
         }
 
+        const durationSec = Math.max(1, Math.round(duration / 1000));
         const audioBlob = new Blob(audioChunks, { type: actualMime });
         isProcessing = true;
         updateButtonUI();
-        await translateAudioAndBroadcast(audioBlob, actualMime);
+        await translateAudioAndBroadcast(audioBlob, actualMime, durationSec);
       };
 
       startVolumeMeter(currentStream);
@@ -3094,9 +3244,7 @@ ${getHonorificRule(msgLang)}
     recTimer.textContent = "00:00";
     recTimerId = setInterval(() => {
       const sec = Math.floor((Date.now() - recStartTime) / 1000);
-      const mm = String(Math.floor(sec / 60)).padStart(2, "0");
-      const ss = String(sec % 60).padStart(2, "0");
-      recTimer.textContent = `${mm}:${ss}`;
+      recTimer.textContent = formatDuration(sec, true);
     }, 300);
   }
 
@@ -3195,14 +3343,14 @@ ${getHonorificRule(msgLang)}
 
   function buildContextReference() {
     const recentMsgs = (roomState.messages || [])
-      .filter(m => !m.hasPhoto && m.original)
+      .filter(m => !m.hasPhoto && m.type !== "call_log" && m.original)
       .slice(-MAX_CONTEXT_MSGS);
     if (recentMsgs.length === 0) return "";
     const lines = recentMsgs.map(m => `- (${m.lang === "ko" ? "한→베" : "베→한"}) ${m.original} / ${m.translated}`);
     return `[이전 대화 문맥 참고]\n${lines.join("\n")}\n\n`;
   }
 
-  async function translateAudioAndBroadcast(audioBlob, cleanMime) {
+  async function translateAudioAndBroadcast(audioBlob, cleanMime, durationSec = 0) {
     const msgTs = Date.now();
     let audioUploaded = false;
 
@@ -3276,6 +3424,7 @@ ${getHonorificRule(myRole)}
         original: orig,
         translated: trans || orig,
         hasAudio: true,
+        audioDuration: durationSec,
         hasPhoto: false,
         liked: false,
         replyTo: replyTarget ? { ...replyTarget } : null,
