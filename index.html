@@ -92,6 +92,7 @@
     .vc-btn.end { background: #c62828; }
 
     #heartLayer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 8; }
+    #globalHeartLayer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 85; }
     .floating-heart { position: absolute; bottom: 58px; font-size: 28px; animation: floatHeart 1.8s ease-out forwards; }
     @keyframes floatHeart {
       0% { transform: translateY(0) scale(0.7); opacity: 0.95; }
@@ -115,6 +116,8 @@
     .bubble-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
     .translated { font-size: 17px; font-weight: bold; word-break: break-word; }
     .original { font-size: 12px; color: #bbb; word-break: break-word; }
+    .msg-time { font-size: 10px; color: #8e8e8e; margin-top: 4px; text-align: right; }
+    .bubble.other .msg-time { text-align: left; }
     .play-btn { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; border: none; background: rgba(255,255,255,0.14); color: #fff; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .play-btn.playing { background: #4caf50; }
 
@@ -184,6 +187,8 @@
   </style>
 </head>
 <body>
+
+<div id="globalHeartLayer"></div>
 
 <div id="lockScreen">
   <h2 id="lockTitle">🔒 방 암호 입력</h2>
@@ -266,7 +271,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 21;
+  const APP_VERSION = 22;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const PRIMARY_MODEL = "gemini-3.5-flash-lite";
   const FALLBACK_MODEL = "gemini-3.1-flash-lite";
@@ -452,6 +457,7 @@
   let pollTimer = null;
   let heartbeatTimer = null;
   let myDiagCode = inAppName ? "in_app" : "";
+  let wasPartnerOnline = null;
 
   let visibleMsgCount = INITIAL_VISIBLE_MSGS;
   let loadedMsgSyncTs = -1;
@@ -494,6 +500,7 @@
   };
   let lastRenderSig = "";
 
+  const globalHeartLayer = document.getElementById("globalHeartLayer");
   const lockScreen = document.getElementById("lockScreen");
   const lockTitle = document.getElementById("lockTitle");
   const unlockBtn = document.getElementById("unlockBtn");
@@ -548,6 +555,33 @@
   function t() { return UI[myRole] || UI.ko; }
   function getOtherRole() { return myRole === "ko" ? "vi" : "ko"; }
 
+  function spawnGlobalHearts(count = 4) {
+    const icons = ["❤️", "💖", "💕", "💗"];
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => {
+        const el = document.createElement("div");
+        el.className = "floating-heart";
+        el.textContent = icons[Math.floor(Math.random() * icons.length)];
+        el.style.left = `${15 + Math.random() * 70}%`;
+        globalHeartLayer.appendChild(el);
+        setTimeout(() => el.remove(), 1900);
+      }, i * 130);
+    }
+  }
+
+  function formatMsgTime(ts) {
+    if (!ts) return "";
+    const d = new Date(ts);
+    const now = new Date();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const isToday = d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate();
+    if (isToday) return `${hh}:${mm}`;
+    return `${d.getMonth() + 1}/${d.getDate()} ${hh}:${mm}`;
+  }
+
   function applyStaticText() {
     const text = t();
     lockTitle.textContent = text.lockTitle;
@@ -591,6 +625,7 @@
     lockScreen.classList.add("hidden");
     applyStaticText();
     startSync();
+    spawnGlobalHearts(5);
     return true;
   }
 
@@ -656,6 +691,7 @@
     roomPass = "";
     apiKey = "";
     loadedMsgSyncTs = -1;
+    wasPartnerOnline = null;
     visibleMsgCount = INITIAL_VISIBLE_MSGS;
     if (pollTimer) clearInterval(pollTimer);
     if (heartbeatTimer) clearInterval(heartbeatTimer);
@@ -687,6 +723,7 @@
     if (pollTimer) clearInterval(pollTimer);
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     loadedMsgSyncTs = -1;
+    wasPartnerOnline = null;
     visibleMsgCount = INITIAL_VISIBLE_MSGS;
     sendHeartbeat();
     reportDiag(myDiagCode);
@@ -724,6 +761,7 @@
     if (isRecording || callState !== "idle" || systemRole === "vi") return;
     releaseMyLocks(false);
     myRole = role;
+    wasPartnerOnline = null;
     localStorage.setItem("wt_role", role);
     applyStaticText();
     if (roomPass) {
@@ -743,6 +781,11 @@
 
   function updatePartnerStatusUI() {
     const online = isPartnerOnline();
+    if (wasPartnerOnline === false && online) {
+      spawnGlobalHearts(5);
+    }
+    wasPartnerOnline = online;
+
     if (online) {
       statusEl.textContent = t().partnerOnline;
       statusEl.style.color = "#4caf50";
@@ -840,12 +883,15 @@
     const idx = roomState.messages.findIndex(m => m.ts === msgTs);
     if (idx === -1) return;
 
+    const nextLiked = !roomState.messages[idx].liked;
     const updated = roomState.messages.map((m, i) =>
-      i === idx ? { ...m, liked: !m.liked } : m
+      i === idx ? { ...m, liked: nextLiked } : m
     );
     roomState.messages = updated;
     lastRenderSig = "";
     renderMessages(true);
+
+    if (nextLiked) spawnGlobalHearts(4);
 
     const syncTs = Date.now();
     loadedMsgSyncTs = syncTs;
@@ -907,6 +953,13 @@
 
       div.appendChild(topDiv);
       div.appendChild(origDiv);
+
+      if (m.ts) {
+        const timeDiv = document.createElement("div");
+        timeDiv.className = "msg-time";
+        timeDiv.textContent = formatMsgTime(m.ts);
+        div.appendChild(timeDiv);
+      }
 
       if (!isMine) {
         const heartBtn = document.createElement("button");
@@ -1017,6 +1070,11 @@
   async function fetchMessagesFromDb(legacyMessages, targetSyncTs) {
     if (isFetchingMsgs) return;
     isFetchingMsgs = true;
+    const isInitialLoad = (loadedMsgSyncTs === -1);
+    const prevLikedMine = new Set(
+      (roomState.messages || []).filter(m => m.lang === myRole && m.liked).map(m => m.ts)
+    );
+
     try {
       const res = await fetch(`${getMsgsBaseUrl()}.json`);
       let fetched = res.ok ? await res.json() : null;
@@ -1035,6 +1093,13 @@
         targetSyncTs = ts;
       } else {
         roomState.messages = [];
+      }
+
+      if (!isInitialLoad) {
+        const newlyLiked = roomState.messages.some(
+          m => m.lang === myRole && m.liked && !prevLikedMine.has(m.ts)
+        );
+        if (newlyLiked) spawnGlobalHearts(4);
       }
 
       loadedMsgSyncTs = targetSyncTs;
@@ -1738,9 +1803,9 @@
 
   function getHonorificRule() {
     if (myRole === "ko") {
-      return "- 화자(남자) 스스로를 지칭할 때는 'anh', 상대방(여자)을 부르는 호칭은 항상 'em bé'로 고정해서 다정하고 자연스러운 베트남어 구어체로 번역해.";
+      return "- 화자(남자)가 특정 이름이나 별명을 말했을 때는 그대로 살리되, 기본 호칭을 쓰거나 주어가 생략·애매할 때는 화자 자신을 'anh', 상대방(여자)을 'em bé'로 자연스럽게 보정해 다정한 베트남어 구어체로 번역해.";
     }
-    return "- 화자(여자)가 상대방(남자)을 부르는 호칭(anh, anh yêu 등)은 항상 '자기야'로 고정하고, 연인 사이의 다정하고 자연스러운 한국어 반말로 번역해.";
+    return "- 화자(여자)가 실제로 말한 베트남어 호칭과 뉘앙스를 억지로 바꾸지 말고 그대로 살려서 자연스러운 한국어 구어체로 번역해.";
   }
 
   async function callGeminiWithFallback(bodyObj) {
