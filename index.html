@@ -6,8 +6,15 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <title>Trò chuyện cùng em bé</title>
-  <meta property="og:title" content="Trò chuyện cùng em bé" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Anh & Em" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#121212" />
+  <link id="appleTouchIcon" rel="apple-touch-icon" href="" />
+  <link id="pwaManifest" rel="manifest" href="" />
+  <title>Anh & Em</title>
+  <meta property="og:title" content="Anh & Em" />
   <meta property="og:description" content="Phiên dịch trực tiếp Hàn - Việt" />
   <style>
     :root {
@@ -47,10 +54,44 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; -webkit-tap-highlight-color: transparent; }
     body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100dvh; overflow: hidden; transition: background 0.2s, color 0.2s; }
 
-    body.in-video-call header { display: none; }
+    body.in-video-call header,
+    body.in-video-call #installBanner { display: none !important; }
 
     #inAppBanner { background: #d32f2f; color: #fff; padding: 9px 14px; font-size: 13px; font-weight: bold; line-height: 1.4; text-align: center; flex-shrink: 0; }
     #diagBanner { background: #3e2723; color: #ffcc80; padding: 6px 14px; font-size: 12px; border-bottom: 1px solid #5d4037; flex-shrink: 0; }
+
+    /* 홈 화면 추가 안내 배너 (설치 전 상단 노출) */
+    #installBanner {
+      background: linear-gradient(135deg, #ff5e7e, #ff8a65);
+      color: #fff;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.22);
+      z-index: 25;
+    }
+    .install-banner-left { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .install-banner-icon { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+    .install-banner-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .install-banner-title { font-size: 13px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .install-banner-sub { font-size: 11px; opacity: 0.92; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #installBannerBtn {
+      padding: 7px 13px;
+      border: none;
+      border-radius: 16px;
+      background: #fff;
+      color: #e91e63;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+    }
+    #installBannerBtn:active { transform: scale(0.95); }
 
     header { position: relative; padding: 8px 10px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-shrink: 0; z-index: 30; }
     .header-left { display: flex; align-items: center; gap: 7px; min-width: 0; }
@@ -68,7 +109,7 @@
       position: fixed;
       top: 48px;
       right: 10px;
-      width: 215px;
+      width: 225px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -93,6 +134,58 @@
     }
     .setting-btns button.active { background: #0078ff; color: #fff; border-color: #0078ff; }
     .setting-full-btn { width: 100%; text-align: center; padding: 8px; }
+
+    /* 홈 화면 추가 안내 모달 */
+    #installGuideModal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.78);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 96;
+      padding: 20px;
+    }
+    .install-card {
+      width: 100%;
+      max-width: 320px;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px 18px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .install-card-icon { width: 64px; height: 64px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+    .install-card h3 { font-size: 17px; line-height: 1.35; }
+    .install-steps {
+      width: 100%;
+      text-align: left;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.65;
+      color: var(--text-sub);
+    }
+    .install-card-actions { display: flex; gap: 8px; width: 100%; }
+    .install-card-actions button {
+      flex: 1;
+      padding: 11px 10px;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      color: #fff;
+    }
+    #installDoneBtn { background: #e91e63; }
+    #installCloseBtn { background: #555; }
 
     #videoSection { position: relative; width: 100%; flex: 1; min-height: 0; background: #000; overflow: hidden; border-bottom: 1px solid var(--border); }
     #videoSection.split { flex: none; height: 42dvh; }
@@ -587,6 +680,18 @@
   </div>
 </div>
 
+<div id="installGuideModal" class="hidden" onclick="if(event.target===this) closeInstallGuide()">
+  <div class="install-card">
+    <img id="installModalIcon" class="install-card-icon" src="" alt="Anh & Em" />
+    <h3 id="installModalTitle">📲 홈 화면에 앱으로 추가</h3>
+    <div id="installModalSteps" class="install-steps"></div>
+    <div class="install-card-actions">
+      <button id="installCloseBtn" onclick="closeInstallGuide()">닫기</button>
+      <button id="installDoneBtn" onclick="markPwaInstalled()">✅ 추가 완료</button>
+    </div>
+  </div>
+</div>
+
 <div id="photoModal" class="hidden">
   <div id="photoModalStage">
     <img id="photoModalImg" src="" alt="photo" />
@@ -636,6 +741,17 @@
   </div>
 </header>
 
+<div id="installBanner" class="hidden">
+  <div class="install-banner-left">
+    <img id="installBannerIcon" class="install-banner-icon" src="" alt="icon" />
+    <div class="install-banner-text">
+      <div id="installBannerTitle" class="install-banner-title">홈 화면에 앱으로 추가</div>
+      <div id="installBannerSub" class="install-banner-sub">주소창 없이 앱처럼 편하게 쓰기</div>
+    </div>
+  </div>
+  <button id="installBannerBtn" onclick="triggerInstallPwa()">📲 추가하기</button>
+</div>
+
 <div id="settingsMenu" class="hidden">
   <div class="setting-row">
     <span id="settingFontLabel">글자 크기</span>
@@ -645,6 +761,7 @@
     </div>
   </div>
   <button id="themeToggleBtn" class="setting-full-btn" onclick="toggleTheme()">☀️ 라이트 모드</button>
+  <button id="installSettingBtn" class="setting-full-btn hidden" onclick="triggerInstallPwa()">📲 홈 화면에 추가</button>
   <div id="settingLangRow" class="setting-row">
     <span id="settingLangLabel">언어</span>
     <div class="setting-btns">
@@ -732,7 +849,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 32;
+  const APP_VERSION = 33;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const PRIMARY_MODEL = "gemini-3.5-flash-lite";
   const FALLBACK_MODEL = "gemini-3.1-flash-lite";
@@ -847,7 +964,16 @@
       stkSmaller: "작게 -",
       stkLarger: "크게 +",
       stkRemove: "삭제",
-      stkClear: "초기화"
+      stkClear: "초기화",
+      installBannerTitle: "홈 화면에 앱으로 추가",
+      installBannerSub: "주소창 없이 앱처럼 편하게 쓰기",
+      installBannerBtn: "📲 추가하기",
+      installSettingBtn: "📲 홈 화면에 추가",
+      installModalTitle: "📲 홈 화면에 앱으로 추가",
+      installDoneBtn: "✅ 추가 완료",
+      installCloseBtn: "닫기",
+      installStepsIOS: "1. 아래쪽 가운데 <b>공유 버튼 (⬆️)</b>을 누르세요.<br>2. 메뉴를 살짝 올려 <b>'홈 화면에 추가'</b>를 누르세요.<br>3. 오른쪽 위 <b>'추가'</b>를 누르면 완료!<br><br><small>※ 추가 완료를 누르면 이 버튼은 ⚙️ 설정으로 이동합니다.</small>",
+      installStepsAndroid: "1. 오른쪽 위 브라우저 <b>메뉴 (⋮)</b>를 누르세요.<br>2. <b>'홈 화면에 추가'</b> 또는 <b>'앱 설치'</b>를 누르세요.<br>3. <b>'추가'</b>를 누르면 바탕화면에 아이콘이 생깁니다!<br><br><small>※ 추가 완료를 누르면 이 버튼은 ⚙️ 설정으로 이동합니다.</small>"
     },
     vi: {
       lockTitle: "🔒 Nhập mật khẩu phòng",
@@ -910,9 +1036,183 @@
       stkSmaller: "Nhỏ -",
       stkLarger: "To +",
       stkRemove: "Xóa",
-      stkClear: "Xóa hết"
+      stkClear: "Xóa hết",
+      installBannerTitle: "Thêm vào màn hình chính",
+      installBannerSub: "Mở toàn màn hình tiện như ứng dụng",
+      installBannerBtn: "📲 Thêm",
+      installSettingBtn: "📲 Thêm vào màn hình chính",
+      installModalTitle: "📲 Thêm vào màn hình chính",
+      installDoneBtn: "✅ Đã thêm xong",
+      installCloseBtn: "Đóng",
+      installStepsIOS: "1. Bấm nút <b>Chia sẻ (⬆️)</b> ở giữa bên dưới.<br>2. Kéo xuống chọn <b>'Thêm vào MH chính'</b>.<br>3. Bấm <b>'Thêm'</b> ở góc trên bên phải là xong!<br><br><small>※ Bấm 'Đã thêm xong' để chuyển nút này vào ⚙️ Cài đặt.</small>",
+      installStepsAndroid: "1. Bấm <b>Menu (⋮)</b> ở góc trên bên phải.<br>2. Chọn <b>'Thêm vào màn hình chính'</b> hoặc <b>'Cài đặt ứng dụng'</b>.<br>3. Bấm <b>'Thêm'</b> là có biểu tượng ngoài màn hình!<br><br><small>※ Bấm 'Đã thêm xong' để chuyển nút này vào ⚙️ Cài đặt.</small>"
     }
   };
+
+  /* ================= PWA 아이콘 (A번: 핑크 하트 말풍선) & Manifest 자동 생성 ================= */
+
+  let deferredInstallPrompt = null;
+  let generatedAppIconUrl = "";
+
+  function generateDesignAIcon() {
+    try {
+      const size = 512;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+
+      // 핑크~코랄 그라데이션 배경
+      const grad = ctx.createLinearGradient(0, 0, size, size);
+      grad.addColorStop(0, "#ff5e7e");
+      grad.addColorStop(1, "#ff8a65");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+
+      // 흰색 말풍선 (둥근 사각형 + 왼쪽 아래 꼬리)
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,0.16)";
+      ctx.shadowBlur = 24;
+      ctx.shadowOffsetY = 10;
+      ctx.fillStyle = "#ffffff";
+
+      const bx = 86, by = 104, bw = 340, bh = 264, r = 92;
+      ctx.beginPath();
+      ctx.moveTo(bx + r, by);
+      ctx.lineTo(bx + bw - r, by);
+      ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + r);
+      ctx.lineTo(bx + bw, by + bh - r);
+      ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - r, by + bh);
+      ctx.lineTo(bx + 140, by + bh);
+      ctx.lineTo(bx + 76, by + bh + 54);
+      ctx.lineTo(bx + 94, by + bh - 12);
+      ctx.quadraticCurveTo(bx, by + bh - 26, bx, by + bh - r);
+      ctx.lineTo(bx, by + r);
+      ctx.quadraticCurveTo(bx, by, bx + r, by);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // 말풍선 중앙 빨간 하트
+      ctx.save();
+      ctx.translate(size / 2, 238);
+      ctx.fillStyle = "#ff3366";
+      ctx.beginPath();
+      ctx.moveTo(0, 52);
+      ctx.bezierCurveTo(-18, 34, -84, -8, -84, -42);
+      ctx.bezierCurveTo(-84, -76, -54, -92, -30, -92);
+      ctx.bezierCurveTo(-12, -92, 0, -78, 0, -68);
+      ctx.bezierCurveTo(0, -78, 12, -92, 30, -92);
+      ctx.bezierCurveTo(54, -92, 84, -76, 84, -42);
+      ctx.bezierCurveTo(84, -8, 18, 34, 0, 52);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      return canvas.toDataURL("image/png");
+    } catch {
+      return "";
+    }
+  }
+
+  function setupPwaMetaAndManifest() {
+    generatedAppIconUrl = generateDesignAIcon();
+    if (!generatedAppIconUrl) return;
+
+    const appleIcon = document.getElementById("appleTouchIcon");
+    if (appleIcon) appleIcon.href = generatedAppIconUrl;
+
+    const bannerIcon = document.getElementById("installBannerIcon");
+    if (bannerIcon) bannerIcon.src = generatedAppIconUrl;
+
+    const modalIcon = document.getElementById("installModalIcon");
+    if (modalIcon) modalIcon.src = generatedAppIconUrl;
+
+    try {
+      const manifestObj = {
+        name: "Anh & Em",
+        short_name: "Anh & Em",
+        start_url: window.location.origin + window.location.pathname,
+        display: "standalone",
+        background_color: "#121212",
+        theme_color: "#121212",
+        icons: [
+          { src: generatedAppIconUrl, sizes: "512x512", type: "image/png", purpose: "any maskable" }
+        ]
+      };
+      const blob = new Blob([JSON.stringify(manifestObj)], { type: "application/manifest+json" });
+      const manifestLink = document.getElementById("pwaManifest");
+      if (manifestLink) manifestLink.href = URL.createObjectURL(blob);
+    } catch {}
+  }
+
+  function isStandaloneMode() {
+    return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  }
+
+  function isIOSDevice() {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+  }
+
+  function updatePwaInstallUI() {
+    const installed = isStandaloneMode() || localStorage.getItem("wt_pwa_installed") === "1";
+    const bannerEl = document.getElementById("installBanner");
+    const settingBtn = document.getElementById("installSettingBtn");
+    if (!bannerEl || !settingBtn) return;
+
+    if (installed) {
+      bannerEl.classList.add("hidden");
+      // 이미 앱으로 실행 중이면 설정 버튼도 숨기고, 브라우저에서 '추가 완료'만 눌렀다면 설정 안에 유지
+      settingBtn.classList.toggle("hidden", isStandaloneMode());
+    } else {
+      bannerEl.classList.remove("hidden");
+      settingBtn.classList.add("hidden");
+    }
+  }
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    updatePwaInstallUI();
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    localStorage.setItem("wt_pwa_installed", "1");
+    updatePwaInstallUI();
+  });
+
+  async function triggerInstallPwa() {
+    settingsMenu.classList.add("hidden");
+    if (deferredInstallPrompt) {
+      try {
+        deferredInstallPrompt.prompt();
+        const choice = await deferredInstallPrompt.userChoice;
+        if (choice && choice.outcome === "accepted") {
+          localStorage.setItem("wt_pwa_installed", "1");
+          deferredInstallPrompt = null;
+          updatePwaInstallUI();
+          return;
+        }
+      } catch {}
+    }
+
+    const stepsEl = document.getElementById("installModalSteps");
+    if (stepsEl) {
+      stepsEl.innerHTML = isIOSDevice() ? t().installStepsIOS : t().installStepsAndroid;
+    }
+    document.getElementById("installGuideModal").classList.remove("hidden");
+  }
+
+  function closeInstallGuide() {
+    document.getElementById("installGuideModal").classList.add("hidden");
+  }
+
+  function markPwaInstalled() {
+    localStorage.setItem("wt_pwa_installed", "1");
+    closeInstallGuide();
+    updatePwaInstallUI();
+  }
 
   /* ================= IndexedDB 영구 미디어 캐시 (사진·음성 중복 다운로드 방지) ================= */
 
@@ -1123,6 +1423,13 @@
   const callModalTitle = document.getElementById("callModalTitle");
   const acceptCallBtn = document.getElementById("acceptCallBtn");
   const rejectCallBtn = document.getElementById("rejectCallBtn");
+  const installBannerTitle = document.getElementById("installBannerTitle");
+  const installBannerSub = document.getElementById("installBannerSub");
+  const installBannerBtn = document.getElementById("installBannerBtn");
+  const installSettingBtn = document.getElementById("installSettingBtn");
+  const installModalTitle = document.getElementById("installModalTitle");
+  const installDoneBtn = document.getElementById("installDoneBtn");
+  const installCloseBtn = document.getElementById("installCloseBtn");
   const photoModal = document.getElementById("photoModal");
   const photoModalStage = document.getElementById("photoModalStage");
   const photoModalImg = document.getElementById("photoModalImg");
@@ -1337,10 +1644,18 @@
     stkRemoveBtn.textContent = text.stkRemove;
     stkClearBtn.textContent = text.stkClear;
     typingIndicator.textContent = text.typing;
+    installBannerTitle.textContent = text.installBannerTitle;
+    installBannerSub.textContent = text.installBannerSub;
+    installBannerBtn.textContent = text.installBannerBtn;
+    installSettingBtn.textContent = text.installSettingBtn;
+    installModalTitle.textContent = text.installModalTitle;
+    installDoneBtn.textContent = text.installDoneBtn;
+    installCloseBtn.textContent = text.installCloseBtn;
     btnKo.classList.toggle("active", myRole === "ko");
     btnVi.classList.toggle("active", myRole === "vi");
     applyThemeAndFont();
     updatePartnerClock();
+    updatePwaInstallUI();
 
     if (inAppName) {
       inAppBanner.textContent = `${text.inAppWarn} (${inAppName})`;
@@ -1350,6 +1665,7 @@
     }
   }
 
+  setupPwaMetaAndManifest();
   applyStaticText();
   clockTimer = setInterval(updatePartnerClock, 10000);
 
