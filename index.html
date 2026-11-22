@@ -68,6 +68,7 @@
     #videoSection { position: relative; width: 100%; flex: 1; min-height: 0; background: #000; overflow: hidden; border-bottom: 1px solid var(--border); }
     #videoSection.split { flex: none; height: 42dvh; }
     #remoteVideo { width: 100%; height: 100%; object-fit: cover; background: #0a0a0a; }
+    #doodleCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; touch-action: none; }
     #remoteStatusBadge { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.68); color: #fff; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 4; pointer-events: none; white-space: nowrap; }
     #remoteStatusBadge.top-badge { top: 14px; transform: translateX(-50%); background: rgba(0, 0, 0, 0.72); font-size: 13px; padding: 6px 14px; }
     #remoteStatusBadge.test-badge { top: 14px; transform: translateX(-50%); background: rgba(239, 108, 0, 0.85); font-size: 12px; padding: 5px 12px; }
@@ -146,10 +147,17 @@
     .btn-accept { background: #2e7d32; }
     .btn-reject { background: #c62828; }
 
-    #photoModal, #photoPreviewModal { position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 95; padding: 16px; gap: 14px; }
-    #photoModalImg, #photoPreviewImg { max-width: 100%; max-height: 75dvh; border-radius: 10px; object-fit: contain; }
-    .photo-modal-actions { display: flex; gap: 12px; }
-    .photo-modal-actions button { padding: 12px 22px; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; color: #fff; }
+    #photoModal, #photoPreviewModal { position: fixed; inset: 0; background: rgba(0,0,0,0.94); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 95; padding: 14px; gap: 10px; }
+    #photoModalImg { max-width: 100%; max-height: 75dvh; border-radius: 10px; object-fit: contain; }
+    #photoPreviewCanvas { max-width: 100%; max-height: 56dvh; border-radius: 10px; touch-action: none; background: #000; display: block; }
+    .sticker-palette { display: flex; gap: 6px; width: 100%; max-width: 380px; justify-content: space-between; }
+    .sticker-palette button { flex: 1; padding: 6px 0; border: 1px solid #444; border-radius: 8px; background: #242424; font-size: 20px; cursor: pointer; }
+    .sticker-palette button:active { transform: scale(0.9); }
+    .sticker-tools { display: flex; gap: 6px; width: 100%; max-width: 380px; justify-content: center; }
+    .sticker-tools button { flex: 1; padding: 7px 6px; border: 1px solid #444; border-radius: 8px; background: #2e2e2e; color: #fff; font-size: 12px; font-weight: bold; cursor: pointer; }
+    .sticker-tools button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .photo-modal-actions { display: flex; gap: 12px; margin-top: 2px; }
+    .photo-modal-actions button { padding: 11px 22px; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; color: #fff; }
     #photoDownloadBtn, #photoConfirmSendBtn { background: #0078ff; }
     #photoCloseBtn, #photoConfirmCancelBtn { background: #555; }
 
@@ -333,7 +341,23 @@
 </div>
 
 <div id="photoPreviewModal" class="hidden">
-  <img id="photoPreviewImg" src="" alt="preview" />
+  <canvas id="photoPreviewCanvas"></canvas>
+  <div class="sticker-palette">
+    <button onclick="addSticker('❤️')">❤️</button>
+    <button onclick="addSticker('😘')">😘</button>
+    <button onclick="addSticker('😂')">😂</button>
+    <button onclick="addSticker('😎')">😎</button>
+    <button onclick="addSticker('✨')">✨</button>
+    <button onclick="addSticker('👑')">👑</button>
+    <button onclick="addSticker('🔥')">🔥</button>
+    <button onclick="addSticker('🥰')">🥰</button>
+  </div>
+  <div class="sticker-tools">
+    <button id="stkSmallerBtn" onclick="scaleSelectedSticker(-0.04)" disabled>작게 -</button>
+    <button id="stkLargerBtn" onclick="scaleSelectedSticker(0.04)" disabled>크게 +</button>
+    <button id="stkRemoveBtn" onclick="removeSelectedSticker()" disabled>삭제</button>
+    <button id="stkClearBtn" onclick="clearAllStickers()" disabled>초기화</button>
+  </div>
   <div class="photo-modal-actions">
     <button id="photoConfirmCancelBtn" onclick="cancelPendingPhoto()">❌ 취소</button>
     <button id="photoConfirmSendBtn" onclick="confirmSendPendingPhoto()">📤 보내기</button>
@@ -361,6 +385,7 @@
 
 <section id="videoSection" class="hidden">
   <video id="remoteVideo" autoplay playsinline></video>
+  <canvas id="doodleCanvas"></canvas>
   <div id="remoteStatusBadge" class="hidden">연결 중...</div>
   <div id="videoSubtitleOverlay"></div>
   <div id="heartLayer"></div>
@@ -432,7 +457,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 25;
+  const APP_VERSION = 26;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const PRIMARY_MODEL = "gemini-3.5-flash-lite";
   const FALLBACK_MODEL = "gemini-3.1-flash-lite";
@@ -520,7 +545,7 @@
       callReject: "거절",
       callConnecting: "영상 연결 중...",
       callReconnecting: "네트워크 재연결 중...",
-      callTestBadge: "🧪 테스트 모드 (상대방 접속 시 자동 종료)",
+      callTestBadge: "🧪 테스트 모드 (화면 낙서 테스트 가능)",
       callPartnerOffline: "상대방이 접속 중일 때 영상통화를 걸 수 있습니다.",
       typing: "✏️ 상대방이 입력 중...",
       replyPrefix: "↩ 답장: ",
@@ -535,7 +560,11 @@
       menuGallery: "🖼️ 앨범에서 선택",
       deleteConfirm: "이 메시지를 삭제할까요?",
       fontDec: "가-",
-      fontInc: "가+"
+      fontInc: "가+",
+      stkSmaller: "작게 -",
+      stkLarger: "크게 +",
+      stkRemove: "삭제",
+      stkClear: "초기화"
     },
     vi: {
       lockTitle: "🔒 Nhập mật khẩu phòng",
@@ -588,7 +617,11 @@
       menuGallery: "🖼️ Chọn từ thư viện",
       deleteConfirm: "Bạn muốn xóa tin nhắn này?",
       fontDec: "A-",
-      fontInc: "A+"
+      fontInc: "A+",
+      stkSmaller: "Nhỏ -",
+      stkLarger: "To +",
+      stkRemove: "Xóa",
+      stkClear: "Xóa hết"
     }
   };
 
@@ -642,7 +675,12 @@
   const photoCache = {};
   let currentModalPhotoDataUrl = "";
   let currentModalPhotoTs = 0;
-  let pendingPhotoDataUrl = "";
+
+  // 사진 미리보기 & 스티커 상태
+  let pendingPhotoImg = null;
+  let pendingStickers = [];
+  let selectedStickerId = null;
+  let draggingSticker = null;
 
   let replyTarget = null;
   let lastTypingSentAt = 0;
@@ -651,6 +689,16 @@
   let myEmojiEvents = [];
   let seenEmojiIds = new Set();
   let emojiInitialized = false;
+
+  // 영상통화 실시간 낙서 상태
+  let activeDoodles = [];
+  let currentDoodleStroke = null;
+  let doodleRaf = null;
+  let myDoodleEvents = [];
+  let seenDoodleIds = new Set();
+  let doodleInitialized = false;
+  let doodlePointerId = null;
+  let doodleTotalDist = 0;
 
   let pollTimer = null;
   let heartbeatTimer = null;
@@ -712,7 +760,11 @@
   const photoDownloadBtn = document.getElementById("photoDownloadBtn");
   const photoCloseBtn = document.getElementById("photoCloseBtn");
   const photoPreviewModal = document.getElementById("photoPreviewModal");
-  const photoPreviewImg = document.getElementById("photoPreviewImg");
+  const photoPreviewCanvas = document.getElementById("photoPreviewCanvas");
+  const stkSmallerBtn = document.getElementById("stkSmallerBtn");
+  const stkLargerBtn = document.getElementById("stkLargerBtn");
+  const stkRemoveBtn = document.getElementById("stkRemoveBtn");
+  const stkClearBtn = document.getElementById("stkClearBtn");
   const photoConfirmSendBtn = document.getElementById("photoConfirmSendBtn");
   const photoConfirmCancelBtn = document.getElementById("photoConfirmCancelBtn");
   const inAppBanner = document.getElementById("inAppBanner");
@@ -727,6 +779,7 @@
   const btnVi = document.getElementById("btnVi");
   const videoSection = document.getElementById("videoSection");
   const remoteVideo = document.getElementById("remoteVideo");
+  const doodleCanvas = document.getElementById("doodleCanvas");
   const remoteStatusBadge = document.getElementById("remoteStatusBadge");
   const videoSubtitleOverlay = document.getElementById("videoSubtitleOverlay");
   const heartLayer = document.getElementById("heartLayer");
@@ -879,6 +932,10 @@
     photoConfirmCancelBtn.textContent = text.photoConfirmCancel;
     menuCameraBtn.textContent = text.menuCamera;
     menuGalleryBtn.textContent = text.menuGallery;
+    stkSmallerBtn.textContent = text.stkSmaller;
+    stkLargerBtn.textContent = text.stkLarger;
+    stkRemoveBtn.textContent = text.stkRemove;
+    stkClearBtn.textContent = text.stkClear;
     typingIndicator.textContent = text.typing;
     btnKo.classList.toggle("active", myRole === "ko");
     btnVi.classList.toggle("active", myRole === "vi");
@@ -1035,6 +1092,8 @@
     wasPartnerOnline = null;
     emojiInitialized = false;
     seenEmojiIds.clear();
+    doodleInitialized = false;
+    seenDoodleIds.clear();
     visibleMsgCount = INITIAL_VISIBLE_MSGS;
     if (pollTimer) clearInterval(pollTimer);
     if (heartbeatTimer) clearInterval(heartbeatTimer);
@@ -1073,6 +1132,8 @@
     wasPartnerOnline = null;
     emojiInitialized = false;
     seenEmojiIds.clear();
+    doodleInitialized = false;
+    seenDoodleIds.clear();
     visibleMsgCount = INITIAL_VISIBLE_MSGS;
     sendHeartbeat();
     reportDiag(myDiagCode);
@@ -1113,6 +1174,8 @@
     wasPartnerOnline = null;
     emojiInitialized = false;
     seenEmojiIds.clear();
+    doodleInitialized = false;
+    seenDoodleIds.clear();
     localStorage.setItem("wt_role", role);
     applyStaticText();
     if (roomPass) {
@@ -1297,7 +1360,80 @@
     await saveMessagesToDb(updated, syncTs);
   }
 
-  /* ================= 사진 메뉴 / 미리보기 / 압축 / 전송 ================= */
+  /* ================= 어색한 번역 다시 번역하기 ================= */
+
+  async function retranslateMessage(msgTs, btnEl) {
+    if (isProcessing || !apiKey) return;
+    const idx = roomState.messages.findIndex(m => m.ts === msgTs);
+    if (idx === -1) return;
+    const target = roomState.messages[idx];
+    if (!target.original) return;
+
+    const origBtnText = btnEl.textContent;
+    btnEl.textContent = "⏳";
+    btnEl.disabled = true;
+
+    try {
+      const msgLang = target.lang || "ko";
+      const sourceLang = msgLang === "ko" ? "한국어" : "베트남어";
+      const targetLang = msgLang === "ko" ? "베트남어" : "한국어";
+
+      const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
+[규칙]
+${getHonorificRule(msgLang)}
+- 사용자가 이전 번역이 어색해서 재번역을 요청했어.
+- 원문의 의미는 유지하되, 이전 번역문과는 다른 더 자연스러운 구어체 ${targetLang} 표현 1가지만 출력해. (설명 금지)`;
+
+      const contents = [
+        {
+          role: "user",
+          parts: [
+            { text: `[원문 (${sourceLang})]\n${target.original}\n\n[이전 번역 (${targetLang})]\n${target.translated || ""}\n\n[요청: 이전 번역과 다른 더 자연스러운 ${targetLang} 번역문 1가지만 출력]` }
+          ]
+        }
+      ];
+
+      const data = await callGeminiWithFallback({
+        system_instruction: { parts: [{ text: systemInstruction }] },
+        contents,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 280,
+          thinkingConfig: { thinkingBudget: 0 }
+        }
+      }, 3000, 6000);
+
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      let newTrans = "";
+      for (const p of parts) {
+        if (p.thought) continue;
+        if (p.text) { newTrans = p.text.trim(); break; }
+      }
+
+      if (newTrans) {
+        const curIdx = roomState.messages.findIndex(m => m.ts === msgTs);
+        if (curIdx !== -1) {
+          const updated = roomState.messages.map((m, i) =>
+            i === curIdx ? { ...m, translated: newTrans } : m
+          );
+          roomState.messages = updated;
+          lastRenderSig = "";
+          renderMessages(true);
+
+          const syncTs = Date.now();
+          loadedMsgSyncTs = syncTs;
+          await saveMessagesToDb(updated, syncTs);
+        }
+      }
+    } catch (err) {
+      alert("Retranslate Error: " + err.message);
+    } finally {
+      btnEl.textContent = origBtnText;
+      btnEl.disabled = false;
+    }
+  }
+
+  /* ================= 사진 메뉴 / 미리보기 스티커 편집 / 압축 / 전송 ================= */
 
   function togglePhotoMenu(e) {
     if (e) e.stopPropagation();
@@ -1320,32 +1456,7 @@
   photoCameraInput.addEventListener("change", (e) => handlePhotoFileSelected(e.target.files?.[0]));
   photoGalleryInput.addEventListener("change", (e) => handlePhotoFileSelected(e.target.files?.[0]));
 
-  async function handlePhotoFileSelected(file) {
-    if (!file) return;
-    try {
-      const dataUrl = await compressImageToDataUrl(file);
-      pendingPhotoDataUrl = dataUrl;
-      photoPreviewImg.src = dataUrl;
-      photoPreviewModal.classList.remove("hidden");
-    } catch (err) {
-      alert("Photo Error: " + err.message);
-    }
-  }
-
-  function cancelPendingPhoto() {
-    pendingPhotoDataUrl = "";
-    photoPreviewImg.src = "";
-    photoPreviewModal.classList.add("hidden");
-  }
-
-  async function confirmSendPendingPhoto() {
-    if (!pendingPhotoDataUrl || isProcessing) return;
-    const dataUrl = pendingPhotoDataUrl;
-    cancelPendingPhoto();
-    await sendCompressedPhoto(dataUrl);
-  }
-
-  function compressImageToDataUrl(file, maxDim = 1024, quality = 0.72) {
+  function loadImageFromFile(file, maxDim = 1024) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
@@ -1357,12 +1468,7 @@
             if (w >= h) { h = Math.round(h * (maxDim / w)); w = maxDim; }
             else { w = Math.round(w * (maxDim / h)); h = maxDim; }
           }
-          const canvas = document.createElement("canvas");
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL("image/jpeg", quality));
+          resolve({ img, w, h });
         };
         img.onerror = reject;
         img.src = reader.result;
@@ -1370,6 +1476,171 @@
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+  }
+
+  async function handlePhotoFileSelected(file) {
+    if (!file) return;
+    try {
+      const { img, w, h } = await loadImageFromFile(file, 1024);
+      pendingPhotoImg = img;
+      pendingStickers = [];
+      selectedStickerId = null;
+      draggingSticker = null;
+
+      photoPreviewCanvas.width = w;
+      photoPreviewCanvas.height = h;
+      renderPhotoPreviewCanvas(true);
+      updateStickerToolButtons();
+      photoPreviewModal.classList.remove("hidden");
+    } catch (err) {
+      alert("Photo Error: " + err.message);
+    }
+  }
+
+  function renderPhotoPreviewCanvas(showSelection = true) {
+    if (!pendingPhotoImg) return;
+    const ctx = photoPreviewCanvas.getContext("2d");
+    const w = photoPreviewCanvas.width;
+    const h = photoPreviewCanvas.height;
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(pendingPhotoImg, 0, 0, w, h);
+
+    const minDim = Math.min(w, h);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    pendingStickers.forEach(s => {
+      const px = s.x * w;
+      const py = s.y * h;
+      const fontPx = Math.round(s.size * minDim);
+      ctx.font = `${fontPx}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+      ctx.fillText(s.emoji, px, py);
+
+      if (showSelection && s.id === selectedStickerId) {
+        ctx.save();
+        ctx.strokeStyle = "#00e5ff";
+        ctx.lineWidth = Math.max(3, Math.round(minDim * 0.006));
+        ctx.setLineDash([8, 6]);
+        const r = fontPx * 0.62;
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    });
+  }
+
+  function updateStickerToolButtons() {
+    const hasSel = selectedStickerId !== null;
+    const hasAny = pendingStickers.length > 0;
+    stkSmallerBtn.disabled = !hasSel;
+    stkLargerBtn.disabled = !hasSel;
+    stkRemoveBtn.disabled = !hasSel;
+    stkClearBtn.disabled = !hasAny;
+  }
+
+  function addSticker(emoji) {
+    if (!pendingPhotoImg) return;
+    const id = Date.now() + Math.random();
+    const offset = (pendingStickers.length % 5 - 2) * 0.05;
+    pendingStickers.push({
+      id,
+      emoji,
+      x: Math.min(0.85, Math.max(0.15, 0.5 + offset)),
+      y: Math.min(0.85, Math.max(0.15, 0.5 + offset)),
+      size: 0.18
+    });
+    selectedStickerId = id;
+    renderPhotoPreviewCanvas(true);
+    updateStickerToolButtons();
+  }
+
+  function scaleSelectedSticker(delta) {
+    const s = pendingStickers.find(item => item.id === selectedStickerId);
+    if (!s) return;
+    s.size = Math.min(0.45, Math.max(0.08, s.size + delta));
+    renderPhotoPreviewCanvas(true);
+  }
+
+  function removeSelectedSticker() {
+    if (selectedStickerId === null) return;
+    pendingStickers = pendingStickers.filter(item => item.id !== selectedStickerId);
+    selectedStickerId = pendingStickers.length ? pendingStickers[pendingStickers.length - 1].id : null;
+    renderPhotoPreviewCanvas(true);
+    updateStickerToolButtons();
+  }
+
+  function clearAllStickers() {
+    pendingStickers = [];
+    selectedStickerId = null;
+    renderPhotoPreviewCanvas(true);
+    updateStickerToolButtons();
+  }
+
+  function getCanvasNormCoords(canvas, clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) / rect.width,
+      y: (clientY - rect.top) / rect.height
+    };
+  }
+
+  photoPreviewCanvas.addEventListener("pointerdown", (e) => {
+    if (!pendingPhotoImg || pendingStickers.length === 0) return;
+    const pt = getCanvasNormCoords(photoPreviewCanvas, e.clientX, e.clientY);
+    const w = photoPreviewCanvas.width;
+    const h = photoPreviewCanvas.height;
+    const minDim = Math.min(w, h);
+
+    let hit = null;
+    for (let i = pendingStickers.length - 1; i >= 0; i--) {
+      const s = pendingStickers[i];
+      const dx = (pt.x - s.x) * w;
+      const dy = (pt.y - s.y) * h;
+      const radius = s.size * minDim * 0.7;
+      if (Math.hypot(dx, dy) <= radius) {
+        hit = s;
+        break;
+      }
+    }
+
+    if (hit) {
+      selectedStickerId = hit.id;
+      draggingSticker = hit;
+      photoPreviewCanvas.setPointerCapture(e.pointerId);
+    } else {
+      selectedStickerId = null;
+      draggingSticker = null;
+    }
+    renderPhotoPreviewCanvas(true);
+    updateStickerToolButtons();
+  });
+
+  photoPreviewCanvas.addEventListener("pointermove", (e) => {
+    if (!draggingSticker) return;
+    const pt = getCanvasNormCoords(photoPreviewCanvas, e.clientX, e.clientY);
+    draggingSticker.x = Math.min(0.95, Math.max(0.05, pt.x));
+    draggingSticker.y = Math.min(0.95, Math.max(0.05, pt.y));
+    renderPhotoPreviewCanvas(true);
+  });
+
+  photoPreviewCanvas.addEventListener("pointerup", () => { draggingSticker = null; });
+  photoPreviewCanvas.addEventListener("pointercancel", () => { draggingSticker = null; });
+
+  function cancelPendingPhoto() {
+    pendingPhotoImg = null;
+    pendingStickers = [];
+    selectedStickerId = null;
+    draggingSticker = null;
+    photoPreviewModal.classList.add("hidden");
+  }
+
+  async function confirmSendPendingPhoto() {
+    if (!pendingPhotoImg || isProcessing) return;
+    renderPhotoPreviewCanvas(false);
+    const finalDataUrl = photoPreviewCanvas.toDataURL("image/jpeg", 0.76);
+    cancelPendingPhoto();
+    await sendCompressedPhoto(finalDataUrl);
   }
 
   async function sendCompressedPhoto(dataUrl) {
@@ -1415,10 +1686,22 @@
   }
 
   async function loadPhotoIntoImg(ts, imgEl, placeholderEl) {
-    if (photoCache[ts]) {
-      imgEl.src = photoCache[ts];
+    const checkNearBottom = () =>
+      (subtitlesEl.scrollHeight - subtitlesEl.scrollTop - subtitlesEl.clientHeight) < 280;
+
+    const attachSrc = (dataUrl) => {
+      const shouldScroll = checkNearBottom();
+      imgEl.onload = () => {
+        if (shouldScroll) scrollToBottom(false);
+      };
+      imgEl.src = dataUrl;
       imgEl.classList.remove("hidden");
       placeholderEl.classList.add("hidden");
+      if (shouldScroll) requestAnimationFrame(() => scrollToBottom(false));
+    };
+
+    if (photoCache[ts]) {
+      attachSrc(photoCache[ts]);
       return;
     }
     try {
@@ -1427,9 +1710,7 @@
       const obj = await res.json();
       if (obj && obj.dataUrl) {
         photoCache[ts] = obj.dataUrl;
-        imgEl.src = obj.dataUrl;
-        imgEl.classList.remove("hidden");
-        placeholderEl.classList.add("hidden");
+        attachSrc(obj.dataUrl);
       } else {
         placeholderEl.textContent = t().photoExpired;
       }
@@ -1500,6 +1781,163 @@
     }
   }
 
+  /* ================= 영상통화 상시 실시간 낙서 ================= */
+
+  function resizeDoodleCanvas() {
+    const w = doodleCanvas.clientWidth;
+    const h = doodleCanvas.clientHeight;
+    if (w > 0 && h > 0 && (doodleCanvas.width !== w || doodleCanvas.height !== h)) {
+      doodleCanvas.width = w;
+      doodleCanvas.height = h;
+    }
+  }
+
+  window.addEventListener("resize", resizeDoodleCanvas);
+
+  function startDoodleLoop() {
+    if (doodleRaf) return;
+    const step = () => {
+      resizeDoodleCanvas();
+      const ctx = doodleCanvas.getContext("2d");
+      const w = doodleCanvas.width;
+      const h = doodleCanvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const now = Date.now();
+      const HOLD_MS = 2500;
+      const FADE_MS = 1200;
+
+      activeDoodles = activeDoodles.filter(st => (now - st.createdAt) < (HOLD_MS + FADE_MS));
+
+      const drawStroke = (points, color, alpha) => {
+        if (!points || points.length < 2) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 5;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(points[0][0] * w, points[0][1] * h);
+        for (let i = 1; i < points.length; i++) {
+          ctx.lineTo(points[i][0] * w, points[i][1] * h);
+        }
+        ctx.stroke();
+        ctx.restore();
+      };
+
+      activeDoodles.forEach(st => {
+        const age = now - st.createdAt;
+        const alpha = age <= HOLD_MS ? 1 : Math.max(0, 1 - (age - HOLD_MS) / FADE_MS);
+        drawStroke(st.points, st.color, alpha);
+      });
+
+      if (currentDoodleStroke && currentDoodleStroke.points.length >= 2) {
+        drawStroke(currentDoodleStroke.points, currentDoodleStroke.color, 1);
+      }
+
+      if (activeDoodles.length > 0 || currentDoodleStroke) {
+        doodleRaf = requestAnimationFrame(step);
+      } else {
+        doodleRaf = null;
+      }
+    };
+    doodleRaf = requestAnimationFrame(step);
+  }
+
+  doodleCanvas.addEventListener("pointerdown", (e) => {
+    if (callState !== "active" && callState !== "test") return;
+    resizeDoodleCanvas();
+    const rect = doodleCanvas.getBoundingClientRect();
+    const nx = Number(((e.clientX - rect.left) / rect.width).toFixed(3));
+    const ny = Number(((e.clientY - rect.top) / rect.height).toFixed(3));
+    doodlePointerId = e.pointerId;
+    doodleTotalDist = 0;
+    currentDoodleStroke = {
+      points: [[nx, ny]],
+      lastClientX: e.clientX,
+      lastClientY: e.clientY,
+      color: myRole === "ko" ? "#00e5ff" : "#ff4081"
+    };
+    doodleCanvas.setPointerCapture(e.pointerId);
+    startDoodleLoop();
+  });
+
+  doodleCanvas.addEventListener("pointermove", (e) => {
+    if (!currentDoodleStroke || e.pointerId !== doodlePointerId) return;
+    const dx = e.clientX - currentDoodleStroke.lastClientX;
+    const dy = e.clientY - currentDoodleStroke.lastClientY;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 4) return;
+    doodleTotalDist += dist;
+    currentDoodleStroke.lastClientX = e.clientX;
+    currentDoodleStroke.lastClientY = e.clientY;
+
+    const rect = doodleCanvas.getBoundingClientRect();
+    const nx = Number(((e.clientX - rect.left) / rect.width).toFixed(3));
+    const ny = Number(((e.clientY - rect.top) / rect.height).toFixed(3));
+    if (currentDoodleStroke.points.length < 90) {
+      currentDoodleStroke.points.push([nx, ny]);
+    }
+  });
+
+  function finishDoodleStroke(e) {
+    if (!currentDoodleStroke || (e && e.pointerId !== doodlePointerId)) return;
+    const finished = currentDoodleStroke;
+    currentDoodleStroke = null;
+    doodlePointerId = null;
+
+    // 단순 오터치(점)는 무시하고 드래그한 선만 표시·전송
+    if (doodleTotalDist >= 14 && finished.points.length >= 3) {
+      const now = Date.now();
+      activeDoodles.push({ points: finished.points, color: finished.color, createdAt: now });
+      startDoodleLoop();
+
+      if (callState === "active" && roomPass) {
+        const id = `${now}_${Math.random().toString(36).slice(2, 6)}`;
+        myDoodleEvents = myDoodleEvents.filter(d => now - d.ts < 8000);
+        myDoodleEvents.push({ id, points: finished.points, color: finished.color, ts: now });
+        if (myDoodleEvents.length > 6) myDoodleEvents = myDoodleEvents.slice(-6);
+        patchRoom({ [`doodleBurst/${myRole}`]: myDoodleEvents });
+      }
+    }
+  }
+
+  doodleCanvas.addEventListener("pointerup", finishDoodleStroke);
+  doodleCanvas.addEventListener("pointercancel", finishDoodleStroke);
+
+  function handleIncomingDoodleBurst(burstMap) {
+    const otherList = Array.isArray(burstMap?.[getOtherRole()]) ? burstMap[getOtherRole()] : [];
+    const now = Date.now();
+
+    if (!doodleInitialized) {
+      otherList.forEach(ev => { if (ev && ev.id) seenDoodleIds.add(ev.id); });
+      doodleInitialized = true;
+      return;
+    }
+
+    if (callState !== "active") return;
+
+    const fresh = otherList.filter(ev => ev && ev.id && !seenDoodleIds.has(ev.id) && (now - ev.ts < 8000));
+    if (fresh.length > 0) {
+      fresh.forEach(ev => {
+        seenDoodleIds.add(ev.id);
+        activeDoodles.push({
+          points: ev.points,
+          color: ev.color || "#ff4081",
+          createdAt: Date.now()
+        });
+      });
+      startDoodleLoop();
+    }
+
+    if (seenDoodleIds.size > 100) {
+      seenDoodleIds = new Set(Array.from(seenDoodleIds).slice(-50));
+    }
+  }
+
   /* ================= 메시지 렌더링 ================= */
 
   function renderMessages(preserveScroll = false) {
@@ -1509,7 +1947,7 @@
     const visibleSlice = msgs.slice(startIdx);
 
     const sig = `${startIdx}|${myRole}|` + visibleSlice.map(m =>
-      `${m.ts}:${(m.hasAudio || m.audioData) ? 1 : 0}:${m.hasPhoto ? 1 : 0}:${m.liked ? 1 : 0}`
+      `${m.ts}:${(m.hasAudio || m.audioData) ? 1 : 0}:${m.hasPhoto ? 1 : 0}:${m.liked ? 1 : 0}:${(m.translated || "").length}`
     ).join("|");
     if (sig === lastRenderSig) return;
     lastRenderSig = sig;
@@ -1606,6 +2044,14 @@
 
       const actDiv = document.createElement("div");
       actDiv.className = "msg-actions";
+
+      if (!m.hasPhoto && m.original) {
+        const retransBtn = document.createElement("button");
+        retransBtn.className = "msg-act-btn";
+        retransBtn.textContent = "🔄";
+        retransBtn.onclick = () => retranslateMessage(m.ts, retransBtn);
+        actDiv.appendChild(retransBtn);
+      }
 
       const replyBtn = document.createElement("button");
       replyBtn.className = "msg-act-btn";
@@ -1806,6 +2252,7 @@
         roomState.callMeta = data.callMeta || null;
 
         handleIncomingEmojiBurst(data.emojiBurst);
+        handleIncomingDoodleBurst(data.doodleBurst);
 
         const serverMsgSyncTs = Number(data.lastMsgTs || 0);
         if (loadedMsgSyncTs === -1 || serverMsgSyncTs !== loadedMsgSyncTs) {
@@ -1906,6 +2353,7 @@
         hideVideoSubtitle();
         scrollToBottom(false);
       }
+      requestAnimationFrame(resizeDoodleCanvas);
     } else {
       document.body.classList.remove("in-video-call");
       videoSection.classList.add("hidden");
@@ -2255,6 +2703,12 @@
     if (document.activeElement) document.activeElement.blur();
     if (signalPollTimer) { clearInterval(signalPollTimer); signalPollTimer = null; }
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    if (doodleRaf) { cancelAnimationFrame(doodleRaf); doodleRaf = null; }
+    activeDoodles = [];
+    currentDoodleStroke = null;
+    const dCtx = doodleCanvas.getContext("2d");
+    if (dCtx) dCtx.clearRect(0, 0, doodleCanvas.width, doodleCanvas.height);
+
     hideVideoSubtitle();
     releaseWakeLock();
 
@@ -2430,8 +2884,8 @@
 
   /* ================= Gemini API 호출 (타임아웃 + 백업 모델 + 무료 번역 비상 백업) ================= */
 
-  function getHonorificRule() {
-    if (myRole === "ko") {
+  function getHonorificRule(lang = myRole) {
+    if (lang === "ko") {
       return "- 화자(남자)가 특정 이름이나 별명을 말했을 때는 그대로 살리되, 기본 호칭을 쓰거나 주어가 생략·애매할 때는 화자 자신을 'anh', 상대방(여자)을 'em bé'로 자연스럽게 보정해 다정한 베트남어 구어체로 번역해.";
     }
     return "- 화자(여자)가 실제로 말한 베트남어 호칭과 뉘앙스를 억지로 바꾸지 말고 그대로 살려서 자연스러운 한국어 구어체로 번역해.";
@@ -2766,7 +3220,7 @@
 
       const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
 [규칙]
-${getHonorificRule()}
+${getHonorificRule(myRole)}
 - 반드시 ${sourceLang} 오디오를 받아쓰고, 반드시 ${targetLang}로 번역해. (절대 원문과 같은 언어로 번역하지 마)
 - 사람의 말이 없거나 잡음뿐이면 {"original": "", "translated": ""} 반환.
 - 원문과 같은 문장 수 유지, 불필요한 설명 금지.
@@ -2783,7 +3237,6 @@ ${getHonorificRule()}
         }
       ];
 
-      // 음성: 메인 5초 타임아웃 → 초과 시 백업 모델 전환, 추론 끄기
       const data = await callGeminiWithFallback({
         system_instruction: { parts: [{ text: systemInstruction }] },
         contents,
@@ -2835,7 +3288,6 @@ ${getHonorificRule()}
       lastRenderSig = "";
       renderMessages(false);
 
-      // 음성 업로드 완료를 기다리지 않고 말풍선부터 먼저 저장·전송
       const syncTs = Date.now();
       loadedMsgSyncTs = syncTs;
       await fetch(`${getMsgsBaseUrl()}.json`, {
@@ -2873,7 +3325,7 @@ ${getHonorificRule()}
 
       const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
 [규칙]
-${getHonorificRule()}
+${getHonorificRule(myRole)}
 - 반드시 입력된 ${sourceLang} 문장을 자연스러운 구어체 ${targetLang}로만 번역해서 출력해. (절대 원문과 같은 언어로 출력하거나 설명을 덧붙이지 마)`;
 
       const contextText = buildContextReference();
@@ -2888,7 +3340,6 @@ ${getHonorificRule()}
 
       let translated = "";
       try {
-        // 텍스트: 메인 3초 타임아웃 → 백업 모델 전환, 추론 끄기
         const data = await callGeminiWithFallback({
           system_instruction: { parts: [{ text: systemInstruction }] },
           contents,
@@ -2905,7 +3356,6 @@ ${getHonorificRule()}
           if (p.text) { translated = p.text.trim(); break; }
         }
       } catch {
-        // Gemini 메인·백업 모두 실패 시 무료 구글 번역으로 비상 처리
         translated = await translateWithFreeGoogle(spokenText, slCode, tlCode);
       }
 
