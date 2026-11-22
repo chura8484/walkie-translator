@@ -24,6 +24,8 @@
       --btn-text: #e0e0e0;
       --quote-bg: rgba(0, 0, 0, 0.28);
       --divider-bg: #242424;
+      --msg-font-size: 17px;
+      --orig-font-size: 12px;
     }
 
     body.light-theme {
@@ -51,12 +53,12 @@
     #diagBanner { background: #3e2723; color: #ffcc80; padding: 6px 14px; font-size: 12px; border-bottom: 1px solid #5d4037; flex-shrink: 0; }
 
     header { padding: 8px 10px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; flex-shrink: 0; }
-    .header-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .header-left { display: flex; align-items: center; gap: 7px; min-width: 0; }
     #status { font-size: 12px; color: var(--text-muted); font-weight: bold; white-space: nowrap; }
     #partnerClock { font-size: 11px; color: var(--text-sub); background: var(--surface-2); border: 1px solid var(--border); padding: 3px 7px; border-radius: 10px; font-weight: bold; white-space: nowrap; }
 
     .role-select { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-    .role-select button { padding: 6px 8px; border: none; border-radius: 6px; background: var(--btn-bg); color: var(--btn-text); font-weight: bold; font-size: 12px; cursor: pointer; white-space: nowrap; }
+    .role-select button { padding: 6px 7px; border: none; border-radius: 6px; background: var(--btn-bg); color: var(--btn-text); font-weight: bold; font-size: 12px; cursor: pointer; white-space: nowrap; }
     .role-select button.active { background: #0078ff; color: #fff; }
     #videoCallBtn { background: #2e7d32; color: #fff; }
     #videoCallBtn:disabled { background: var(--surface-2); color: var(--text-muted); cursor: not-allowed; }
@@ -67,9 +69,9 @@
     #videoSection.split { flex: none; height: 42dvh; }
     #remoteVideo { width: 100%; height: 100%; object-fit: cover; background: #0a0a0a; }
     #remoteStatusBadge { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.68); color: #fff; padding: 8px 14px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 4; pointer-events: none; white-space: nowrap; }
-    #remoteStatusBadge.test-badge { top: 12px; transform: translateX(-50%); background: rgba(239, 108, 0, 0.85); font-size: 12px; padding: 5px 12px; }
+    #remoteStatusBadge.top-badge { top: 14px; transform: translateX(-50%); background: rgba(0, 0, 0, 0.72); font-size: 13px; padding: 6px 14px; }
+    #remoteStatusBadge.test-badge { top: 14px; transform: translateX(-50%); background: rgba(239, 108, 0, 0.85); font-size: 12px; padding: 5px 12px; }
 
-    /* 영상통화 하단 번역 자막 오버레이 */
     #videoSubtitleOverlay {
       position: absolute;
       bottom: 66px;
@@ -120,24 +122,21 @@
       100% { transform: translateY(-230px) scale(0.95); opacity: 0; }
     }
 
-    /* 큰 이모티콘 중앙 팝업 애니메이션 */
+    /* 큰 이모티콘 연속 팝업 애니메이션 */
     .popup-emoji {
       position: fixed;
-      left: 50%;
-      top: 46%;
-      font-size: 84px;
+      font-size: 76px;
       pointer-events: none;
       z-index: 88;
-      filter: drop-shadow(0 6px 16px rgba(0,0,0,0.45));
-      animation: popEmoji 2.1s ease-out forwards;
+      filter: drop-shadow(0 6px 14px rgba(0,0,0,0.45));
+      animation: popEmoji 1.9s ease-out forwards;
     }
     @keyframes popEmoji {
-      0%   { transform: translate(-50%, -50%) scale(0.2) rotate(-10deg); opacity: 0; }
-      18%  { transform: translate(-50%, -56%) scale(1.25) rotate(6deg); opacity: 1; }
-      34%  { transform: translate(-50%, -50%) scale(0.95) rotate(-4deg); opacity: 1; }
-      52%  { transform: translate(-50%, -55%) scale(1.08) rotate(3deg); opacity: 1; }
-      78%  { transform: translate(-50%, -52%) scale(1.0) rotate(0deg); opacity: 1; }
-      100% { transform: translate(-50%, -85%) scale(0.85); opacity: 0; }
+      0%   { transform: translate(-50%, -50%) scale(0.25) rotate(var(--rot-start, -10deg)); opacity: 0; }
+      18%  { transform: translate(-50%, -58%) scale(1.22) rotate(var(--rot-mid, 8deg)); opacity: 1; }
+      38%  { transform: translate(-50%, -52%) scale(0.96) rotate(0deg); opacity: 1; }
+      72%  { transform: translate(-50%, -62%) scale(1.04) rotate(var(--rot-mid, 6deg)); opacity: 1; }
+      100% { transform: translate(-50%, -115%) scale(0.82) rotate(0deg); opacity: 0; }
     }
 
     #callModal { position: fixed; inset: 0; background: rgba(0,0,0,0.78); display: flex; align-items: center; justify-content: center; z-index: 90; padding: 20px; }
@@ -148,13 +147,13 @@
     .btn-accept { background: #2e7d32; }
     .btn-reject { background: #c62828; }
 
-    /* 사진 확대 모달 */
-    #photoModal { position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 95; padding: 16px; gap: 14px; }
-    #photoModalImg { max-width: 100%; max-height: 78dvh; border-radius: 10px; object-fit: contain; }
+    /* 사진 확대 모달 & 전송 전 미리보기 모달 */
+    #photoModal, #photoPreviewModal { position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 95; padding: 16px; gap: 14px; }
+    #photoModalImg, #photoPreviewImg { max-width: 100%; max-height: 75dvh; border-radius: 10px; object-fit: contain; }
     .photo-modal-actions { display: flex; gap: 12px; }
-    .photo-modal-actions button { padding: 11px 20px; border: none; border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer; color: #fff; }
-    #photoDownloadBtn { background: #0078ff; }
-    #photoCloseBtn { background: #555; }
+    .photo-modal-actions button { padding: 12px 22px; border: none; border-radius: 10px; font-size: 15px; font-weight: bold; cursor: pointer; color: #fff; }
+    #photoDownloadBtn, #photoConfirmSendBtn { background: #0078ff; }
+    #photoCloseBtn, #photoConfirmCancelBtn { background: #555; }
 
     #chatArea { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
     #subtitles { flex: 1; padding: 12px 14px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
@@ -169,12 +168,8 @@
     .reply-quote { background: var(--quote-bg); border-left: 3px solid #42a5f5; padding: 4px 8px; border-radius: 6px; margin-bottom: 6px; font-size: 12px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
 
     .bubble-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
-    .translated { font-size: 17px; font-weight: bold; word-break: break-word; }
-    .original { font-size: 12px; color: var(--text-sub); word-break: break-word; }
-    .emoji-big { font-size: 44px; line-height: 1.15; padding: 2px 4px; }
-
-    body.font-large .translated { font-size: 21px; }
-    body.font-large .original { font-size: 14px; }
+    .translated { font-size: var(--msg-font-size); font-weight: bold; word-break: break-word; }
+    .original { font-size: var(--orig-font-size); color: var(--text-sub); word-break: break-word; }
 
     .msg-photo-wrap { margin: 2px 0 4px; }
     .msg-photo { max-width: 210px; max-height: 220px; border-radius: 8px; display: block; cursor: pointer; object-fit: cover; background: rgba(0,0,0,0.15); }
@@ -189,7 +184,6 @@
     .play-btn { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; border: none; background: rgba(128,128,128,0.22); color: var(--text); font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
     .play-btn.playing { background: #4caf50; color: #fff; }
 
-    /* Zalo 스타일 메시지 하트 버튼 / 배지 */
     .msg-heart-btn {
       position: absolute;
       bottom: -10px;
@@ -226,7 +220,6 @@
       pointer-events: none;
     }
 
-    /* 맨 아래로 바로가기 버튼 */
     #scrollBottomBtn {
       position: absolute;
       right: 14px;
@@ -253,15 +246,43 @@
     .meter-track { width: 100%; height: 9px; background: #2e3b2e; border-radius: 5px; overflow: hidden; }
     #volBar { width: 4%; height: 100%; background: #4caf50; transition: width 0.06s linear; }
 
-    footer { padding: 8px 12px 12px; background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 7px; flex-shrink: 0; }
+    footer { position: relative; padding: 8px 12px 12px; background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 7px; flex-shrink: 0; }
 
     #replyPreviewBar { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface-2); border-left: 3px solid #0078ff; padding: 6px 10px; border-radius: 8px; font-size: 12px; color: var(--text-sub); }
     #replyPreviewText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
     #replyCancelBtn { border: none; background: transparent; color: var(--text-muted); font-size: 14px; font-weight: bold; cursor: pointer; padding: 0 4px; }
 
-    .emoji-bar { display: flex; justify-content: space-between; gap: 6px; }
+    #emojiBar { display: flex; justify-content: space-between; gap: 6px; }
     .emoji-quick-btn { flex: 1; padding: 5px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); font-size: 19px; cursor: pointer; line-height: 1.2; }
-    .emoji-quick-btn:active { transform: scale(0.92); }
+    .emoji-quick-btn:active { transform: scale(0.9); }
+
+    /* 사진 선택 팝업 메뉴 */
+    #photoMenu {
+      position: absolute;
+      left: 12px;
+      bottom: 112px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 40;
+      min-width: 155px;
+    }
+    #photoMenu button {
+      padding: 12px 14px;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: bold;
+      text-align: left;
+      cursor: pointer;
+    }
+    #photoMenu button + button { border-top: 1px solid var(--border); }
+    #photoMenu button:active { background: var(--surface-2); }
 
     .text-row { display: flex; gap: 6px; align-items: center; }
     #photoBtn { width: 38px; height: 38px; border: none; border-radius: 10px; background: var(--btn-bg); color: var(--btn-text); font-size: 17px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
@@ -299,12 +320,9 @@
 <div id="callModal" class="hidden">
   <div class="call-card">
     <h3 id="callModalTitle">📹 영상통화 요청</h3>
-    <div id="incomingActions" class="call-actions hidden">
+    <div id="incomingActions" class="call-actions">
       <button class="btn-reject" id="rejectCallBtn" onclick="rejectVideoCall()">거절</button>
       <button class="btn-accept" id="acceptCallBtn" onclick="acceptVideoCall()">수락</button>
-    </div>
-    <div id="outgoingActions" class="call-actions hidden">
-      <button class="btn-reject" id="cancelCallBtn" onclick="endVideoCall()">취소</button>
     </div>
   </div>
 </div>
@@ -317,6 +335,14 @@
   </div>
 </div>
 
+<div id="photoPreviewModal" class="hidden">
+  <img id="photoPreviewImg" src="" alt="preview" />
+  <div class="photo-modal-actions">
+    <button id="photoConfirmCancelBtn" onclick="cancelPendingPhoto()">❌ 취소</button>
+    <button id="photoConfirmSendBtn" onclick="confirmSendPendingPhoto()">📤 보내기</button>
+  </div>
+</div>
+
 <div id="inAppBanner" class="hidden"></div>
 <div id="diagBanner" class="hidden"></div>
 
@@ -326,8 +352,9 @@
     <div id="partnerClock"></div>
   </div>
   <div class="role-select">
-    <button id="videoCallBtn" onclick="requestVideoCall()" disabled>📹 영상통화</button>
-    <button id="fontToggleBtn" onclick="toggleFontSize()" title="글자 크기">가+</button>
+    <button id="videoCallBtn" onclick="requestVideoCall()" disabled>📹 통화</button>
+    <button id="fontDecBtn" onclick="changeFontSize(-2)" title="글자 작게">가-</button>
+    <button id="fontIncBtn" onclick="changeFontSize(2)" title="글자 크게">가+</button>
     <button id="themeToggleBtn" onclick="toggleTheme()" title="테마 전환">☀️</button>
     <button id="btnKo" onclick="setRole('ko')">한국어</button>
     <button id="btnVi" onclick="setRole('vi')">Tiếng Việt</button>
@@ -378,7 +405,7 @@
     <button id="replyCancelBtn" onclick="clearReplyTarget()">✕</button>
   </div>
 
-  <div class="emoji-bar">
+  <div id="emojiBar" class="hidden">
     <button class="emoji-quick-btn" onclick="sendQuickEmoji('❤️')">❤️</button>
     <button class="emoji-quick-btn" onclick="sendQuickEmoji('😘')">😘</button>
     <button class="emoji-quick-btn" onclick="sendQuickEmoji('😂')">😂</button>
@@ -387,9 +414,15 @@
     <button class="emoji-quick-btn" onclick="sendQuickEmoji('🥰')">🥰</button>
   </div>
 
+  <div id="photoMenu" class="hidden">
+    <button id="menuCameraBtn" onclick="openCameraInput()">📸 사진 찍기</button>
+    <button id="menuGalleryBtn" onclick="openGalleryInput()">🖼️ 앨범에서 선택</button>
+  </div>
+
   <div class="text-row">
-    <input id="photoInput" type="file" accept="image/*" class="hidden" />
-    <button id="photoBtn" onclick="triggerPhotoSelect()" title="사진 보내기">📷</button>
+    <input id="photoCameraInput" type="file" accept="image/*" capture="environment" class="hidden" />
+    <input id="photoGalleryInput" type="file" accept="image/*" class="hidden" />
+    <button id="photoBtn" onclick="togglePhotoMenu(event)" title="사진 보내기">📷</button>
     <input id="textInput" type="text" placeholder="키보드로 직접 입력..." />
     <button id="textSendBtn" onclick="sendTextMessage()">전송</button>
   </div>
@@ -402,7 +435,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 23;
+  const APP_VERSION = 24;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const PRIMARY_MODEL = "gemini-3.5-flash-lite";
   const FALLBACK_MODEL = "gemini-3.1-flash-lite";
@@ -484,11 +517,10 @@
       diagMicDenied: "마이크 권한 거부됨",
       diagNoSupport: "녹음 미지원 브라우저",
       diagRecErr: "녹음 오류 발생",
-      callOutgoing: "📹 상대방에게 영상통화 요청 중...",
+      callOutgoing: "📹 상대방 수락 대기 중...",
       callIncoming: "📹 영상통화 요청이 왔습니다!",
       callAccept: "수락",
       callReject: "거절",
-      callCancel: "요청 취소",
       callConnecting: "영상 연결 중...",
       callReconnecting: "네트워크 재연결 중...",
       callTestBadge: "🧪 테스트 모드 (상대방 접속 시 자동 종료)",
@@ -500,9 +532,13 @@
       photoExpired: "오래된 사진입니다",
       photoDownload: "💾 저장",
       photoClose: "닫기",
+      photoConfirmSend: "📤 보내기",
+      photoConfirmCancel: "❌ 취소",
+      menuCamera: "📸 사진 찍기",
+      menuGallery: "🖼️ 앨범에서 선택",
       deleteConfirm: "이 메시지를 삭제할까요?",
-      fontSmall: "가+",
-      fontLarge: "가-"
+      fontDec: "가-",
+      fontInc: "가+"
     },
     vi: {
       lockTitle: "🔒 Nhập mật khẩu phòng",
@@ -534,11 +570,10 @@
       diagMicDenied: "Chưa cấp quyền micro",
       diagNoSupport: "Trình duyệt không hỗ trợ ghi âm",
       diagRecErr: "Lỗi ghi âm",
-      callOutgoing: "📹 Đang gọi video...",
+      callOutgoing: "📹 Đang chờ đối phương nghe máy...",
       callIncoming: "📹 Có cuộc gọi video đến!",
       callAccept: "Nghe máy",
       callReject: "Từ chối",
-      callCancel: "Hủy gọi",
       callConnecting: "Đang kết nối video...",
       callReconnecting: "Đang kết nối lại mạng...",
       callTestBadge: "🧪 Chế độ thử nghiệm",
@@ -550,9 +585,13 @@
       photoExpired: "Ảnh đã cũ",
       photoDownload: "💾 Lưu",
       photoClose: "Đóng",
+      photoConfirmSend: "📤 Gửi ảnh",
+      photoConfirmCancel: "❌ Hủy",
+      menuCamera: "📸 Chụp ảnh",
+      menuGallery: "🖼️ Chọn từ thư viện",
       deleteConfirm: "Bạn muốn xóa tin nhắn này?",
-      fontSmall: "A+",
-      fontLarge: "A-"
+      fontDec: "A-",
+      fontInc: "A+"
     }
   };
 
@@ -578,7 +617,7 @@
   let roomPass = localStorage.getItem("wt_pass") || "";
   let apiKey = "";
   let isLightTheme = localStorage.getItem("wt_theme") === "light";
-  let isLargeFont = localStorage.getItem("wt_font") === "large";
+  let fontSizePx = Math.min(25, Math.max(13, Number(localStorage.getItem("wt_font_px")) || 17));
 
   let isRecording = false;
   let isProcessing = false;
@@ -606,10 +645,15 @@
   const photoCache = {};
   let currentModalPhotoDataUrl = "";
   let currentModalPhotoTs = 0;
+  let pendingPhotoDataUrl = "";
 
   let replyTarget = null;
   let lastTypingSentAt = 0;
   let typingClearTimer = null;
+
+  let myEmojiEvents = [];
+  let seenEmojiIds = new Set();
+  let emojiInitialized = false;
 
   let pollTimer = null;
   let heartbeatTimer = null;
@@ -664,21 +708,23 @@
   const passInput = document.getElementById("passInput");
   const callModal = document.getElementById("callModal");
   const callModalTitle = document.getElementById("callModalTitle");
-  const incomingActions = document.getElementById("incomingActions");
-  const outgoingActions = document.getElementById("outgoingActions");
   const acceptCallBtn = document.getElementById("acceptCallBtn");
   const rejectCallBtn = document.getElementById("rejectCallBtn");
-  const cancelCallBtn = document.getElementById("cancelCallBtn");
   const photoModal = document.getElementById("photoModal");
   const photoModalImg = document.getElementById("photoModalImg");
   const photoDownloadBtn = document.getElementById("photoDownloadBtn");
   const photoCloseBtn = document.getElementById("photoCloseBtn");
+  const photoPreviewModal = document.getElementById("photoPreviewModal");
+  const photoPreviewImg = document.getElementById("photoPreviewImg");
+  const photoConfirmSendBtn = document.getElementById("photoConfirmSendBtn");
+  const photoConfirmCancelBtn = document.getElementById("photoConfirmCancelBtn");
   const inAppBanner = document.getElementById("inAppBanner");
   const diagBanner = document.getElementById("diagBanner");
   const statusEl = document.getElementById("status");
   const partnerClock = document.getElementById("partnerClock");
   const videoCallBtn = document.getElementById("videoCallBtn");
-  const fontToggleBtn = document.getElementById("fontToggleBtn");
+  const fontDecBtn = document.getElementById("fontDecBtn");
+  const fontIncBtn = document.getElementById("fontIncBtn");
   const themeToggleBtn = document.getElementById("themeToggleBtn");
   const btnKo = document.getElementById("btnKo");
   const btnVi = document.getElementById("btnVi");
@@ -703,7 +749,12 @@
   const volBar = document.getElementById("volBar");
   const replyPreviewBar = document.getElementById("replyPreviewBar");
   const replyPreviewText = document.getElementById("replyPreviewText");
-  const photoInput = document.getElementById("photoInput");
+  const emojiBar = document.getElementById("emojiBar");
+  const photoMenu = document.getElementById("photoMenu");
+  const menuCameraBtn = document.getElementById("menuCameraBtn");
+  const menuGalleryBtn = document.getElementById("menuGalleryBtn");
+  const photoCameraInput = document.getElementById("photoCameraInput");
+  const photoGalleryInput = document.getElementById("photoGalleryInput");
   const textInput = document.getElementById("textInput");
   const textSendBtn = document.getElementById("textSendBtn");
   const micBtn = document.getElementById("micBtn");
@@ -721,9 +772,11 @@
 
   function applyThemeAndFont() {
     document.body.classList.toggle("light-theme", isLightTheme);
-    document.body.classList.toggle("font-large", isLargeFont);
     themeToggleBtn.textContent = isLightTheme ? "🌙" : "☀️";
-    fontToggleBtn.textContent = isLargeFont ? t().fontLarge : t().fontSmall;
+    document.documentElement.style.setProperty("--msg-font-size", `${fontSizePx}px`);
+    document.documentElement.style.setProperty("--orig-font-size", `${Math.max(11, fontSizePx - 5)}px`);
+    fontDecBtn.textContent = t().fontDec;
+    fontIncBtn.textContent = t().fontInc;
   }
 
   function toggleTheme() {
@@ -732,9 +785,9 @@
     applyThemeAndFont();
   }
 
-  function toggleFontSize() {
-    isLargeFont = !isLargeFont;
-    localStorage.setItem("wt_font", isLargeFont ? "large" : "normal");
+  function changeFontSize(delta) {
+    fontSizePx = Math.min(25, Math.max(13, fontSizePx + delta));
+    localStorage.setItem("wt_font_px", String(fontSizePx));
     applyThemeAndFont();
   }
 
@@ -773,8 +826,16 @@
     const el = document.createElement("div");
     el.className = "popup-emoji";
     el.textContent = emoji;
+    const leftPct = 28 + Math.random() * 44;
+    const topPct = 36 + Math.random() * 24;
+    const rotStart = Math.round((Math.random() - 0.5) * 28);
+    const rotMid = Math.round((Math.random() - 0.5) * 20);
+    el.style.left = `${leftPct}%`;
+    el.style.top = `${topPct}%`;
+    el.style.setProperty("--rot-start", `${rotStart}deg`);
+    el.style.setProperty("--rot-mid", `${rotMid}deg`);
     document.body.appendChild(el);
-    setTimeout(() => el.remove(), 2200);
+    setTimeout(() => el.remove(), 2000);
   }
 
   function formatMsgTime(ts) {
@@ -815,9 +876,12 @@
     textSendBtn.textContent = text.textSend;
     acceptCallBtn.textContent = text.callAccept;
     rejectCallBtn.textContent = text.callReject;
-    cancelCallBtn.textContent = text.callCancel;
     photoDownloadBtn.textContent = text.photoDownload;
     photoCloseBtn.textContent = text.photoClose;
+    photoConfirmSendBtn.textContent = text.photoConfirmSend;
+    photoConfirmCancelBtn.textContent = text.photoConfirmCancel;
+    menuCameraBtn.textContent = text.menuCamera;
+    menuGalleryBtn.textContent = text.menuGallery;
     typingIndicator.textContent = text.typing;
     btnKo.classList.toggle("active", myRole === "ko");
     btnVi.classList.toggle("active", myRole === "vi");
@@ -834,6 +898,12 @@
 
   applyStaticText();
   clockTimer = setInterval(updatePartnerClock, 10000);
+
+  document.addEventListener("click", (e) => {
+    if (!photoMenu.classList.contains("hidden") && !photoMenu.contains(e.target) && e.target.id !== "photoBtn") {
+      photoMenu.classList.add("hidden");
+    }
+  });
 
   function decodeKey(pass) {
     if (!pass) return "";
@@ -872,7 +942,6 @@
     if (e.key === "Enter") sendTextMessage();
   });
 
-  // 키보드 입력 중 상태 전송 (2초 쓰로틀 + 멈추면 해제)
   textInput.addEventListener("input", () => {
     if (!roomPass) return;
     const val = textInput.value.trim();
@@ -892,7 +961,6 @@
     }
   });
 
-  // 채팅창 스크롤: 맨 위 도달 시 20개 추가 로드 & 맨 아래 버튼 토글
   subtitlesEl.addEventListener("scroll", () => {
     if (subtitlesEl.scrollTop <= 10 && visibleMsgCount < roomState.messages.length) {
       loadMoreMessages();
@@ -968,6 +1036,8 @@
     apiKey = "";
     loadedMsgSyncTs = -1;
     wasPartnerOnline = null;
+    emojiInitialized = false;
+    seenEmojiIds.clear();
     visibleMsgCount = INITIAL_VISIBLE_MSGS;
     if (pollTimer) clearInterval(pollTimer);
     if (heartbeatTimer) clearInterval(heartbeatTimer);
@@ -1004,6 +1074,8 @@
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     loadedMsgSyncTs = -1;
     wasPartnerOnline = null;
+    emojiInitialized = false;
+    seenEmojiIds.clear();
     visibleMsgCount = INITIAL_VISIBLE_MSGS;
     sendHeartbeat();
     reportDiag(myDiagCode);
@@ -1042,6 +1114,8 @@
     releaseMyLocks(false);
     myRole = role;
     wasPartnerOnline = null;
+    emojiInitialized = false;
+    seenEmojiIds.clear();
     localStorage.setItem("wt_role", role);
     applyStaticText();
     if (roomPass) {
@@ -1073,6 +1147,9 @@
       statusEl.textContent = t().partnerOffline;
       statusEl.style.color = "#8e8e8e";
     }
+
+    // 이모티콘 바: 상대방 접속 중일 때만 표시
+    emojiBar.classList.toggle("hidden", !online);
 
     const otherTypingTs = roomState.typing?.[getOtherRole()] || 0;
     const isPartnerTyping = online && (Date.now() - otherTypingTs < 4500);
@@ -1140,7 +1217,7 @@
 
   function showVideoSubtitle(msg) {
     if (!msg || !msg.translated) return;
-    if ((callState !== "active" && callState !== "test") || !isVideoFull) return;
+    if ((callState !== "active" && callState !== "test" && callState !== "outgoing") || !isVideoFull) return;
 
     const isMine = (msg.lang === myRole);
     videoSubtitleOverlay.textContent = msg.translated;
@@ -1207,19 +1284,53 @@
     await saveMessagesToDb(updated, syncTs);
   }
 
-  /* ================= 사진 압축 / 전송 / 확대 / 저장 ================= */
+  /* ================= 사진 메뉴 / 미리보기 / 압축 / 전송 ================= */
 
-  function triggerPhotoSelect() {
+  function togglePhotoMenu(e) {
+    if (e) e.stopPropagation();
     if (isProcessing || !roomPass) return;
-    photoInput.value = "";
-    photoInput.click();
+    photoMenu.classList.toggle("hidden");
   }
 
-  photoInput.addEventListener("change", async (e) => {
-    const file = e.target.files?.[0];
+  function openCameraInput() {
+    photoMenu.classList.add("hidden");
+    photoCameraInput.value = "";
+    photoCameraInput.click();
+  }
+
+  function openGalleryInput() {
+    photoMenu.classList.add("hidden");
+    photoGalleryInput.value = "";
+    photoGalleryInput.click();
+  }
+
+  photoCameraInput.addEventListener("change", (e) => handlePhotoFileSelected(e.target.files?.[0]));
+  photoGalleryInput.addEventListener("change", (e) => handlePhotoFileSelected(e.target.files?.[0]));
+
+  async function handlePhotoFileSelected(file) {
     if (!file) return;
-    await sendPhotoMessage(file);
-  });
+    try {
+      const dataUrl = await compressImageToDataUrl(file);
+      pendingPhotoDataUrl = dataUrl;
+      photoPreviewImg.src = dataUrl;
+      photoPreviewModal.classList.remove("hidden");
+    } catch (err) {
+      alert("Photo Error: " + err.message);
+    }
+  }
+
+  function cancelPendingPhoto() {
+    pendingPhotoDataUrl = "";
+    photoPreviewImg.src = "";
+    photoPreviewModal.classList.add("hidden");
+  }
+
+  async function confirmSendPendingPhoto() {
+    if (!pendingPhotoDataUrl || isProcessing) return;
+    const dataUrl = pendingPhotoDataUrl;
+    cancelPendingPhoto();
+    await sendCompressedPhoto(dataUrl);
+  }
 
   function compressImageToDataUrl(file, maxDim = 1024, quality = 0.72) {
     return new Promise((resolve, reject) => {
@@ -1248,12 +1359,11 @@
     });
   }
 
-  async function sendPhotoMessage(file) {
+  async function sendCompressedPhoto(dataUrl) {
     const msgTs = Date.now();
     isProcessing = true;
     updateButtonUI();
     try {
-      const dataUrl = await compressImageToDataUrl(file);
       photoCache[msgTs] = dataUrl;
 
       await fetch(`${getPhotoBaseUrl()}/${msgTs}.json`, {
@@ -1341,34 +1451,40 @@
     a.remove();
   }
 
-  /* ================= 큰 이모티콘 즉시 전송 ================= */
+  /* ================= 실시간 전용 연속 이모티콘 팝업 ================= */
 
-  async function sendQuickEmoji(emoji) {
-    if (!roomPass || isProcessing) return;
-    const msgTs = Date.now();
+  function sendQuickEmoji(emoji) {
+    if (!roomPass || !isPartnerOnline()) return;
+    const now = Date.now();
+    const id = `${now}_${Math.random().toString(36).slice(2, 6)}`;
     spawnPopupEmoji(emoji);
 
-    const newMsg = {
-      lang: myRole,
-      original: emoji,
-      translated: emoji,
-      isEmoji: true,
-      hasAudio: false,
-      hasPhoto: false,
-      liked: false,
-      replyTo: replyTarget ? { ...replyTarget } : null,
-      ts: msgTs
-    };
-    clearReplyTarget();
+    myEmojiEvents = myEmojiEvents.filter(e => now - e.ts < 8000);
+    myEmojiEvents.push({ id, emoji, ts: now });
+    if (myEmojiEvents.length > 15) myEmojiEvents = myEmojiEvents.slice(-15);
 
-    const updatedMessages = buildUpdatedMessages(newMsg);
-    roomState.messages = updatedMessages;
-    lastRenderSig = "";
-    renderMessages(false);
+    patchRoom({ [`emojiBurst/${myRole}`]: myEmojiEvents });
+  }
 
-    const syncTs = Date.now();
-    loadedMsgSyncTs = syncTs;
-    await saveMessagesToDb(updatedMessages, syncTs);
+  function handleIncomingEmojiBurst(burstMap) {
+    const otherList = Array.isArray(burstMap?.[getOtherRole()]) ? burstMap[getOtherRole()] : [];
+    const now = Date.now();
+
+    if (!emojiInitialized) {
+      otherList.forEach(ev => { if (ev && ev.id) seenEmojiIds.add(ev.id); });
+      emojiInitialized = true;
+      return;
+    }
+
+    const fresh = otherList.filter(ev => ev && ev.id && !seenEmojiIds.has(ev.id) && (now - ev.ts < 8000));
+    fresh.forEach((ev, idx) => {
+      seenEmojiIds.add(ev.id);
+      setTimeout(() => spawnPopupEmoji(ev.emoji), idx * 120);
+    });
+
+    if (seenEmojiIds.size > 100) {
+      seenEmojiIds = new Set(Array.from(seenEmojiIds).slice(-50));
+    }
   }
 
   /* ================= 메시지 렌더링 ================= */
@@ -1441,11 +1557,6 @@
         photoWrap.appendChild(img);
         div.appendChild(photoWrap);
         loadPhotoIntoImg(m.ts, img, placeholder);
-      } else if (m.isEmoji) {
-        const emojiDiv = document.createElement("div");
-        emojiDiv.className = "emoji-big";
-        emojiDiv.textContent = m.translated || m.original || "";
-        div.appendChild(emojiDiv);
       } else {
         const topDiv = document.createElement("div");
         topDiv.className = "bubble-top";
@@ -1524,7 +1635,7 @@
 
     if (latest && latest.ts && latest.ts > lastOverlayMsgTs) {
       lastOverlayMsgTs = latest.ts;
-      if ((callState === "active" || callState === "test") && isVideoFull && !latest.hasPhoto) {
+      if ((callState === "active" || callState === "test" || callState === "outgoing") && isVideoFull && !latest.hasPhoto) {
         showVideoSubtitle(latest);
       }
     }
@@ -1610,7 +1721,6 @@
     if (isFetchingMsgs) return;
     isFetchingMsgs = true;
     const isInitialLoad = (loadedMsgSyncTs === -1);
-    const prevLatestTs = getLatestMessageTs();
     const prevLikedMine = new Set(
       (roomState.messages || []).filter(m => m.lang === myRole && m.liked).map(m => m.ts)
     );
@@ -1640,11 +1750,6 @@
           m => m.lang === myRole && m.liked && !prevLikedMine.has(m.ts)
         );
         if (newlyLiked) spawnGlobalHearts(4);
-
-        const latest = roomState.messages[roomState.messages.length - 1];
-        if (latest && latest.ts > prevLatestTs && latest.lang !== myRole && latest.isEmoji) {
-          spawnPopupEmoji(latest.translated || latest.original);
-        }
       }
 
       loadedMsgSyncTs = targetSyncTs;
@@ -1685,6 +1790,8 @@
         roomState.typing = data.typing || {};
         roomState.diagnostics = data.diagnostics || {};
         roomState.callMeta = data.callMeta || null;
+
+        handleIncomingEmojiBurst(data.emojiBurst);
 
         const serverMsgSyncTs = Number(data.lastMsgTs || 0);
         if (loadedMsgSyncTs === -1 || serverMsgSyncTs !== loadedMsgSyncTs) {
@@ -1751,7 +1858,7 @@
   }
 
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && (callState === "active" || callState === "test")) {
+    if (document.visibilityState === "visible" && (callState === "active" || callState === "test" || callState === "outgoing")) {
       requestWakeLock();
     }
   });
@@ -1773,7 +1880,7 @@
   }
 
   function applyVideoLayout() {
-    if (callState === "active" || callState === "test") {
+    if (callState === "active" || callState === "test" || callState === "outgoing") {
       document.body.classList.add("in-video-call");
       videoSection.classList.remove("hidden");
       if (isVideoFull) {
@@ -1807,11 +1914,13 @@
 
       localVideo.srcObject = localStream;
       localVideo.classList.add("mirrored");
+      localVideoWrap.classList.remove("hidden");
       remoteVideo.srcObject = localStream;
       remoteVideo.muted = true;
       remoteVideo.classList.add("mirrored");
 
       remoteStatusBadge.textContent = t().callTestBadge;
+      remoteStatusBadge.classList.remove("top-badge");
       remoteStatusBadge.classList.add("test-badge");
       remoteStatusBadge.classList.remove("hidden");
 
@@ -1838,8 +1947,6 @@
     try {
       currentFacingMode = "user";
       localStream = await acquireVideoStream(currentFacingMode);
-      localVideo.srcObject = localStream;
-      localVideo.classList.add("mirrored");
 
       activeCallId = Date.now();
       isCaller = true;
@@ -1847,6 +1954,25 @@
       isMuted = false;
       isCamOff = false;
       isVideoFull = true;
+      lastOverlayMsgTs = getLatestMessageTs();
+
+      // 수락 대기 중: 내 화면을 전체 미리보기로 표시 + 모든 컨트롤 버튼 사용 가능
+      localVideo.srcObject = localStream;
+      localVideo.classList.add("mirrored");
+      localVideoWrap.classList.add("hidden");
+      showPipBtn.classList.add("hidden");
+
+      remoteVideo.srcObject = localStream;
+      remoteVideo.muted = true;
+      remoteVideo.classList.add("mirrored");
+
+      remoteStatusBadge.textContent = t().callOutgoing;
+      remoteStatusBadge.classList.remove("test-badge");
+      remoteStatusBadge.classList.add("top-badge");
+      remoteStatusBadge.classList.remove("hidden");
+
+      applyVideoLayout();
+      requestWakeLock();
 
       await fetch(`${getCallSignalUrl(activeCallId)}.json`, {
         method: "PUT",
@@ -1863,10 +1989,6 @@
         }
       });
 
-      callModalTitle.textContent = t().callOutgoing;
-      incomingActions.classList.add("hidden");
-      outgoingActions.classList.remove("hidden");
-      callModal.classList.remove("hidden");
       updatePartnerStatusUI();
     } catch (err) {
       cleanupVideoCall(false);
@@ -1890,7 +2012,7 @@
       isVideoFull = true;
 
       callModal.classList.add("hidden");
-      showVideoUI();
+      showVideoUI(false);
       await initPeerConnection();
       await patchRoom({ "callMeta/status": "active" });
       startSignalPolling();
@@ -1929,8 +2051,6 @@
         activeCallId = meta.callId;
         callState = "incoming";
         callModalTitle.textContent = t().callIncoming;
-        outgoingActions.classList.add("hidden");
-        incomingActions.classList.remove("hidden");
         callModal.classList.remove("hidden");
         if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
       }
@@ -1939,8 +2059,7 @@
 
     if (meta.status === "active" && callState === "outgoing" && meta.callId === activeCallId) {
       callState = "active";
-      callModal.classList.add("hidden");
-      showVideoUI();
+      showVideoUI(true);
       startCallerWebRTC();
       return;
     }
@@ -1954,13 +2073,19 @@
     }
   }
 
-  function showVideoUI() {
+  function showVideoUI(keepCurrentLayout = false) {
+    remoteVideo.srcObject = null;
     remoteVideo.muted = false;
     remoteVideo.classList.remove("mirrored");
-    remoteStatusBadge.classList.remove("test-badge");
+
+    localVideoWrap.classList.remove("hidden");
+    showPipBtn.classList.add("hidden");
+
+    remoteStatusBadge.classList.remove("test-badge", "top-badge");
     remoteStatusBadge.textContent = t().callConnecting;
     remoteStatusBadge.classList.remove("hidden");
-    isVideoFull = true;
+
+    if (!keepCurrentLayout) isVideoFull = true;
     lastOverlayMsgTs = getLatestMessageTs();
     applyVideoLayout();
     requestWakeLock();
@@ -2014,11 +2139,11 @@
         remoteStatusBadge.classList.add("hidden");
         if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
       } else if (st === "checking" || st === "new") {
-        remoteStatusBadge.classList.remove("test-badge");
+        remoteStatusBadge.classList.remove("test-badge", "top-badge");
         remoteStatusBadge.textContent = `${t().callConnecting} (${st})`;
         remoteStatusBadge.classList.remove("hidden");
       } else if (st === "disconnected" || st === "failed") {
-        remoteStatusBadge.classList.remove("test-badge");
+        remoteStatusBadge.classList.remove("test-badge", "top-badge");
         remoteStatusBadge.textContent = `${t().callReconnecting} (${st})`;
         remoteStatusBadge.classList.remove("hidden");
         if (isCaller && !reconnectTimer) {
@@ -2135,10 +2260,11 @@
 
     remoteVideo.srcObject = null;
     remoteVideo.muted = false;
+    remoteVideo.classList.remove("mirrored");
     localVideo.srcObject = null;
     callModal.classList.add("hidden");
     remoteStatusBadge.classList.add("hidden");
-    remoteStatusBadge.classList.remove("test-badge");
+    remoteStatusBadge.classList.remove("test-badge", "top-badge");
 
     callState = "idle";
     activeCallId = 0;
@@ -2158,7 +2284,7 @@
   }
 
   async function switchCamera() {
-    if ((callState !== "active" && callState !== "test") || !localStream) return;
+    if ((callState !== "active" && callState !== "test" && callState !== "outgoing") || !localStream) return;
     const prevFacing = currentFacingMode;
     const nextFacing = currentFacingMode === "user" ? "environment" : "user";
 
@@ -2212,7 +2338,7 @@
       localVideo.srcObject = null;
       localVideo.srcObject = localStream;
       localVideo.classList.toggle("mirrored", currentFacingMode === "user");
-      if (callState === "test") {
+      if (callState === "test" || callState === "outgoing") {
         remoteVideo.srcObject = null;
         remoteVideo.srcObject = localStream;
         remoteVideo.classList.toggle("mirrored", currentFacingMode === "user");
@@ -2370,7 +2496,7 @@
     stopCurrentAudio();
 
     try {
-      if ((callState === "active" || callState === "test") && localStream && localStream.getAudioTracks().length > 0) {
+      if ((callState === "active" || callState === "test" || callState === "outgoing") && localStream && localStream.getAudioTracks().length > 0) {
         try {
           const cloned = localStream.getAudioTracks()[0].clone();
           cloned.enabled = true;
@@ -2581,7 +2707,7 @@
 
   function buildContextReference() {
     const recentMsgs = (roomState.messages || [])
-      .filter(m => !m.hasPhoto && !m.isEmoji && m.original)
+      .filter(m => !m.hasPhoto && m.original)
       .slice(-MAX_CONTEXT_MSGS);
     if (recentMsgs.length === 0) return "";
     const lines = recentMsgs.map(m => `- (${m.lang === "ko" ? "한→베" : "베→한"}) ${m.original} / ${m.translated}`);
