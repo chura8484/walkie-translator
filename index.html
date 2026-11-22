@@ -173,8 +173,8 @@
       transform: translateX(-50%);
       display: flex;
       align-items: center;
-      gap: 5px;
-      padding: 6px 8px;
+      gap: 6px;
+      padding: 6px 10px;
       background: rgba(0,0,0,0.62);
       backdrop-filter: blur(6px);
       border-radius: 26px;
@@ -196,8 +196,11 @@
       pointer-events: auto;
       transform: translate(-50%, 0);
     }
+    body.in-video-call.video-fullscreen #vcEndBtn {
+      display: none;
+    }
 
-    .vc-btn { position: relative; width: 35px; height: 35px; border-radius: 50%; border: none; outline: none; background: rgba(255,255,255,0.16); color: #fff; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+    .vc-btn { position: relative; width: 36px; height: 36px; border-radius: 50%; border: none; outline: none; background: rgba(255,255,255,0.16); color: #fff; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
     .vc-btn.off { background: #ef6c00; }
     .vc-btn.slash::after {
       content: "";
@@ -212,13 +215,18 @@
     .vc-btn.active { background: #0078ff; }
     .vc-btn.end { background: #c62828; }
 
-    #heartLayer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 8; }
     #globalHeartLayer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 85; }
-    .floating-heart { position: absolute; bottom: 58px; font-size: 28px; animation: floatHeart 1.8s ease-out forwards; }
+    .floating-heart {
+      position: absolute;
+      bottom: 24dvh;
+      font-size: 34px;
+      filter: drop-shadow(0 3px 8px rgba(0,0,0,0.35));
+      animation: floatHeart 1.8s ease-out forwards;
+    }
     @keyframes floatHeart {
-      0% { transform: translateY(0) scale(0.7); opacity: 0.95; }
-      40% { transform: translateY(-90px) scale(1.2); opacity: 1; }
-      100% { transform: translateY(-230px) scale(0.95); opacity: 0; }
+      0% { transform: translateY(0) scale(0.75); opacity: 0.95; }
+      40% { transform: translateY(-95px) scale(1.25); opacity: 1; }
+      100% { transform: translateY(-250px) scale(0.95); opacity: 0; }
     }
 
     .popup-emoji {
@@ -388,7 +396,7 @@
 
     footer { position: relative; padding: 8px 12px 12px; background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 7px; flex-shrink: 0; }
 
-    /* 영상통화 전체화면일 때: footer 투명 플로팅, 기본은 말하기 버튼만 표시, 탭 시 이모티콘 표시 */
+    /* 영상통화 전체화면일 때: footer 투명 플로팅, 기본은 말하기+종료 버튼만 표시, 탭 시 이모티콘 표시 */
     body.in-video-call.video-fullscreen footer {
       position: fixed;
       left: 0;
@@ -424,10 +432,32 @@
       background: rgba(255,255,255,0.14);
       border-color: rgba(255,255,255,0.2);
     }
-    body.in-video-call.video-fullscreen footer #micBtn,
+    body.in-video-call.video-fullscreen footer #micRow,
     body.in-video-call.video-fullscreen footer #recordingControls {
       pointer-events: auto;
+    }
+    body.in-video-call.video-fullscreen footer #micBtn,
+    body.in-video-call.video-fullscreen footer #floatEndCallBtn,
+    body.in-video-call.video-fullscreen footer #recordingControls button {
       box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+    }
+
+    #micRow { display: flex; gap: 8px; align-items: stretch; }
+    #floatEndCallBtn {
+      display: none;
+      width: 54px;
+      flex-shrink: 0;
+      border: none;
+      border-radius: 14px;
+      background: #c62828;
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+    }
+    body.in-video-call.video-fullscreen #floatEndCallBtn {
+      display: flex;
     }
 
     #replyPreviewBar { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface-2); border-left: 3px solid #0078ff; padding: 6px 10px; border-radius: 8px; font-size: 12px; color: var(--text-sub); }
@@ -471,7 +501,7 @@
     #textSendBtn { padding: 0 13px; height: 38px; border: none; border-radius: 10px; background: var(--btn-bg); color: #0078ff; font-weight: bold; font-size: 14px; cursor: pointer; white-space: nowrap; }
 
     .btn-row { display: flex; gap: 10px; }
-    #micBtn { width: 100%; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 14px; background: #0078ff; color: #fff; cursor: pointer; transition: background 0.15s; }
+    #micBtn { flex: 1; width: 100%; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 14px; background: #0078ff; color: #fff; cursor: pointer; transition: background 0.15s; }
     #micBtn.locked { background: #555; color: #bbb; cursor: not-allowed; }
     #micBtn.reserve { background: #ef6c00; color: #fff; }
     #micBtn.reserved { background: #2e7d32; color: #fff; }
@@ -579,7 +609,6 @@
   <div id="callTimerBadge" class="hidden">00:00</div>
   <div id="remoteStatusBadge" class="hidden">연결 중...</div>
   <div id="videoSubtitleOverlay"></div>
-  <div id="heartLayer"></div>
 
   <div id="localVideoWrap" class="pos-br" onclick="cyclePipPosition()">
     <video id="localVideo" class="mirrored" autoplay playsinline muted></video>
@@ -593,7 +622,6 @@
     <button class="vc-btn" id="vcSpkBtn" onclick="toggleRemoteMute()" title="상대방 소리 음소거">🔊</button>
     <button class="vc-btn" id="vcCamBtn" onclick="toggleCamera()" title="카메라 끄기">📷</button>
     <button class="vc-btn" id="vcFitBtn" onclick="toggleVideoFit()" title="화면 비율 전환">⛶</button>
-    <button class="vc-btn" id="vcHeartBtn" onclick="sendHeart()" title="하트">❤️</button>
     <button class="vc-btn" id="vcRatioBtn" onclick="toggleVideoRatio()" title="채팅 보기/숨기기">💬</button>
     <button class="vc-btn end" id="vcEndBtn" onclick="endVideoCall()" title="종료">📵</button>
   </div>
@@ -642,7 +670,10 @@
     <button id="textSendBtn" onclick="sendTextMessage()">전송</button>
   </div>
 
-  <button id="micBtn">🎤 말하기</button>
+  <div id="micRow">
+    <button id="micBtn">🎤 말하기</button>
+    <button id="floatEndCallBtn" onclick="endVideoCall()" title="통화 종료">📵</button>
+  </div>
   <div id="recordingControls" class="btn-row hidden">
     <button id="cancelBtn" onclick="cancelRecording()">❌ 취소</button>
     <button id="sendBtn" onclick="finishRecording()">📤 전송 (번역)</button>
@@ -650,7 +681,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 28;
+  const APP_VERSION = 29;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const PRIMARY_MODEL = "gemini-3.5-flash-lite";
   const FALLBACK_MODEL = "gemini-3.1-flash-lite";
@@ -938,7 +969,6 @@
   let processedIceKeys = new Set();
   let lastOfferTs = 0;
   let lastAnswerTs = 0;
-  let lastHeartTs = 0;
   let reconnectTimer = null;
   let wakeLockSentinel = null;
 
@@ -998,7 +1028,6 @@
   const callTimerBadge = document.getElementById("callTimerBadge");
   const remoteStatusBadge = document.getElementById("remoteStatusBadge");
   const videoSubtitleOverlay = document.getElementById("videoSubtitleOverlay");
-  const heartLayer = document.getElementById("heartLayer");
   const localVideoWrap = document.getElementById("localVideoWrap");
   const localVideo = document.getElementById("localVideo");
   const localCamOffMask = document.getElementById("localCamOffMask");
@@ -1025,6 +1054,7 @@
   const photoGalleryInput = document.getElementById("photoGalleryInput");
   const textInput = document.getElementById("textInput");
   const textSendBtn = document.getElementById("textSendBtn");
+  const micRow = document.getElementById("micRow");
   const micBtn = document.getElementById("micBtn");
   const recordingControls = document.getElementById("recordingControls");
   const cancelBtn = document.getElementById("cancelBtn");
@@ -1096,7 +1126,7 @@
     }
   }
 
-  function spawnGlobalHearts(count = 4) {
+  function spawnGlobalHearts(count = 5) {
     const icons = ["❤️", "💖", "💕", "💗"];
     for (let i = 0; i < count; i++) {
       setTimeout(() => {
@@ -1483,7 +1513,7 @@
   function updateButtonUI() {
     const text = t();
     if (isRecording) {
-      micBtn.classList.add("hidden");
+      micRow.classList.add("hidden");
       recordingControls.classList.remove("hidden");
       liveBox.classList.remove("hidden");
       return;
@@ -1491,7 +1521,7 @@
 
     recordingControls.classList.add("hidden");
     liveBox.classList.add("hidden");
-    micBtn.classList.remove("hidden");
+    micRow.classList.remove("hidden");
 
     if (isProcessing) {
       micBtn.disabled = true;
@@ -1566,7 +1596,6 @@
     );
     roomState.messages = updated;
 
-    // 전체 재렌더링 없이 버튼만 즉시 전환 (스크롤 튐·깜빡임 방지)
     if (btnEl) {
       btnEl.classList.toggle("liked", nextLiked);
       btnEl.textContent = nextLiked ? "❤️" : "🤍";
@@ -2007,13 +2036,20 @@ ${getHonorificRule(msgLang)}
     a.remove();
   }
 
-  /* ================= 실시간 전용 연속 이모티콘 팝업 ================= */
+  /* ================= 실시간 전용 연속 이모티콘 팝업 (❤️는 날아오르는 하트도 동시 표시) ================= */
+
+  function triggerEmojiEffect(emoji) {
+    spawnPopupEmoji(emoji);
+    if (emoji === "❤️") {
+      spawnGlobalHearts(5);
+    }
+  }
 
   function sendQuickEmoji(emoji) {
     if (!roomPass || (!isPartnerOnline() && callState !== "test")) return;
     const now = Date.now();
     const id = `${now}_${Math.random().toString(36).slice(2, 6)}`;
-    spawnPopupEmoji(emoji);
+    triggerEmojiEffect(emoji);
 
     if (!isPartnerOnline()) return;
     myEmojiEvents = myEmojiEvents.filter(e => now - e.ts < 8000);
@@ -2036,7 +2072,7 @@ ${getHonorificRule(msgLang)}
     const fresh = otherList.filter(ev => ev && ev.id && !seenEmojiIds.has(ev.id) && (now - ev.ts < 8000));
     fresh.forEach((ev, idx) => {
       seenEmojiIds.add(ev.id);
-      setTimeout(() => spawnPopupEmoji(ev.emoji), idx * 120);
+      setTimeout(() => triggerEmojiEffect(ev.emoji), idx * 120);
     });
 
     if (seenEmojiIds.size > 100) {
@@ -2165,7 +2201,6 @@ ${getHonorificRule(msgLang)}
     doodlePointerId = null;
 
     if (doodleTotalDist < 14) {
-      // 짧은 1회 탭: 전체화면 메뉴/이모티콘 토글
       if (isVideoFull) {
         isVideoMenuOpen = !isVideoMenuOpen;
         document.body.classList.toggle("video-menu-open", isVideoMenuOpen);
@@ -2757,7 +2792,6 @@ ${getHonorificRule(msgLang)}
     isVideoContain = false;
     lastOverlayMsgTs = getLatestMessageTs();
 
-    // 버튼 클릭 즉시 영상 화면 전환 + 카메라 켜는 중 표시
     localVideoWrap.classList.add("hidden");
     remoteStatusBadge.textContent = t().camStarting;
     remoteStatusBadge.classList.remove("top-badge", "test-badge");
@@ -2804,7 +2838,6 @@ ${getHonorificRule(msgLang)}
       return;
     }
 
-    // 버튼 클릭 즉시 영상 화면 전환 (대기 중에는 취소할 수 있게 메뉴 표시)
     activeCallId = Date.now();
     isCaller = true;
     callState = "outgoing";
@@ -2813,7 +2846,7 @@ ${getHonorificRule(msgLang)}
     isRemoteMuted = false;
     isCamOff = false;
     isVideoFull = true;
-    isVideoMenuOpen = true;
+    isVideoMenuOpen = false;
     isVideoContain = false;
     lastOverlayMsgTs = getLatestMessageTs();
 
@@ -2853,8 +2886,7 @@ ${getHonorificRule(msgLang)}
         callMeta: {
           status: "ringing",
           caller: myRole,
-          callId: activeCallId,
-          heart: { from: "", ts: 0 }
+          callId: activeCallId
         }
       });
     } catch (err) {
@@ -2879,7 +2911,6 @@ ${getHonorificRule(msgLang)}
     isVideoMenuOpen = false;
     isVideoContain = false;
 
-    // 수락 즉시 영상 화면 전환 + 카메라 켜는 중 표시
     callModal.classList.add("hidden");
     localVideoWrap.classList.add("hidden");
     remoteStatusBadge.textContent = t().camStarting;
@@ -2939,7 +2970,6 @@ ${getHonorificRule(msgLang)}
           ? Math.max(1, Math.floor((Date.now() - callConnectedAt) / 1000))
           : 0;
         cleanupVideoCall(false);
-        // 상대방이 끊었거나 창을 닫아 기록이 누락됐을 경우 보완 저장
         if (durSec > 0 && endedCallId) {
           setTimeout(() => appendCallLogMessage(endedCallId, durSec, true), 1200);
         }
@@ -2964,14 +2994,6 @@ ${getHonorificRule(msgLang)}
       showVideoUI(true);
       startCallerWebRTC();
       return;
-    }
-
-    if (callState === "active") {
-      const heart = meta.heart;
-      if (heart && heart.ts && heart.ts !== lastHeartTs && heart.from !== myRole) {
-        lastHeartTs = heart.ts;
-        spawnHearts();
-      }
     }
   }
 
@@ -3328,29 +3350,6 @@ ${getHonorificRule(msgLang)}
     localVideoWrap.classList.remove(...PIP_CLASSES, "hidden");
     localVideoWrap.classList.add(PIP_CLASSES[0]);
     showPipBtn.classList.add("hidden");
-  }
-
-  function sendHeart() {
-    spawnHearts();
-    if (callState === "active") {
-      const ts = Date.now();
-      lastHeartTs = ts;
-      patchRoom({ callMeta: { ...roomState.callMeta, heart: { from: myRole, ts } } });
-    }
-  }
-
-  function spawnHearts() {
-    const icons = ["❤️", "💖", "💕", "💗"];
-    for (let i = 0; i < 4; i++) {
-      setTimeout(() => {
-        const el = document.createElement("div");
-        el.className = "floating-heart";
-        el.textContent = icons[Math.floor(Math.random() * icons.length)];
-        el.style.left = `${20 + Math.random() * 60}%`;
-        heartLayer.appendChild(el);
-        setTimeout(() => el.remove(), 1900);
-      }, i * 140);
-    }
   }
 
   /* ================= Gemini API 호출 (타임아웃 + 백업 모델 + 무료 번역 비상 백업) ================= */
