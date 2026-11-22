@@ -122,7 +122,6 @@
       100% { transform: translateY(-230px) scale(0.95); opacity: 0; }
     }
 
-    /* 큰 이모티콘 연속 팝업 애니메이션 */
     .popup-emoji {
       position: fixed;
       font-size: 76px;
@@ -147,7 +146,6 @@
     .btn-accept { background: #2e7d32; }
     .btn-reject { background: #c62828; }
 
-    /* 사진 확대 모달 & 전송 전 미리보기 모달 */
     #photoModal, #photoPreviewModal { position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 95; padding: 16px; gap: 14px; }
     #photoModalImg, #photoPreviewImg { max-width: 100%; max-height: 75dvh; border-radius: 10px; object-fit: contain; }
     .photo-modal-actions { display: flex; gap: 12px; }
@@ -256,7 +254,6 @@
     .emoji-quick-btn { flex: 1; padding: 5px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); font-size: 19px; cursor: pointer; line-height: 1.2; }
     .emoji-quick-btn:active { transform: scale(0.9); }
 
-    /* 사진 선택 팝업 메뉴 */
     #photoMenu {
       position: absolute;
       left: 12px;
@@ -435,7 +432,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 24;
+  const APP_VERSION = 25;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const PRIMARY_MODEL = "gemini-3.5-flash-lite";
   const FALLBACK_MODEL = "gemini-3.1-flash-lite";
@@ -1148,7 +1145,6 @@
       statusEl.style.color = "#8e8e8e";
     }
 
-    // 이모티콘 바: 상대방 접속 중일 때만 표시
     emojiBar.classList.toggle("hidden", !online);
 
     const otherTypingTs = roomState.typing?.[getOtherRole()] || 0;
@@ -1275,6 +1271,23 @@
     }
 
     const updated = roomState.messages.filter(m => m.ts !== msgTs);
+    roomState.messages = updated;
+    lastRenderSig = "";
+    renderMessages(true);
+
+    const syncTs = Date.now();
+    loadedMsgSyncTs = syncTs;
+    await saveMessagesToDb(updated, syncTs);
+  }
+
+  async function markAudioUnavailable(msgTs) {
+    const idx = roomState.messages.findIndex(m => m.ts === msgTs);
+    if (idx === -1) return;
+    const updated = roomState.messages.map((m, i) => {
+      if (i !== idx) return m;
+      const { audioData, audioMime, ...rest } = m;
+      return { ...rest, hasAudio: false };
+    });
     roomState.messages = updated;
     lastRenderSig = "";
     renderMessages(true);
@@ -1676,6 +1689,7 @@
         cached = await res.json();
         if (!cached || !cached.data) {
           btnEl.classList.add("hidden");
+          await markAudioUnavailable(msg.ts);
           return;
         }
         audioCache[msg.ts] = cached;
@@ -1956,7 +1970,6 @@
       isVideoFull = true;
       lastOverlayMsgTs = getLatestMessageTs();
 
-      // 수락 대기 중: 내 화면을 전체 미리보기로 표시 + 모든 컨트롤 버튼 사용 가능
       localVideo.srcObject = localStream;
       localVideo.classList.add("mirrored");
       localVideoWrap.classList.add("hidden");
@@ -2415,7 +2428,7 @@
     }
   }
 
-  /* ================= Gemini API 호출 (503/429 재시도 + 백업 모델 전환) ================= */
+  /* ================= Gemini API 호출 (타임아웃 + 백업 모델 + 무료 번역 비상 백업) ================= */
 
   function getHonorificRule() {
     if (myRole === "ko") {
@@ -2424,35 +2437,56 @@
     return "- 화자(여자)가 실제로 말한 베트남어 호칭과 뉘앙스를 억지로 바꾸지 말고 그대로 살려서 자연스러운 한국어 구어체로 번역해.";
   }
 
-  async function callGeminiWithFallback(bodyObj) {
+  async function fetchWithTimeout(url, options, timeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function callGeminiWithFallback(bodyObj, primaryTimeoutMs = 3000, fallbackTimeoutMs = 8000) {
     const attempts = [
-      { model: PRIMARY_MODEL, delay: 0 },
-      { model: PRIMARY_MODEL, delay: 1000 },
-      { model: FALLBACK_MODEL, delay: 0 }
+      { model: PRIMARY_MODEL, timeout: primaryTimeoutMs },
+      { model: FALLBACK_MODEL, timeout: fallbackTimeoutMs }
     ];
 
     let lastErr = null;
     for (let i = 0; i < attempts.length; i++) {
-      const { model, delay } = attempts[i];
-      if (delay > 0) await new Promise(r => setTimeout(r, delay));
-
+      const { model, timeout } = attempts[i];
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bodyObj)
-      });
+      try {
+        const res = await fetchWithTimeout(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bodyObj)
+        }, timeout);
 
-      if (res.ok) return await res.json();
+        if (res.ok) return await res.json();
 
-      const errText = await res.text();
-      lastErr = new Error(`Gemini (${model} / ${res.status}): ${errText}`);
-
-      if (res.status !== 503 && res.status !== 429) {
-        throw lastErr;
+        const errText = await res.text();
+        lastErr = new Error(`Gemini (${model} / ${res.status}): ${errText}`);
+        if (res.status !== 503 && res.status !== 429) {
+          throw lastErr;
+        }
+      } catch (err) {
+        lastErr = err;
       }
     }
     throw lastErr;
+  }
+
+  async function translateWithFreeGoogle(text, sl, tl) {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(sl)}&tl=${encodeURIComponent(tl)}&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetchWithTimeout(url, { method: "GET" }, 4000);
+    if (!res.ok) throw new Error("Free translate failed");
+    const data = await res.json();
+    if (Array.isArray(data) && Array.isArray(data[0])) {
+      return data[0].map(seg => seg[0] || "").join("").trim();
+    }
+    throw new Error("Free translate invalid response");
   }
 
   /* ================= 무전기 / 음성 번역 로직 ================= */
@@ -2749,15 +2783,17 @@ ${getHonorificRule()}
         }
       ];
 
+      // 음성: 메인 5초 타임아웃 → 초과 시 백업 모델 전환, 추론 끄기
       const data = await callGeminiWithFallback({
         system_instruction: { parts: [{ text: systemInstruction }] },
         contents,
         generationConfig: {
           temperature: 0.2,
           maxOutputTokens: 350,
-          responseMimeType: "application/json"
+          responseMimeType: "application/json",
+          thinkingConfig: { thinkingBudget: 0 }
         }
-      });
+      }, 5000, 10000);
 
       const parts = data.candidates?.[0]?.content?.parts || [];
       let rawJson = "{}";
@@ -2799,7 +2835,7 @@ ${getHonorificRule()}
       lastRenderSig = "";
       renderMessages(false);
 
-      await audioUploadPromise;
+      // 음성 업로드 완료를 기다리지 않고 말풍선부터 먼저 저장·전송
       const syncTs = Date.now();
       loadedMsgSyncTs = syncTs;
       await fetch(`${getMsgsBaseUrl()}.json`, {
@@ -2832,6 +2868,9 @@ ${getHonorificRule()}
     try {
       const sourceLang = myRole === "ko" ? "한국어" : "베트남어";
       const targetLang = myRole === "ko" ? "베트남어" : "한국어";
+      const slCode = myRole === "ko" ? "ko" : "vi";
+      const tlCode = myRole === "ko" ? "vi" : "ko";
+
       const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
 [규칙]
 ${getHonorificRule()}
@@ -2847,17 +2886,27 @@ ${getHonorificRule()}
         }
       ];
 
-      const data = await callGeminiWithFallback({
-        system_instruction: { parts: [{ text: systemInstruction }] },
-        contents,
-        generationConfig: { temperature: 0.2, maxOutputTokens: 280 }
-      });
-
-      const parts = data.candidates?.[0]?.content?.parts || [];
       let translated = "";
-      for (const p of parts) {
-        if (p.thought) continue;
-        if (p.text) { translated = p.text.trim(); break; }
+      try {
+        // 텍스트: 메인 3초 타임아웃 → 백업 모델 전환, 추론 끄기
+        const data = await callGeminiWithFallback({
+          system_instruction: { parts: [{ text: systemInstruction }] },
+          contents,
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 280,
+            thinkingConfig: { thinkingBudget: 0 }
+          }
+        }, 3000, 5000);
+
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        for (const p of parts) {
+          if (p.thought) continue;
+          if (p.text) { translated = p.text.trim(); break; }
+        }
+      } catch {
+        // Gemini 메인·백업 모두 실패 시 무료 구글 번역으로 비상 처리
+        translated = await translateWithFreeGoogle(spokenText, slCode, tlCode);
       }
 
       const newMsg = {
