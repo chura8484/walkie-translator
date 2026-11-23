@@ -16,6 +16,7 @@
   <title>Anh & Em</title>
   <meta property="og:title" content="Anh & Em" />
   <meta property="og:description" content="Phiên dịch trực tiếp Hàn - Việt" />
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <style>
     :root {
       --bg: #121212;
@@ -109,7 +110,7 @@
       position: fixed;
       top: 48px;
       right: 10px;
-      width: 225px;
+      width: 245px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -134,6 +135,19 @@
     }
     .setting-btns button.active { background: #0078ff; color: #fff; border-color: #0078ff; }
     .setting-full-btn { width: 100%; text-align: center; padding: 8px; }
+    .setting-full-btn.push-on { background: #2e7d32; color: #fff; border-color: #2e7d32; }
+    .setting-divider { height: 1px; background: var(--border); margin: 2px 0; }
+    .push-time-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12px; font-weight: bold; color: var(--text-sub); }
+    .push-time-selects { display: flex; align-items: center; gap: 4px; }
+    .push-time-selects select {
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: bold;
+    }
 
     /* 홈 화면 추가 안내 모달 */
     #installGuideModal {
@@ -753,6 +767,16 @@
 </div>
 
 <div id="settingsMenu" class="hidden">
+  <button id="pushToggleBtn" class="setting-full-btn" onclick="togglePushNotification()">🔕 푸시 알림 꺼짐</button>
+  <div id="pushTimeRow" class="push-time-row">
+    <span id="pushTimeLabel">⏰ 알림 시간</span>
+    <div class="push-time-selects">
+      <select id="pushStartHour" onchange="updatePushTimeRange()"></select>
+      <span>~</span>
+      <select id="pushEndHour" onchange="updatePushTimeRange()"></select>
+    </div>
+  </div>
+  <div class="setting-divider"></div>
   <div class="setting-row">
     <span id="settingFontLabel">글자 크기</span>
     <div class="setting-btns">
@@ -849,8 +873,16 @@
 </footer>
 
 <script>
-  const APP_VERSION = 34;
+  const APP_VERSION = 35;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
+  const ONESIGNAL_APP_ID = "f9fb09c5-1acd-4df1-b2e9-c9cd177ece17";
+  const OS_KEY_PARTS = [
+    "os_v2",
+    "_app_",
+    "7h5qtri2zvg7dmxjzhgro7woc5scdiiv",
+    "sequz2m2wtabrpvg5rcuqx6imhmeihrl",
+    "yjf5capix7hb4kphdtq7ir7mhl2gtfuaod4ozdy"
+  ];
   const PRIMARY_MODEL = "gemini-3.5-flash-lite";
   const FALLBACK_MODEL = "gemini-3.1-flash-lite";
   const MAX_CONTEXT_MSGS = 4;
@@ -897,7 +929,7 @@
     window.history.replaceState(null, "", window.location.pathname);
   }
 
-  // 암호(862534)로 XOR 암호화된 키 데이터
+  // 암호(862534)로 XOR 암호화된 Gemini 키 데이터
   const ENC_KEY_BYTES = [
     121,103,28,116,81,12,106,120,4,127,82,124,79,80,69,102,106,80,
     103,70,115,82,1,112,79,81,72,121,6,1,93,103,80,120,1,121,85,91,
@@ -967,6 +999,11 @@
       stkLarger: "크게 +",
       stkRemove: "삭제",
       stkClear: "초기화",
+      pushOn: "🔔 푸시 알림 켜짐",
+      pushOff: "🔕 푸시 알림 꺼짐",
+      pushTimeLabel: "⏰ 알림 시간",
+      pushNotSupported: "이 브라우저에서는 푸시 알림을 지원하지 않습니다. (아이폰은 홈 화면에 추가한 앱에서 켜주세요)",
+      pushDeniedAlert: "브라우저 설정에서 알림 권한을 허용해 주세요.",
       installBannerTitle: "홈 화면에 앱으로 추가",
       installBannerSub: "주소창 없이 앱처럼 편하게 쓰기",
       installBannerBtn: "📲 추가하기",
@@ -1039,6 +1076,11 @@
       stkLarger: "To +",
       stkRemove: "Xóa",
       stkClear: "Xóa hết",
+      pushOn: "🔔 Thông báo: BẬT",
+      pushOff: "🔕 Thông báo: TẮT",
+      pushTimeLabel: "⏰ Giờ báo",
+      pushNotSupported: "Trình duyệt này chưa hỗ trợ thông báo đẩy. (iPhone cần mở từ biểu tượng ngoài màn hình chính)",
+      pushDeniedAlert: "Vui lòng cho phép thông báo trong cài đặt trình duyệt.",
       installBannerTitle: "Thêm vào màn hình chính",
       installBannerSub: "Mở toàn màn hình tiện như ứng dụng",
       installBannerBtn: "📲 Thêm",
@@ -1050,6 +1092,185 @@
       installStepsAndroid: "1. Bấm <b>Menu (⋮)</b> ở góc trên bên phải.<br>2. Chọn <b>'Thêm vào màn hình chính'</b> hoặc <b>'Cài đặt ứng dụng'</b>.<br>3. Bấm <b>'Thêm'</b> là có biểu tượng ngoài màn hình!<br><br><small>※ Bấm 'Đã thêm xong' để chuyển nút này vào ⚙️ Cài đặt.</small>"
     }
   };
+
+  /* ================= OneSignal 백그라운드 푸시 알림 & 시간대 제어 ================= */
+
+  let oneSignalReady = false;
+  let pushEnabled = localStorage.getItem("wt_push_on") === "1";
+  let pushStartHour = Number(localStorage.getItem("wt_push_start") ?? 8);
+  let pushEndHour = Number(localStorage.getItem("wt_push_end") ?? 23);
+
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.OneSignalDeferred.push(async function(OneSignal) {
+    try {
+      await OneSignal.init({
+        appId: ONESIGNAL_APP_ID,
+        allowLocalhostAsSecureOrigin: true
+      });
+      oneSignalReady = true;
+      if (roomPass) {
+        await syncOneSignalIdentity();
+      }
+    } catch {}
+  });
+
+  function getPushExternalId(role) {
+    return `anhem_${roomPass}_${role}`;
+  }
+
+  function initPushHourSelects() {
+    const startSel = document.getElementById("pushStartHour");
+    const endSel = document.getElementById("pushEndHour");
+    if (!startSel || !endSel) return;
+    startSel.innerHTML = "";
+    endSel.innerHTML = "";
+    for (let h = 0; h < 24; h++) {
+      const label = `${String(h).padStart(2, "0")}:00`;
+      const opt1 = document.createElement("option");
+      opt1.value = String(h);
+      opt1.textContent = label;
+      startSel.appendChild(opt1);
+
+      const opt2 = document.createElement("option");
+      opt2.value = String(h);
+      opt2.textContent = label;
+      endSel.appendChild(opt2);
+    }
+    startSel.value = String(pushStartHour);
+    endSel.value = String(pushEndHour);
+  }
+
+  function updatePushUI() {
+    const btn = document.getElementById("pushToggleBtn");
+    const row = document.getElementById("pushTimeRow");
+    const label = document.getElementById("pushTimeLabel");
+    if (!btn || !row) return;
+    btn.textContent = pushEnabled ? t().pushOn : t().pushOff;
+    btn.classList.toggle("push-on", pushEnabled);
+    row.style.opacity = pushEnabled ? "1" : "0.45";
+    if (label) label.textContent = t().pushTimeLabel;
+  }
+
+  async function saveMyPushConfigToDb() {
+    if (!roomPass) return;
+    await patchRoom({
+      [`pushConfig/${myRole}`]: {
+        enabled: pushEnabled,
+        startHour: pushStartHour,
+        endHour: pushEndHour,
+        tzOffsetMin: new Date().getTimezoneOffset()
+      }
+    });
+  }
+
+  async function syncOneSignalIdentity() {
+    if (!oneSignalReady || !roomPass) return;
+    window.OneSignalDeferred.push(async function(OneSignal) {
+      try {
+        await OneSignal.login(getPushExternalId(myRole));
+        if (pushEnabled) {
+          await OneSignal.User.PushSubscription.optIn();
+        } else {
+          await OneSignal.User.PushSubscription.optOut();
+        }
+      } catch {}
+    });
+  }
+
+  async function togglePushNotification() {
+    if (!("Notification" in window)) {
+      alert(t().pushNotSupported);
+      return;
+    }
+
+    if (!pushEnabled) {
+      if (Notification.permission === "denied") {
+        alert(t().pushDeniedAlert);
+        return;
+      }
+      pushEnabled = true;
+      localStorage.setItem("wt_push_on", "1");
+      updatePushUI();
+
+      window.OneSignalDeferred.push(async function(OneSignal) {
+        try {
+          await OneSignal.Notifications.requestPermission();
+          if (roomPass) await OneSignal.login(getPushExternalId(myRole));
+          await OneSignal.User.PushSubscription.optIn();
+        } catch {}
+      });
+    } else {
+      pushEnabled = false;
+      localStorage.setItem("wt_push_on", "0");
+      updatePushUI();
+
+      window.OneSignalDeferred.push(async function(OneSignal) {
+        try {
+          await OneSignal.User.PushSubscription.optOut();
+        } catch {}
+      });
+    }
+    await saveMyPushConfigToDb();
+  }
+
+  async function updatePushTimeRange() {
+    const startSel = document.getElementById("pushStartHour");
+    const endSel = document.getElementById("pushEndHour");
+    if (!startSel || !endSel) return;
+    pushStartHour = Number(startSel.value);
+    pushEndHour = Number(endSel.value);
+    localStorage.setItem("wt_push_start", String(pushStartHour));
+    localStorage.setItem("wt_push_end", String(pushEndHour));
+    await saveMyPushConfigToDb();
+  }
+
+  function isPartnerWithinPushHours(cfg) {
+    if (!cfg) return true;
+    const start = Number(cfg.startHour ?? 8);
+    const end = Number(cfg.endHour ?? 23);
+    if (start === end) return true;
+
+    const tzOffsetMin = typeof cfg.tzOffsetMin === "number"
+      ? cfg.tzOffsetMin
+      : (getOtherRole() === "ko" ? -540 : -420);
+    const nowUtcMs = Date.now();
+    const partnerLocalMs = nowUtcMs - tzOffsetMin * 60000;
+    const partnerHour = new Date(partnerLocalMs).getUTCHours();
+
+    if (start < end) {
+      return partnerHour >= start && partnerHour < end;
+    }
+    return partnerHour >= start || partnerHour < end;
+  }
+
+  async function sendPartnerPushNotification(title, body, forceWhenOnline = false) {
+    if (!roomPass) return;
+    if (!forceWhenOnline && isPartnerOnline()) return;
+
+    const otherRole = getOtherRole();
+    const partnerCfg = roomState.pushConfig?.[otherRole];
+    if (partnerCfg && partnerCfg.enabled === false) return;
+    if (partnerCfg && !isPartnerWithinPushHours(partnerCfg)) return;
+
+    try {
+      const osKey = OS_KEY_PARTS.join("");
+      await fetch("https://api.onesignal.com/notifications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Authorization": `Key ${osKey}`
+        },
+        body: JSON.stringify({
+          app_id: ONESIGNAL_APP_ID,
+          include_aliases: { external_id: [getPushExternalId(otherRole)] },
+          target_channel: "push",
+          headings: { en: title },
+          contents: { en: body },
+          url: window.location.origin + window.location.pathname
+        })
+      });
+    } catch {}
+  }
 
   /* ================= 오디오 포커스(배경음악 정지 유도) & 볼륨 증폭 ================= */
 
@@ -1237,7 +1458,7 @@
     updatePwaInstallUI();
   }
 
-  /* ================= IndexedDB 영구 미디어 캐시 (사진·음성 중복 다운로드 방지) ================= */
+  /* ================= IndexedDB 영구 미디어 캐시 ================= */
 
   let mediaDbPromise = null;
 
@@ -1433,6 +1654,7 @@
     presence: {},
     typing: {},
     diagnostics: {},
+    pushConfig: {},
     callMeta: null
   };
   let lastRenderSig = "";
@@ -1679,6 +1901,7 @@
     applyThemeAndFont();
     updatePartnerClock();
     updatePwaInstallUI();
+    updatePushUI();
 
     if (inAppName) {
       inAppBanner.textContent = `${text.inAppWarn} (${inAppName})`;
@@ -1688,6 +1911,7 @@
     }
   }
 
+  initPushHourSelects();
   setupPwaMetaAndManifest();
   applyStaticText();
   clockTimer = setInterval(updatePartnerClock, 10000);
@@ -1717,6 +1941,8 @@
     lockScreen.classList.add("hidden");
     applyStaticText();
     startSync();
+    syncOneSignalIdentity();
+    saveMyPushConfigToDb();
     spawnGlobalHearts(5);
     return true;
   }
@@ -1943,6 +2169,8 @@
     if (roomPass) {
       sendHeartbeat();
       reportDiag(myDiagCode);
+      syncOneSignalIdentity();
+      saveMyPushConfigToDb();
     }
     lastRenderSig = "";
     renderMessages(false);
@@ -2140,7 +2368,7 @@
     await saveMessagesToDb(updated, syncTs);
   }
 
-  /* ================= 어색한 번역 다시 번역하기 (본인 메시지 전용) ================= */
+  /* ================= 어색한 번역 다시 번역하기 ================= */
 
   async function retranslateMessage(msgTs, btnEl) {
     if (isProcessing || !apiKey) return;
@@ -2213,7 +2441,7 @@ ${getHonorificRule(msgLang)}
     }
   }
 
-  /* ================= 사진 메뉴 / 미리보기 스티커 편집 / 압축(800px, 0.68) / 전송 ================= */
+  /* ================= 사진 메뉴 / 스티커 편집 / 압축 / 전송 ================= */
 
   function togglePhotoMenu(e) {
     if (e) e.stopPropagation();
@@ -2457,6 +2685,10 @@ ${getHonorificRule(msgLang)}
       const syncTs = Date.now();
       loadedMsgSyncTs = syncTs;
       await saveMessagesToDb(updatedMessages, syncTs);
+      sendPartnerPushNotification(
+        "Anh & Em",
+        myRole === "ko" ? "📷 Đã gửi một bức ảnh" : "📷 새 사진이 도착했습니다"
+      );
     } catch (err) {
       delete photoCache[msgTs];
       idbDelete("photos", msgTs);
@@ -2510,7 +2742,7 @@ ${getHonorificRule(msgLang)}
     }
   }
 
-  /* ================= 사진 100% 전체화면 뷰어 + 멀티터치 줌/이동 ================= */
+  /* ================= 사진 100% 전체화면 뷰어 ================= */
 
   function clampPhotoTransform() {
     photoScale = Math.min(4, Math.max(1, photoScale));
@@ -2640,7 +2872,7 @@ ${getHonorificRule(msgLang)}
     a.remove();
   }
 
-  /* ================= 실시간 전용 연속 이모티콘 팝업 + DB 자동 청소 ================= */
+  /* ================= 실시간 이모티콘 팝업 ================= */
 
   function triggerEmojiEffect(emoji) {
     spawnPopupEmoji(emoji);
@@ -2690,7 +2922,7 @@ ${getHonorificRule(msgLang)}
     }
   }
 
-  /* ================= 영상통화 상시 실시간 낙서 + DB 자동 청소 ================= */
+  /* ================= 영상통화 상시 실시간 낙서 ================= */
 
   function downsamplePoints(points, maxCount = 140) {
     if (!points || points.length <= maxCount) return points;
@@ -3124,7 +3356,6 @@ ${getHonorificRule(msgLang)}
       audio.volume = 1.0;
       currentAudioEl = audio;
 
-      // Web Audio 볼륨 증폭 (약 1.8배)
       try {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (AudioContextClass) {
@@ -3295,6 +3526,7 @@ ${getHonorificRule(msgLang)}
           roomState.presence = data.presence || {};
           roomState.typing = data.typing || {};
           roomState.diagnostics = data.diagnostics || {};
+          roomState.pushConfig = data.pushConfig || {};
           roomState.callMeta = data.callMeta || null;
 
           handleIncomingEmojiBurst(data.emojiBurst);
@@ -3565,6 +3797,11 @@ ${getHonorificRule(msgLang)}
           callId: activeCallId
         }
       });
+      sendPartnerPushNotification(
+        "Anh & Em",
+        myRole === "ko" ? "📹 Có cuộc gọi video đến!" : "📹 영상통화 요청이 왔습니다!",
+        true
+      );
       isStartingCall = false;
     } catch (err) {
       isStartingCall = false;
@@ -4035,7 +4272,7 @@ ${getHonorificRule(msgLang)}
     showPipBtn.classList.add("hidden");
   }
 
-  /* ================= Gemini API 호출 (타임아웃 + 백업 모델 + 무료 번역 비상 백업) ================= */
+  /* ================= Gemini API 호출 ================= */
 
   function getHonorificRule(lang = myRole) {
     if (lang === "ko") {
@@ -4096,7 +4333,7 @@ ${getHonorificRule(msgLang)}
     throw new Error("Free translate invalid response");
   }
 
-  /* ================= 무전기 / 음성 번역 로직 (64kbps + 소음제거 + 포커스 유도) ================= */
+  /* ================= 무전기 / 음성 번역 로직 ================= */
 
   micBtn.addEventListener("click", async () => {
     if (isProcessing || !apiKey) return;
@@ -4467,6 +4704,7 @@ ${getHonorificRule(myRole)}
           body: JSON.stringify(updatedMessages)
         });
         await finishTurnLock({ lastMsgTs: syncTs });
+        sendPartnerPushNotification("Anh & Em", `🎤 ${(trans || orig).slice(0, 60)}`);
       } finally {
         pendingSaveCount = Math.max(0, pendingSaveCount - 1);
       }
@@ -4554,6 +4792,7 @@ ${getHonorificRule(myRole)}
       const syncTs = Date.now();
       loadedMsgSyncTs = syncTs;
       await saveMessagesToDb(updatedMessages, syncTs);
+      sendPartnerPushNotification("Anh & Em", (translated || spokenText).slice(0, 60));
     } catch (err) {
       alert("Error: " + err.message);
     } finally {
