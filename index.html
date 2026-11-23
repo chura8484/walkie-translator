@@ -199,6 +199,82 @@
     #installDoneBtn { background: #e91e63; }
     #installCloseBtn { background: #555; }
 
+    #modelStatsModal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.78);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 96;
+      padding: 16px;
+    }
+    .stats-card {
+      width: 100%;
+      max-width: 360px;
+      max-height: 84dvh;
+      overflow-y: auto;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .stats-card h3 { font-size: 16px; text-align: center; }
+    .stats-section-title { font-size: 12px; font-weight: bold; color: var(--text-muted); margin-top: 2px; }
+    .stats-list { display: flex; flex-direction: column; gap: 7px; }
+    .model-stat-item {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .model-stat-item.rank-1 { border-color: #0078ff; }
+    .model-stat-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 13px; font-weight: bold; }
+    .model-rank-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 11px;
+      background: var(--btn-bg);
+      color: var(--text);
+      margin-right: 5px;
+    }
+    .model-stat-item.rank-1 .model-rank-badge { background: #0078ff; color: #fff; }
+    .model-stat-sub { font-size: 11px; color: var(--text-sub); line-height: 1.45; }
+    .app-info-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+    .app-info-row { display: flex; justify-content: space-between; gap: 8px; }
+    .app-info-row strong { color: var(--text); text-align: right; }
+    .stats-actions { display: flex; gap: 8px; margin-top: 2px; }
+    .stats-actions button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: bold;
+      color: #fff;
+      cursor: pointer;
+    }
+    #modelStatsResetBtn { background: #ef6c00; }
+    #modelStatsCloseBtn { background: #555; }
+
     #videoSection { position: relative; width: 100%; flex: 1; min-height: 0; background: #000; overflow: hidden; border-bottom: 1px solid var(--border); }
     #videoSection.split { flex: none; height: 42dvh; }
     body.in-video-call.video-fullscreen #videoSection { height: 100dvh; border-bottom: none; }
@@ -736,6 +812,20 @@
   </div>
 </div>
 
+<div id="modelStatsModal" class="hidden" onclick="if(event.target===this) closeModelStatsModal()">
+  <div class="stats-card">
+    <h3 id="modelStatsTitle">📊 모델 순위 / 앱 정보</h3>
+    <div id="modelStatsRankTitle" class="stats-section-title">🤖 AI 번역 모델 자동 순위</div>
+    <div id="modelStatsList" class="stats-list"></div>
+    <div id="modelStatsOtherTitle" class="stats-section-title">ℹ️ 앱 및 저장 상태</div>
+    <div id="appInfoBox" class="app-info-box"></div>
+    <div class="stats-actions">
+      <button id="modelStatsResetBtn" onclick="resetModelStats()">🔄 순위 초기화</button>
+      <button id="modelStatsCloseBtn" onclick="closeModelStatsModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div id="photoModal" class="hidden">
   <div id="photoModalStage">
     <img id="photoModalImg" src="" alt="photo" />
@@ -823,6 +913,7 @@
     </div>
   </div>
   <button id="themeToggleBtn" class="setting-full-btn" onclick="toggleTheme()">☀️ 라이트 모드</button>
+  <button id="modelStatsBtn" class="setting-full-btn" onclick="openModelStatsModal()">📊 모델 순위 / 앱 정보</button>
   <button id="installSettingBtn" class="setting-full-btn hidden" onclick="triggerInstallPwa()">📲 홈 화면에 추가</button>
   <div id="settingLangRow" class="setting-row">
     <span id="settingLangLabel">언어</span>
@@ -916,7 +1007,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 41;
+  const APP_VERSION = 42;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const ONESIGNAL_APP_ID = "f9fb09c5-1acd-4df1-b2e9-c9cd177ece17";
   const OS_KEY_PARTS = [
@@ -1061,6 +1152,23 @@
       installModalTitle: "📲 홈 화면에 앱으로 추가",
       installDoneBtn: "✅ 추가 완료",
       installCloseBtn: "닫기",
+      modelStatsBtn: "📊 모델 순위 / 앱 정보",
+      modelStatsTitle: "📊 모델 순위 / 앱 정보",
+      modelStatsRankTitle: "🤖 AI 번역 모델 자동 순위 (성공률·속도 기준)",
+      modelStatsOtherTitle: "ℹ️ 앱 및 저장 상태",
+      modelStatsResetBtn: "🔄 순위 초기화",
+      modelStatsCloseBtn: "닫기",
+      modelRankUnit: "위",
+      modelStatusOk: "🟢 정상",
+      modelStatusWarn: "🟠 지연/오류",
+      modelStatusIdle: "⚪ 미사용",
+      infoVersion: "앱 버전",
+      infoLastModel: "최근 사용 모델",
+      infoMsgs: "저장된 대화",
+      infoAudios: "저장된 음성",
+      infoPhotos: "저장된 사진",
+      infoCodec: "녹음 코덱",
+      infoNone: "없음",
       installStepsIOS: "1. 아래쪽 가운데 <b>공유 버튼 (⬆️)</b>을 누르세요.<br>2. 메뉴를 살짝 올려 <b>'홈 화면에 추가'</b>를 누르세요.<br>3. 오른쪽 위 <b>'추가'</b>를 누르면 완료!<br><br><small>※ 추가 완료를 누르면 이 버튼은 ⚙️ 설정으로 이동합니다.</small>",
       installStepsAndroid: "1. 오른쪽 위 브라우저 <b>메뉴 (⋮)</b>를 누르세요.<br>2. <b>'홈 화면에 추가'</b> 또는 <b>'앱 설치'</b>를 누르세요.<br>3. <b>'추가'</b>를 누르면 바탕화면에 아이콘이 생깁니다!<br><br><small>※ 추가 완료를 누르면 이 버튼은 ⚙️ 설정으로 이동합니다.</small>"
     },
@@ -1146,6 +1254,23 @@
       installModalTitle: "📲 Thêm vào màn hình chính",
       installDoneBtn: "✅ Đã thêm xong",
       installCloseBtn: "Đóng",
+      modelStatsBtn: "📊 Thứ tự AI & Trạng thái",
+      modelStatsTitle: "📊 Thứ tự AI & Trạng thái",
+      modelStatsRankTitle: "🤖 Thứ tự mô hình AI tự động",
+      modelStatsOtherTitle: "ℹ️ Thông tin ứng dụng & lưu trữ",
+      modelStatsResetBtn: "🔄 Đặt lại thứ tự",
+      modelStatsCloseBtn: "Đóng",
+      modelRankUnit: "",
+      modelStatusOk: "🟢 Tốt",
+      modelStatusWarn: "🟠 Chậm/Lỗi",
+      modelStatusIdle: "⚪ Chưa dùng",
+      infoVersion: "Phiên bản",
+      infoLastModel: "Mô hình gần nhất",
+      infoMsgs: "Tin nhắn đã lưu",
+      infoAudios: "Ghi âm đã lưu",
+      infoPhotos: "Ảnh đã lưu",
+      infoCodec: "Định dạng ghi âm",
+      infoNone: "Chưa có",
       installStepsIOS: "1. Bấm nút <b>Chia sẻ (⬆️)</b> ở giữa bên dưới.<br>2. Kéo xuống chọn <b>'Thêm vào MH chính'</b>.<br>3. Bấm <b>'Thêm'</b> ở góc trên bên phải là xong!<br><br><small>※ Bấm 'Đã thêm xong' để chuyển nút này vào ⚙️ Cài đặt.</small>",
       installStepsAndroid: "1. Bấm <b>Menu (⋮)</b> ở góc trên bên phải.<br>2. Chọn <b>'Thêm vào màn hình chính'</b> hoặc <b>'Cài đặt ứng dụng'</b>.<br>3. Bấm <b>'Thêm'</b> là có biểu tượng ngoài màn hình!<br><br><small>※ Bấm 'Đã thêm xong' để chuyển nút này vào ⚙️ Cài đặt.</small>"
     }
@@ -1157,9 +1282,11 @@
 
   function hasAnyOverlayOpen() {
     const installModal = document.getElementById("installGuideModal");
+    const statsModal = document.getElementById("modelStatsModal");
     return !photoModal.classList.contains("hidden") ||
       !photoPreviewModal.classList.contains("hidden") ||
       (installModal && !installModal.classList.contains("hidden")) ||
+      (statsModal && !statsModal.classList.contains("hidden")) ||
       !settingsMenu.classList.contains("hidden") ||
       !photoMenu.classList.contains("hidden");
   }
@@ -1187,10 +1314,13 @@
     modalHistoryActive = false;
 
     const installModal = document.getElementById("installGuideModal");
+    const statsModal = document.getElementById("modelStatsModal");
     if (!photoModal.classList.contains("hidden")) {
       closePhotoModal(true);
     } else if (!photoPreviewModal.classList.contains("hidden")) {
       cancelPendingPhoto(true);
+    } else if (statsModal && !statsModal.classList.contains("hidden")) {
+      closeModelStatsModal(true);
     } else if (installModal && !installModal.classList.contains("hidden")) {
       closeInstallGuide(true);
     } else if (!settingsMenu.classList.contains("hidden")) {
@@ -1718,6 +1848,8 @@
   let recStartTime = 0;
   let maxVolumePeak = 0;
   let meterWasActive = false;
+  let lastChunkVolLevel = 0;
+  let lastChunkAt = 0;
   let cancelRequested = false;
 
   let currentAudioEl = null;
@@ -2094,6 +2226,18 @@
     installModalTitle.textContent = text.installModalTitle;
     installDoneBtn.textContent = text.installDoneBtn;
     installCloseBtn.textContent = text.installCloseBtn;
+    const msBtn = document.getElementById("modelStatsBtn");
+    if (msBtn) msBtn.textContent = text.modelStatsBtn;
+    const msTitle = document.getElementById("modelStatsTitle");
+    if (msTitle) msTitle.textContent = text.modelStatsTitle;
+    const msRankTitle = document.getElementById("modelStatsRankTitle");
+    if (msRankTitle) msRankTitle.textContent = text.modelStatsRankTitle;
+    const msOtherTitle = document.getElementById("modelStatsOtherTitle");
+    if (msOtherTitle) msOtherTitle.textContent = text.modelStatsOtherTitle;
+    const msResetBtn = document.getElementById("modelStatsResetBtn");
+    if (msResetBtn) msResetBtn.textContent = text.modelStatsResetBtn;
+    const msCloseBtn = document.getElementById("modelStatsCloseBtn");
+    if (msCloseBtn) msCloseBtn.textContent = text.modelStatsCloseBtn;
     btnKo.classList.toggle("active", myRole === "ko");
     btnVi.classList.toggle("active", myRole === "vi");
     applyThemeAndFont();
@@ -4819,7 +4963,196 @@ ${getHonorificRule(msgLang)}
     showPipBtn.classList.add("hidden");
   }
 
-  /* ================= Gemini API 호출 (2라운드: 3.1 -> 3.1 재시도 -> 3.5 -> 2.5) ================= */
+  /* ================= Gemini API 자동 모델 순위 조절 & 상태 패널 ================= */
+
+  const MODEL_LIST = [MODEL_31, MODEL_35, MODEL_25];
+  const MODEL_STATS_KEY = "wt_model_stats_v1";
+
+  function createEmptyModelStats() {
+    const models = {};
+    MODEL_LIST.forEach(m => {
+      models[m] = { ok: 0, fail: 0, streakFail: 0, avgMs: 0, lastOkAt: 0, lastFailAt: 0, lastTriedAt: 0, lastErr: "" };
+    });
+    return { totalCalls: 0, lastUsedModel: "", lastUsedAt: 0, lastLatencyMs: 0, models };
+  }
+
+  function loadModelStats() {
+    const base = createEmptyModelStats();
+    try {
+      const raw = JSON.parse(localStorage.getItem(MODEL_STATS_KEY) || "null");
+      if (raw && typeof raw === "object") {
+        base.totalCalls = Number(raw.totalCalls || 0);
+        base.lastUsedModel = raw.lastUsedModel || "";
+        base.lastUsedAt = Number(raw.lastUsedAt || 0);
+        base.lastLatencyMs = Number(raw.lastLatencyMs || 0);
+        MODEL_LIST.forEach(m => {
+          if (raw.models && raw.models[m]) {
+            base.models[m] = { ...base.models[m], ...raw.models[m] };
+          }
+        });
+      }
+    } catch {}
+    return base;
+  }
+
+  let modelStats = loadModelStats();
+
+  function saveModelStats() {
+    try {
+      localStorage.setItem(MODEL_STATS_KEY, JSON.stringify(modelStats));
+    } catch {}
+  }
+
+  function computeModelScore(model, defaultIdx) {
+    const st = modelStats.models[model] || {};
+    const ok = Number(st.ok || 0);
+    const fail = Number(st.fail || 0);
+    const streakFail = Number(st.streakFail || 0);
+    const avgMs = Number(st.avgMs || 0);
+    const total = ok + fail;
+
+    let score = 60 - defaultIdx * 2;
+    if (total > 0) {
+      const smoothRate = (ok + 1) / (total + 2);
+      score = smoothRate * 100 - defaultIdx * 1.5;
+      if (avgMs > 0) {
+        score -= Math.min(35, avgMs / 250);
+      }
+    }
+
+    if (streakFail > 0) {
+      const minsSinceFail = st.lastFailAt ? (Date.now() - st.lastFailAt) / 60000 : 0;
+      const decay = Math.max(0.15, 1 - minsSinceFail / 10);
+      score -= streakFail * 35 * decay;
+    }
+    return score;
+  }
+
+  function getRankedModels(allowExplore = false) {
+    const scored = MODEL_LIST.map((model, idx) => ({
+      model,
+      score: computeModelScore(model, idx)
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    const ranked = scored.map(x => x.model);
+
+    // Every 12 calls, probe a non-top model that hasn't been tried for 3+ min so recovered models can reclaim #1
+    if (allowExplore && modelStats.totalCalls > 0 && modelStats.totalCalls % 12 === 0) {
+      const now = Date.now();
+      const probeCandidate = ranked.slice(1).find(m => {
+        const lastTried = modelStats.models[m]?.lastTriedAt || 0;
+        return (now - lastTried) > 180000;
+      });
+      if (probeCandidate) {
+        return [probeCandidate, ...ranked.filter(m => m !== probeCandidate)];
+      }
+    }
+    return ranked;
+  }
+
+  function recordModelResult(model, success, latencyMs, errLabel = "") {
+    if (!modelStats.models[model]) return;
+    const st = modelStats.models[model];
+    const now = Date.now();
+    st.lastTriedAt = now;
+    if (success) {
+      st.ok = (st.ok || 0) + 1;
+      st.streakFail = 0;
+      st.lastOkAt = now;
+      st.lastErr = "";
+      st.avgMs = st.avgMs > 0 ? Math.round(st.avgMs * 0.7 + latencyMs * 0.3) : Math.round(latencyMs);
+      modelStats.lastUsedModel = model;
+      modelStats.lastUsedAt = now;
+      modelStats.lastLatencyMs = Math.round(latencyMs);
+    } else {
+      st.fail = (st.fail || 0) + 1;
+      st.streakFail = (st.streakFail || 0) + 1;
+      st.lastFailAt = now;
+      st.lastErr = errLabel || "error";
+    }
+    saveModelStats();
+  }
+
+  function renderModelStatsModal() {
+    const listEl = document.getElementById("modelStatsList");
+    const infoEl = document.getElementById("appInfoBox");
+    if (!listEl || !infoEl) return;
+
+    const text = t();
+    const ranked = getRankedModels(false);
+    listEl.innerHTML = "";
+
+    ranked.forEach((model, idx) => {
+      const st = modelStats.models[model] || {};
+      const ok = st.ok || 0;
+      const fail = st.fail || 0;
+      const total = ok + fail;
+      const pct = total > 0 ? Math.round((ok / total) * 100) : 0;
+      const speedText = st.avgMs > 0 ? `${(st.avgMs / 1000).toFixed(1)}s` : "-";
+
+      let badge = text.modelStatusIdle;
+      if (total > 0) {
+        badge = st.streakFail > 0 ? text.modelStatusWarn : text.modelStatusOk;
+      }
+
+      const rankLabel = myRole === "ko" ? `${idx + 1}${text.modelRankUnit}` : `#${idx + 1}`;
+      const item = document.createElement("div");
+      item.className = "model-stat-item" + (idx === 0 ? " rank-1" : "");
+
+      const top = document.createElement("div");
+      top.className = "model-stat-top";
+      top.innerHTML = `<span><span class="model-rank-badge">${rankLabel}</span>${model}</span><span>${badge}</span>`;
+
+      const sub = document.createElement("div");
+      sub.className = "model-stat-sub";
+      const statLine = myRole === "ko"
+        ? `성공 ${ok} / 실패 ${fail} (${total > 0 ? pct + "%" : "-"}) · 평균 ${speedText}`
+        : `OK ${ok} / Lỗi ${fail} (${total > 0 ? pct + "%" : "-"}) · TB ${speedText}`;
+      const errLine = st.lastErr ? `<br>최근 오류: ${st.lastErr}` : "";
+      sub.innerHTML = statLine + errLine;
+
+      item.appendChild(top);
+      item.appendChild(sub);
+      listEl.appendChild(item);
+    });
+
+    const msgs = roomState.messages || [];
+    const audioCount = msgs.filter(m => m.hasAudio || m.audioData).length;
+    const photoCount = msgs.filter(m => m.hasPhoto).length;
+    const lastModelStr = modelStats.lastUsedModel
+      ? `${modelStats.lastUsedModel} (${(modelStats.lastLatencyMs / 1000).toFixed(1)}s)`
+      : text.infoNone;
+    const codecStr = pickAudioMimeType() || "default";
+
+    infoEl.innerHTML = `
+      <div class="app-info-row"><span>${text.infoVersion}</span><strong>v${APP_VERSION}</strong></div>
+      <div class="app-info-row"><span>${text.infoLastModel}</span><strong>${lastModelStr}</strong></div>
+      <div class="app-info-row"><span>${text.infoMsgs}</span><strong>${msgs.length} / ${MAX_STORED_MSGS}</strong></div>
+      <div class="app-info-row"><span>${text.infoAudios}</span><strong>${audioCount} / ${MAX_AUDIO_MSGS}</strong></div>
+      <div class="app-info-row"><span>${text.infoPhotos}</span><strong>${photoCount} / ${MAX_PHOTO_MSGS}</strong></div>
+      <div class="app-info-row"><span>${text.infoCodec}</span><strong>${codecStr}</strong></div>
+    `;
+  }
+
+  function openModelStatsModal() {
+    closeSettingsMenu(false);
+    renderModelStatsModal();
+    document.getElementById("modelStatsModal").classList.remove("hidden");
+    ensureModalHistory();
+  }
+
+  function closeModelStatsModal(fromPopState = false) {
+    const modal = document.getElementById("modelStatsModal");
+    if (!modal || modal.classList.contains("hidden")) return;
+    modal.classList.add("hidden");
+    if (!fromPopState) releaseModalHistoryIfNoneOpen();
+  }
+
+  function resetModelStats() {
+    modelStats = createEmptyModelStats();
+    saveModelStats();
+    renderModelStatsModal();
+  }
 
   function getHonorificRule(lang = myRole) {
     if (lang === "ko") {
@@ -4847,20 +5180,20 @@ ${getHonorificRule(msgLang)}
     const fallbackTimeout = opts.fallbackTimeoutMs || 12000;
     const onRetry = typeof opts.onRetry === "function" ? opts.onRetry : null;
 
-    const roundPlan = [
-      { model: MODEL_31, timeout: baseTimeout, delayBefore: 0 },
-      { model: MODEL_31, timeout: baseTimeout, delayBefore: 1000 },
-      { model: MODEL_35, timeout: fallbackTimeout, delayBefore: 300 },
-      { model: MODEL_25, timeout: fallbackTimeout, delayBefore: 300 }
-    ];
+    modelStats.totalCalls = (modelStats.totalCalls || 0) + 1;
+    const ranked = getRankedModels(true);
 
-    const fullPlan = [
-      ...roundPlan,
-      ...roundPlan.map((step, idx) => ({
-        ...step,
-        delayBefore: idx === 0 ? 1000 : step.delayBefore
-      }))
-    ];
+    const round1 = ranked.map((model, idx) => ({
+      model,
+      timeout: idx === 0 ? baseTimeout : fallbackTimeout,
+      delayBefore: idx === 0 ? 0 : 250
+    }));
+    const round2 = ranked.map((model, idx) => ({
+      model,
+      timeout: fallbackTimeout,
+      delayBefore: idx === 0 ? 800 : 300
+    }));
+    const fullPlan = [...round1, ...round2];
 
     let lastErr = null;
     for (let i = 0; i < fullPlan.length; i++) {
@@ -4873,6 +5206,7 @@ ${getHonorificRule(msgLang)}
       }
 
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const t0 = Date.now();
       try {
         const res = await fetchWithTimeout(url, {
           method: "POST",
@@ -4880,16 +5214,26 @@ ${getHonorificRule(msgLang)}
           body: JSON.stringify(bodyObj)
         }, timeout);
 
-        if (res.ok) return await res.json();
+        if (res.ok) {
+          const json = await res.json();
+          recordModelResult(model, true, Date.now() - t0);
+          return json;
+        }
 
         const errText = await res.text();
+        recordModelResult(model, false, Date.now() - t0, `HTTP ${res.status}`);
         lastErr = new Error(`Gemini (${model} / ${res.status}): ${errText}`);
         if (res.status === 400 || res.status === 401 || res.status === 403) {
           throw lastErr;
         }
       } catch (err) {
+        const isAuthOrBadReq = err && err.message && /\/ (400|401|403)\)/.test(err.message);
+        if (!isAuthOrBadReq) {
+          const errTag = (err && err.name === "AbortError") ? "timeout" : "network";
+          recordModelResult(model, false, Date.now() - t0, errTag);
+        }
         lastErr = err;
-        if (err && err.message && /\/ (400|401|403)\)/.test(err.message)) {
+        if (isAuthOrBadReq) {
           throw err;
         }
       }
@@ -5001,18 +5345,29 @@ ${getHonorificRule(msgLang)}
       audioChunks = [];
       maxVolumePeak = 0;
       meterWasActive = false;
+      lastChunkVolLevel = 0;
+      lastChunkAt = 0;
       cancelRequested = false;
       recStartTime = Date.now();
 
-      mediaRecorder = new MediaRecorder(currentStream, options);
+      try {
+        mediaRecorder = new MediaRecorder(currentStream, options);
+      } catch {
+        mediaRecorder = new MediaRecorder(currentStream);
+      }
       const actualMime = (mediaRecorder.mimeType || mimeType || "audio/mp4").split(";")[0];
 
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) audioChunks.push(e.data);
+        if (e.data && e.data.size > 0) {
+          audioChunks.push(e.data);
+          // Fallback reactive bar level from chunk byte size when AudioContext outputs flat samples
+          const norm = Math.min(88, Math.max(12, Math.round((e.data.size / 1400) * 58)));
+          lastChunkVolLevel = norm;
+          lastChunkAt = Date.now();
+        }
       };
 
       mediaRecorder.onstop = async () => {
-        const hadActiveMeter = meterWasActive;
         stopMeterAndStream();
         const duration = Date.now() - recStartTime;
 
@@ -5021,8 +5376,7 @@ ${getHonorificRule(msgLang)}
           return;
         }
 
-        const isSilentByMeter = hadActiveMeter && maxVolumePeak < 0.015;
-        if (duration < 400 || isSilentByMeter || audioChunks.length === 0) {
+        if (duration < 400 || audioChunks.length === 0) {
           statusEl.textContent = t().noVoice;
           statusEl.style.color = "#ff9800";
           setTimeout(updatePartnerStatusUI, 2500);
@@ -5039,7 +5393,11 @@ ${getHonorificRule(msgLang)}
 
       startVolumeMeter(currentStream);
 
-      mediaRecorder.start();
+      try {
+        mediaRecorder.start(250);
+      } catch {
+        mediaRecorder.start();
+      }
       isRecording = true;
       isMyTurn = false;
       updateButtonUI();
@@ -5059,8 +5417,16 @@ ${getHonorificRule(msgLang)}
   }
 
   function startVolumeMeter(stream) {
-    try {
+    let flatFrames = 0;
+    let didRetryAudioCtx = false;
+
+    const attachAnalyser = (forceNew = false) => {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return false;
+      if (forceNew && audioCtx) {
+        audioCtx.close().catch(() => {});
+        audioCtx = null;
+      }
       if (!audioCtx || audioCtx.state === "closed") {
         audioCtx = new AudioContextClass();
       }
@@ -5071,31 +5437,54 @@ ${getHonorificRule(msgLang)}
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
       src.connect(analyser);
+      return true;
+    };
 
-      const dataArr = new Uint8Array(analyser.fftSize);
-      const updateMeter = () => {
-        if (!analyser || !audioCtx) return;
+    try {
+      attachAnalyser(false);
+    } catch {
+      analyser = null;
+    }
+
+    const dataArr = new Uint8Array(256);
+    const updateMeter = () => {
+      if (!isRecording && !currentStream) return;
+      let peak = 0;
+
+      if (analyser && audioCtx) {
         if (audioCtx.state === "suspended") {
           audioCtx.resume().catch(() => {});
         } else if (audioCtx.state === "running") {
           meterWasActive = true;
         }
         analyser.getByteTimeDomainData(dataArr);
-        let peak = 0;
         for (let i = 0; i < dataArr.length; i++) {
           const v = Math.abs(dataArr[i] - 128) / 128;
           if (v > peak) peak = v;
         }
-        if (peak > maxVolumePeak) maxVolumePeak = peak;
-        const pct = Math.min(100, Math.max(4, Math.round(peak * 220)));
-        volBar.style.width = pct + "%";
-        meterRaf = requestAnimationFrame(updateMeter);
-      };
-      updateMeter();
-    } catch {
-      meterWasActive = false;
-      maxVolumePeak = 1;
-    }
+      }
+
+      if (peak > maxVolumePeak) maxVolumePeak = peak;
+
+      if (peak < 0.004) {
+        flatFrames++;
+        if (flatFrames === 36 && !didRetryAudioCtx) {
+          didRetryAudioCtx = true;
+          try { attachAnalyser(true); } catch {}
+        }
+      } else {
+        flatFrames = 0;
+      }
+
+      let pct = Math.min(100, Math.max(4, Math.round(peak * 220)));
+      if (peak < 0.005 && lastChunkVolLevel > 0 && (Date.now() - lastChunkAt) < 700) {
+        const wave = 0.78 + 0.22 * Math.abs(Math.sin(Date.now() / 140));
+        pct = Math.min(92, Math.max(8, Math.round(lastChunkVolLevel * wave)));
+      }
+      volBar.style.width = pct + "%";
+      meterRaf = requestAnimationFrame(updateMeter);
+    };
+    updateMeter();
 
     recTimer.textContent = "00:00";
     recTimerId = setInterval(() => {
