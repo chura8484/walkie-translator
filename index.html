@@ -568,6 +568,7 @@
       pointer-events: none;
     }
     body.in-video-call.video-fullscreen footer .text-row,
+    body.in-video-call.video-fullscreen footer #noTranslateBar,
     body.in-video-call.video-fullscreen footer #replyPreviewBar,
     body.in-video-call.video-fullscreen footer #photoMenu {
       display: none !important;
@@ -653,6 +654,32 @@
     }
     #photoMenu button + button { border-top: 1px solid var(--border); }
     #photoMenu button:active { background: var(--surface-2); }
+
+    #noTranslateBar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 10px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-sub);
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;
+    }
+    #noTranslateBar.active {
+      border-color: #ff9800;
+      color: #ff9800;
+      background: rgba(255, 152, 0, 0.12);
+    }
+    #noTranslateBar input {
+      width: 16px;
+      height: 16px;
+      accent-color: #ff9800;
+      flex-shrink: 0;
+    }
 
     .text-row { display: flex; gap: 6px; align-items: center; }
     #photoBtn { width: 38px; height: 38px; border: none; border-radius: 10px; background: var(--btn-bg); color: var(--btn-text); font-size: 17px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
@@ -865,6 +892,11 @@
     <button id="menuGalleryBtn" onclick="openGalleryInput()">🖼️ 앨범에서 선택</button>
   </div>
 
+  <label id="noTranslateBar" class="hidden">
+    <input id="noTranslateCheckbox" type="checkbox" onchange="setNoTranslateMode(this.checked)" />
+    <span id="noTranslateLabel">Vui lòng chọn khi không gửi được tin nhắn</span>
+  </label>
+
   <div class="text-row">
     <input id="photoCameraInput" type="file" accept="image/*" capture="environment" class="hidden" />
     <input id="photoGalleryInput" type="file" accept="image/*" class="hidden" />
@@ -884,7 +916,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 40;
+  const APP_VERSION = 41;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const ONESIGNAL_APP_ID = "f9fb09c5-1acd-4df1-b2e9-c9cd177ece17";
   const OS_KEY_PARTS = [
@@ -969,6 +1001,9 @@
       send: "📤 전송 (번역)",
       textPlaceholder: "키보드로 직접 입력...",
       textSend: "전송",
+      noTranslateLabel: "메시지 전송이 안 될 때 선택해주세요",
+      waitingPartnerTranslate: "⏳ 번역 대기 중...",
+      untranslatedHint: "⚠️ 미번역 메시지 (🌐 눌러서 번역)",
       noVoice: "목소리가 들리지 않아 취소되었습니다.",
       micDenied: "마이크 권한을 허용해 주세요.",
       camDenied: "카메라/마이크 권한을 허용해 주세요.",
@@ -1051,6 +1086,9 @@
       send: "📤 Gửi (Dịch)",
       textPlaceholder: "Nhập tin nhắn bằng bàn phím...",
       textSend: "Gửi",
+      noTranslateLabel: "Vui lòng chọn khi không gửi được tin nhắn",
+      waitingPartnerTranslate: "⏳ Đang chờ đối phương dịch...",
+      untranslatedHint: "⚠️ Tin nhắn chưa dịch",
       noVoice: "Không nghe thấy giọng nói nên đã hủy.",
       micDenied: "Vui lòng cấp quyền truy cập micro.",
       camDenied: "Vui lòng cấp quyền truy cập camera và micro.",
@@ -1653,6 +1691,10 @@
   let roomPass = localStorage.getItem("wt_pass") || "";
   let apiKey = "";
   let isLightTheme = localStorage.getItem("wt_theme") === "light";
+  let skipTextTranslate = localStorage.getItem("wt_no_translate") === "1";
+  const translatingIncomingSet = new Set();
+  const failedIncomingTranslateSet = new Set();
+  let isTranslatingIncomingQueue = false;
   let fontSizePx = Math.min(25, Math.max(13, Number(localStorage.getItem("wt_font_px")) || 17));
 
   let isRecording = false;
@@ -1862,6 +1904,9 @@
   const menuGalleryBtn = document.getElementById("menuGalleryBtn");
   const photoCameraInput = document.getElementById("photoCameraInput");
   const photoGalleryInput = document.getElementById("photoGalleryInput");
+  const noTranslateBar = document.getElementById("noTranslateBar");
+  const noTranslateCheckbox = document.getElementById("noTranslateCheckbox");
+  const noTranslateLabel = document.getElementById("noTranslateLabel");
   const textInput = document.getElementById("textInput");
   const textSendBtn = document.getElementById("textSendBtn");
   const micRow = document.getElementById("micRow");
@@ -2025,6 +2070,8 @@
     sendBtn.textContent = text.send;
     textInput.placeholder = text.textPlaceholder;
     textSendBtn.textContent = text.textSend;
+    noTranslateLabel.textContent = text.noTranslateLabel;
+    updateNoTranslateUI();
     acceptCallBtn.textContent = text.callAccept;
     rejectCallBtn.textContent = text.callReject;
     photoDownloadBtn.textContent = text.photoDownload;
@@ -2456,13 +2503,132 @@
     return msgs.length > 0 ? (msgs[msgs.length - 1].ts || 0) : 0;
   }
 
+  function updateNoTranslateUI() {
+    const showForVi = (myRole === "vi");
+    noTranslateBar.classList.toggle("hidden", !showForVi);
+    noTranslateCheckbox.checked = skipTextTranslate;
+    noTranslateBar.classList.toggle("active", showForVi && skipTextTranslate);
+  }
+
+  function setNoTranslateMode(enabled) {
+    skipTextTranslate = Boolean(enabled);
+    localStorage.setItem("wt_no_translate", skipTextTranslate ? "1" : "0");
+    updateNoTranslateUI();
+  }
+
+  async function translateTextForLang(text, msgLang) {
+    const sourceLang = msgLang === "ko" ? "한국어" : "베트남어";
+    const targetLang = msgLang === "ko" ? "베트남어" : "한국어";
+    const slCode = msgLang === "ko" ? "ko" : "vi";
+    const tlCode = msgLang === "ko" ? "vi" : "ko";
+
+    const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
+[규칙]
+${getHonorificRule(msgLang)}
+- 반드시 입력된 ${sourceLang} 문장을 자연스러운 구어체 ${targetLang}로만 번역해서 출력해. (절대 원문과 같은 언어로 출력하거나 설명을 덧붙이지 마)`;
+
+    const contextText = buildContextReference();
+    const contents = [
+      {
+        role: "user",
+        parts: [
+          { text: `${contextText}[${sourceLang} → ${targetLang} 번역]\n${text}` }
+        ]
+      }
+    ];
+
+    try {
+      const data = await callGeminiWithFallback({
+        system_instruction: { parts: [{ text: systemInstruction }] },
+        contents,
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 280,
+          thinkingConfig: { thinkingBudget: 0 }
+        }
+      }, {
+        baseTimeoutMs: 4000,
+        fallbackTimeoutMs: 6000
+      });
+
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      for (const p of parts) {
+        if (p.thought) continue;
+        if (p.text && p.text.trim()) return p.text.trim();
+      }
+    } catch {}
+
+    return await translateWithFreeGoogle(text, slCode, tlCode);
+  }
+
+  async function translateIncomingMessageByTs(msgTs, isManual = false) {
+    if (!apiKey || !roomPass) return;
+    if (translatingIncomingSet.has(msgTs)) return;
+    const target = (roomState.messages || []).find(m => m.ts === msgTs);
+    if (!target || !target.original || !target.untranslated) return;
+
+    if (isManual) failedIncomingTranslateSet.delete(msgTs);
+    translatingIncomingSet.add(msgTs);
+    lastRenderSig = "";
+    renderMessages(true);
+
+    try {
+      const translated = await translateTextForLang(target.original, target.lang || "vi");
+      if (!translated) throw new Error("empty translation");
+
+      const curIdx = (roomState.messages || []).findIndex(m => m.ts === msgTs);
+      if (curIdx !== -1) {
+        const updated = roomState.messages.map((m, i) =>
+          i === curIdx ? { ...m, translated, untranslated: false } : m
+        );
+        roomState.messages = updated;
+        translatingIncomingSet.delete(msgTs);
+        failedIncomingTranslateSet.delete(msgTs);
+        lastRenderSig = "";
+        renderMessages(true);
+
+        const latest = updated[updated.length - 1];
+        if (latest && latest.ts === msgTs && (callState === "active" || callState === "test" || callState === "outgoing") && isVideoFull) {
+          showVideoSubtitle(latest);
+        }
+
+        const syncTs = Date.now();
+        loadedMsgSyncTs = syncTs;
+        await saveMessagesToDb(updated, syncTs);
+      }
+    } catch {
+      translatingIncomingSet.delete(msgTs);
+      failedIncomingTranslateSet.add(msgTs);
+      lastRenderSig = "";
+      renderMessages(true);
+    }
+  }
+
+  async function translatePendingIncomingMessages() {
+    if (myRole !== "ko" || !apiKey || !roomPass || isTranslatingIncomingQueue) return;
+    const pending = (roomState.messages || []).filter(
+      m => m.untranslated && m.lang !== myRole && m.original && !translatingIncomingSet.has(m.ts) && !failedIncomingTranslateSet.has(m.ts)
+    );
+    if (pending.length === 0) return;
+
+    isTranslatingIncomingQueue = true;
+    try {
+      for (const m of pending) {
+        if (myRole !== "ko" || !roomPass) break;
+        await translateIncomingMessageByTs(m.ts, false);
+      }
+    } finally {
+      isTranslatingIncomingQueue = false;
+    }
+  }
+
   function buildRenderSig() {
     const msgs = roomState.messages || [];
     const total = msgs.length;
     const startIdx = Math.max(0, total - visibleMsgCount);
     const visibleSlice = msgs.slice(startIdx);
     return `${startIdx}|${myRole}|${currentPlayingTs}|` + visibleSlice.map(m =>
-      `${m.ts}:${m.type || ""}:${(m.hasAudio || m.audioData) ? 1 : 0}:${m.audioDuration || audioDurationCache[m.ts] || 0}:${m.hasPhoto ? 1 : 0}:${m.liked ? 1 : 0}:${(m.translated || "").length}`
+      `${m.ts}:${m.type || ""}:${(m.hasAudio || m.audioData) ? 1 : 0}:${m.audioDuration || audioDurationCache[m.ts] || 0}:${m.hasPhoto ? 1 : 0}:${m.liked ? 1 : 0}:${m.untranslated ? 1 : 0}:${translatingIncomingSet.has(m.ts) ? 1 : 0}:${(m.translated || "").length}`
     ).join("|");
   }
 
@@ -3419,7 +3585,24 @@ ${getHonorificRule(msgLang)}
 
         const transDiv = document.createElement("div");
         transDiv.className = "translated";
-        transDiv.textContent = m.translated || "";
+        const origDiv = document.createElement("div");
+        origDiv.className = "original";
+
+        if (m.untranslated) {
+          if (isMine) {
+            transDiv.textContent = m.original || "";
+            origDiv.textContent = t().waitingPartnerTranslate;
+          } else if (translatingIncomingSet.has(m.ts)) {
+            transDiv.textContent = t().micTranslating;
+            origDiv.textContent = m.original || "";
+          } else {
+            transDiv.textContent = m.original || "";
+            origDiv.textContent = t().untranslatedHint;
+          }
+        } else {
+          transDiv.textContent = m.translated || "";
+          origDiv.textContent = m.original || "";
+        }
         topDiv.appendChild(transDiv);
 
         if (m.hasAudio || (m.audioData && m.audioMime)) {
@@ -3432,10 +3615,6 @@ ${getHonorificRule(msgLang)}
           playBtn.onclick = () => toggleAudio(m);
           topDiv.appendChild(playBtn);
         }
-
-        const origDiv = document.createElement("div");
-        origDiv.className = "original";
-        origDiv.textContent = m.original || "";
 
         div.appendChild(topDiv);
         div.appendChild(origDiv);
@@ -3452,12 +3631,20 @@ ${getHonorificRule(msgLang)}
       const actDiv = document.createElement("div");
       actDiv.className = "msg-actions";
 
-      if (isMine && !m.hasPhoto && m.original) {
+      if (isMine && !m.hasPhoto && m.original && !m.untranslated) {
         const retransBtn = document.createElement("button");
         retransBtn.className = "msg-act-btn";
         retransBtn.textContent = "🔄";
         retransBtn.onclick = () => retranslateMessage(m.ts, retransBtn);
         actDiv.appendChild(retransBtn);
+      }
+
+      if (!isMine && !m.hasPhoto && m.original && m.untranslated) {
+        const transBtn = document.createElement("button");
+        transBtn.className = "msg-act-btn";
+        transBtn.textContent = "🌐";
+        transBtn.onclick = () => translateIncomingMessageByTs(m.ts, true);
+        actDiv.appendChild(transBtn);
       }
 
       const replyBtn = document.createElement("button");
@@ -3713,6 +3900,9 @@ ${getHonorificRule(msgLang)}
         lastOverlayMsgTs = getLatestMessageTs();
       }
       renderMessages(true);
+      if (myRole === "ko") {
+        translatePendingIncomingMessages();
+      }
     } catch {
     } finally {
       isFetchingMsgs = false;
@@ -4118,8 +4308,23 @@ ${getHonorificRule(msgLang)}
       return;
     }
 
+    if (meta.status === "ringing" && meta.caller === myRole) {
+      if (callState === "outgoing" && !isStartingCall) {
+        const timedOut = (Date.now() - (activeCallId || meta.callId || 0)) >= 45000;
+        if (!partnerOnline || timedOut) {
+          cleanupVideoCall(true);
+        }
+      }
+      return;
+    }
+
     if (meta.status === "ringing" && meta.caller !== myRole) {
-      if (callState === "idle" && (Date.now() - (meta.callId || 0)) < 45000) {
+      const expired = (Date.now() - (meta.callId || 0)) >= 45000;
+      if (callState === "incoming") {
+        if (!partnerOnline || expired) {
+          cleanupVideoCall(true);
+        }
+      } else if (callState === "idle" && partnerOnline && !expired) {
         activeCallId = meta.callId;
         callState = "incoming";
         callModalTitle.textContent = t().callIncoming;
@@ -5139,55 +5344,75 @@ ${getHonorificRule(myRole)}
     setProcessingStage("translating");
 
     try {
-      const sourceLang = myRole === "ko" ? "한국어" : "베트남어";
-      const targetLang = myRole === "ko" ? "베트남어" : "한국어";
-      const slCode = myRole === "ko" ? "ko" : "vi";
-      const tlCode = myRole === "ko" ? "vi" : "ko";
+      const sendRawWithoutTranslate = (myRole === "vi" && skipTextTranslate);
+      let translated = "";
+      let isUntranslated = false;
 
-      const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
+      if (sendRawWithoutTranslate) {
+        isUntranslated = true;
+      } else {
+        const sourceLang = myRole === "ko" ? "한국어" : "베트남어";
+        const targetLang = myRole === "ko" ? "베트남어" : "한국어";
+        const slCode = myRole === "ko" ? "ko" : "vi";
+        const tlCode = myRole === "ko" ? "vi" : "ko";
+
+        const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
 [규칙]
 ${getHonorificRule(myRole)}
 - 반드시 입력된 ${sourceLang} 문장을 자연스러운 구어체 ${targetLang}로만 번역해서 출력해. (절대 원문과 같은 언어로 출력하거나 설명을 덧붙이지 마)`;
 
-      const contextText = buildContextReference();
-      const contents = [
-        {
-          role: "user",
-          parts: [
-            { text: `${contextText}[${sourceLang} → ${targetLang} 번역]\n${spokenText}` }
-          ]
-        }
-      ];
-
-      let translated = "";
-      try {
-        const data = await callGeminiWithFallback({
-          system_instruction: { parts: [{ text: systemInstruction }] },
-          contents,
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 280,
-            thinkingConfig: { thinkingBudget: 0 }
+        const contextText = buildContextReference();
+        const contents = [
+          {
+            role: "user",
+            parts: [
+              { text: `${contextText}[${sourceLang} → ${targetLang} 번역]\n${spokenText}` }
+            ]
           }
-        }, {
-          baseTimeoutMs: 4000,
-          fallbackTimeoutMs: 6000,
-          onRetry: () => setProcessingStage("retrying")
-        });
+        ];
 
-        const parts = data.candidates?.[0]?.content?.parts || [];
-        for (const p of parts) {
-          if (p.thought) continue;
-          if (p.text) { translated = p.text.trim(); break; }
+        try {
+          const data = await callGeminiWithFallback({
+            system_instruction: { parts: [{ text: systemInstruction }] },
+            contents,
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 280,
+              thinkingConfig: { thinkingBudget: 0 }
+            }
+          }, {
+            baseTimeoutMs: 4000,
+            fallbackTimeoutMs: 6000,
+            onRetry: () => setProcessingStage("retrying")
+          });
+
+          const parts = data.candidates?.[0]?.content?.parts || [];
+          for (const p of parts) {
+            if (p.thought) continue;
+            if (p.text) { translated = p.text.trim(); break; }
+          }
+          if (!translated) throw new Error("empty");
+        } catch {
+          try {
+            translated = await translateWithFreeGoogle(spokenText, slCode, tlCode);
+            if (!translated) throw new Error("empty");
+          } catch {
+            if (myRole === "vi") {
+              setNoTranslateMode(true);
+              isUntranslated = true;
+              translated = "";
+            } else {
+              throw new Error("translate failed");
+            }
+          }
         }
-      } catch {
-        translated = await translateWithFreeGoogle(spokenText, slCode, tlCode);
       }
 
       const newMsg = {
         lang: myRole,
         original: spokenText,
-        translated: translated || spokenText,
+        translated: isUntranslated ? "" : (translated || spokenText),
+        untranslated: isUntranslated,
         hasAudio: false,
         hasPhoto: false,
         liked: false,
@@ -5204,7 +5429,7 @@ ${getHonorificRule(myRole)}
       const syncTs = Date.now();
       loadedMsgSyncTs = syncTs;
       await saveMessagesToDb(updatedMessages, syncTs);
-      sendPartnerPushNotification("Anh & Em", (translated || spokenText).slice(0, 60));
+      sendPartnerPushNotification("Anh & Em", (isUntranslated ? spokenText : (translated || spokenText)).slice(0, 60));
     } catch {
       alert(t().errTranslateFail);
     } finally {
