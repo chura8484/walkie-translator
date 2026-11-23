@@ -409,8 +409,10 @@
       font-size: 14px;
     }
 
-    #photoPreviewModal { position: fixed; inset: 0; background: rgba(0,0,0,0.94); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 95; padding: 14px; gap: 10px; }
-    #photoPreviewCanvas { max-width: 100%; max-height: 52dvh; border-radius: 10px; touch-action: none; background: #000; display: block; }
+    #photoPreviewModal { position: fixed; inset: 0; background: rgba(0,0,0,0.94); display: flex; flex-direction: column; align-items: center; justify-content: space-between; z-index: 95; padding: 14px; gap: 10px; }
+    .photo-preview-stage { flex: 1; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    #photoPreviewCanvas { max-width: 100%; max-height: 100%; width: auto; height: auto; border-radius: 10px; touch-action: none; background: #000; display: block; }
+    .photo-preview-controls { flex-shrink: 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; padding-bottom: env(safe-area-inset-bottom, 0px); }
     .photo-rotate-tools { display: flex; gap: 8px; width: 100%; max-width: 380px; justify-content: center; }
     .photo-rotate-tools button { flex: 1; padding: 8px 6px; border: 1px solid #444; border-radius: 8px; background: #2e2e2e; color: #fff; font-size: 13px; font-weight: bold; cursor: pointer; }
     .photo-rotate-tools button:active { transform: scale(0.96); }
@@ -718,30 +720,34 @@
 </div>
 
 <div id="photoPreviewModal" class="hidden">
-  <canvas id="photoPreviewCanvas"></canvas>
-  <div class="photo-rotate-tools">
-    <button id="photoRotateLeftBtn" onclick="rotatePendingPhoto(-90)">↺ 왼쪽 회전</button>
-    <button id="photoRotateRightBtn" onclick="rotatePendingPhoto(90)">↻ 오른쪽 회전</button>
+  <div class="photo-preview-stage">
+    <canvas id="photoPreviewCanvas"></canvas>
   </div>
-  <div class="sticker-palette">
-    <button onclick="addSticker('❤️')">❤️</button>
-    <button onclick="addSticker('😘')">😘</button>
-    <button onclick="addSticker('😂')">😂</button>
-    <button onclick="addSticker('😎')">😎</button>
-    <button onclick="addSticker('✨')">✨</button>
-    <button onclick="addSticker('👑')">👑</button>
-    <button onclick="addSticker('🔥')">🔥</button>
-    <button onclick="addSticker('🥰')">🥰</button>
-  </div>
-  <div class="sticker-tools">
-    <button id="stkSmallerBtn" onclick="scaleSelectedSticker(-0.04)" disabled>작게 -</button>
-    <button id="stkLargerBtn" onclick="scaleSelectedSticker(0.04)" disabled>크게 +</button>
-    <button id="stkRemoveBtn" onclick="removeSelectedSticker()" disabled>삭제</button>
-    <button id="stkClearBtn" onclick="clearAllStickers()" disabled>초기화</button>
-  </div>
-  <div class="photo-modal-actions">
-    <button id="photoConfirmCancelBtn" onclick="cancelPendingPhoto()">❌ 취소</button>
-    <button id="photoConfirmSendBtn" onclick="confirmSendPendingPhoto()">📤 보내기</button>
+  <div class="photo-preview-controls">
+    <div class="photo-rotate-tools">
+      <button id="photoRotateLeftBtn" onclick="rotatePendingPhoto(-90)">↺ 왼쪽 회전</button>
+      <button id="photoRotateRightBtn" onclick="rotatePendingPhoto(90)">↻ 오른쪽 회전</button>
+    </div>
+    <div class="sticker-palette">
+      <button onclick="addSticker('❤️')">❤️</button>
+      <button onclick="addSticker('😘')">😘</button>
+      <button onclick="addSticker('😂')">😂</button>
+      <button onclick="addSticker('😎')">😎</button>
+      <button onclick="addSticker('✨')">✨</button>
+      <button onclick="addSticker('👑')">👑</button>
+      <button onclick="addSticker('🔥')">🔥</button>
+      <button onclick="addSticker('🥰')">🥰</button>
+    </div>
+    <div class="sticker-tools">
+      <button id="stkSmallerBtn" onclick="scaleSelectedSticker(-0.04)" disabled>작게 -</button>
+      <button id="stkLargerBtn" onclick="scaleSelectedSticker(0.04)" disabled>크게 +</button>
+      <button id="stkRemoveBtn" onclick="removeSelectedSticker()" disabled>삭제</button>
+      <button id="stkClearBtn" onclick="clearAllStickers()" disabled>초기화</button>
+    </div>
+    <div class="photo-modal-actions">
+      <button id="photoConfirmCancelBtn" onclick="cancelPendingPhoto()">❌ 취소</button>
+      <button id="photoConfirmSendBtn" onclick="confirmSendPendingPhoto()">📤 보내기</button>
+    </div>
   </div>
 </div>
 
@@ -878,7 +884,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 39;
+  const APP_VERSION = 40;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const ONESIGNAL_APP_ID = "f9fb09c5-1acd-4df1-b2e9-c9cd177ece17";
   const OS_KEY_PARTS = [
@@ -1669,6 +1675,7 @@
   let recTimerId = null;
   let recStartTime = 0;
   let maxVolumePeak = 0;
+  let meterWasActive = false;
   let cancelRequested = false;
 
   let currentAudioEl = null;
@@ -1755,6 +1762,13 @@
   let lastOfferTs = 0;
   let lastAnswerTs = 0;
   let reconnectTimer = null;
+  let mediaWatchdogTimer = null;
+  let lastInboundVideoBytes = -1;
+  let lastInboundAudioBytes = -1;
+  let lastInboundFrames = -1;
+  let freezeStreakSec = 0;
+  let lastReconnectAttemptAt = 0;
+  let lastHandledReconnectReqTs = 0;
   let wakeLockSentinel = null;
 
   let roomState = {
@@ -4148,14 +4162,118 @@ ${getHonorificRule(msgLang)}
     await sendOffer(false);
   }
 
+  function stopMediaWatchdog() {
+    if (mediaWatchdogTimer) {
+      clearInterval(mediaWatchdogTimer);
+      mediaWatchdogTimer = null;
+    }
+    lastInboundVideoBytes = -1;
+    lastInboundAudioBytes = -1;
+    lastInboundFrames = -1;
+    freezeStreakSec = 0;
+  }
+
+  function triggerAutoReconnect(reason = "") {
+    if (callState !== "active" || !pc || !activeCallId) return;
+    const now = Date.now();
+    if (now - lastReconnectAttemptAt < 4500) return;
+    lastReconnectAttemptAt = now;
+
+    remoteStatusBadge.classList.remove("test-badge", "top-badge");
+    remoteStatusBadge.textContent = reason ? `${t().callReconnecting} (${reason})` : t().callReconnecting;
+    remoteStatusBadge.classList.remove("hidden");
+
+    if (isCaller) {
+      sendOffer(true);
+    } else {
+      fetch(`${getCallSignalUrl(activeCallId)}/reconnectReq.json`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ts: now, by: myRole })
+      }).catch(() => {});
+    }
+  }
+
+  function startMediaWatchdog() {
+    if (mediaWatchdogTimer) return;
+    lastInboundVideoBytes = -1;
+    lastInboundAudioBytes = -1;
+    lastInboundFrames = -1;
+    freezeStreakSec = 0;
+
+    mediaWatchdogTimer = setInterval(async () => {
+      if (callState !== "active" || !pc) {
+        stopMediaWatchdog();
+        return;
+      }
+
+      if (remoteVideo.srcObject && remoteVideo.paused) {
+        remoteVideo.play().catch(() => {});
+      }
+
+      try {
+        const stats = await pc.getStats();
+        let vBytes = -1;
+        let vFrames = -1;
+        let aBytes = -1;
+
+        stats.forEach(report => {
+          if (report.type === "inbound-rtp") {
+            const kind = report.kind || report.mediaType;
+            if (kind === "video") {
+              if (typeof report.bytesReceived === "number") vBytes = report.bytesReceived;
+              if (typeof report.framesDecoded === "number") vFrames = report.framesDecoded;
+            } else if (kind === "audio") {
+              if (typeof report.bytesReceived === "number") aBytes = report.bytesReceived;
+            }
+          }
+        });
+
+        const hasBaseline = (lastInboundVideoBytes >= 0 || lastInboundAudioBytes >= 0 || lastInboundFrames >= 0);
+        if (!hasBaseline) {
+          if (vBytes > 0 || aBytes > 0 || vFrames > 0) {
+            lastInboundVideoBytes = vBytes;
+            lastInboundAudioBytes = aBytes;
+            lastInboundFrames = vFrames;
+            freezeStreakSec = 0;
+          }
+          return;
+        }
+
+        const videoMoved = (vBytes > lastInboundVideoBytes) || (vFrames > lastInboundFrames);
+        const audioMoved = (aBytes > lastInboundAudioBytes);
+
+        if (vBytes >= 0) lastInboundVideoBytes = vBytes;
+        if (aBytes >= 0) lastInboundAudioBytes = aBytes;
+        if (vFrames >= 0) lastInboundFrames = vFrames;
+
+        if (videoMoved || audioMoved) {
+          freezeStreakSec = 0;
+          const st = pc.iceConnectionState;
+          if (st === "connected" || st === "completed") {
+            remoteStatusBadge.classList.add("hidden");
+          }
+        } else {
+          freezeStreakSec++;
+          if (freezeStreakSec >= 3) {
+            triggerAutoReconnect("freeze");
+          }
+        }
+      } catch {}
+    }, 1000);
+  }
+
   async function initPeerConnection() {
     if (pc) {
       pc.close();
       pc = null;
     }
+    stopMediaWatchdog();
     processedIceKeys.clear();
     lastOfferTs = 0;
     lastAnswerTs = 0;
+    lastReconnectAttemptAt = 0;
+    lastHandledReconnectReqTs = Date.now();
 
     pc = new RTCPeerConnection(ICE_CONFIG);
 
@@ -4172,6 +4290,7 @@ ${getHonorificRule(msgLang)}
         remoteVideo.play().catch(() => {});
         remoteStatusBadge.classList.add("hidden");
         startCallTimer();
+        startMediaWatchdog();
       }
     };
 
@@ -4190,23 +4309,28 @@ ${getHonorificRule(msgLang)}
       const st = pc.iceConnectionState;
       if (st === "connected" || st === "completed") {
         remoteStatusBadge.classList.add("hidden");
+        freezeStreakSec = 0;
         startCallTimer();
+        startMediaWatchdog();
         if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
       } else if (st === "checking" || st === "new") {
         remoteStatusBadge.classList.remove("test-badge", "top-badge");
         remoteStatusBadge.textContent = `${t().callConnecting} (${st})`;
         remoteStatusBadge.classList.remove("hidden");
-      } else if (st === "disconnected" || st === "failed") {
+      } else if (st === "failed") {
+        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+        triggerAutoReconnect("failed");
+      } else if (st === "disconnected") {
         remoteStatusBadge.classList.remove("test-badge", "top-badge");
         remoteStatusBadge.textContent = `${t().callReconnecting} (${st})`;
         remoteStatusBadge.classList.remove("hidden");
-        if (isCaller && !reconnectTimer) {
+        if (!reconnectTimer) {
           reconnectTimer = setTimeout(() => {
             reconnectTimer = null;
             if (pc && callState === "active" && (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed")) {
-              sendOffer(true);
+              triggerAutoReconnect("disconnected");
             }
-          }, 2500);
+          }, 1000);
         }
       }
     };
@@ -4243,7 +4367,7 @@ ${getHonorificRule(msgLang)}
   function startSignalPolling() {
     if (signalPollTimer) clearInterval(signalPollTimer);
     pollSignaling();
-    signalPollTimer = setInterval(pollSignaling, 800);
+    signalPollTimer = setInterval(pollSignaling, 500);
   }
 
   async function pollSignaling() {
@@ -4267,6 +4391,14 @@ ${getHonorificRule(msgLang)}
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ type: answer.type, sdp: answer.sdp, ts: Date.now() })
         });
+      }
+
+      if (isCaller && data.reconnectReq && data.reconnectReq.ts > lastHandledReconnectReqTs) {
+        lastHandledReconnectReqTs = data.reconnectReq.ts;
+        if (Date.now() - lastOfferTs > 3000) {
+          lastReconnectAttemptAt = Date.now();
+          await sendOffer(true);
+        }
       }
 
       if (isCaller && data.answer && data.answer.ts > lastAnswerTs) {
@@ -4296,6 +4428,7 @@ ${getHonorificRule(msgLang)}
     if (document.activeElement) document.activeElement.blur();
     if (signalPollTimer) { clearInterval(signalPollTimer); signalPollTimer = null; }
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    stopMediaWatchdog();
     if (doodleRaf) { cancelAnimationFrame(doodleRaf); doodleRaf = null; }
     activeDoodles = [];
     currentDoodleStroke = null;
@@ -4609,8 +4742,26 @@ ${getHonorificRule(msgLang)}
     }
 
     stopCurrentAudio();
-    triggerSilentAudioFocus();
+    if (playbackAudioCtx && playbackAudioCtx.state === "running") {
+      playbackAudioCtx.suspend().catch(() => {});
+    }
     setMediaSessionState("playing", "Recording");
+
+    // Pre-create & resume AudioContext inside direct user gesture before await getUserMedia
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) {
+        if (audioCtx && audioCtx.state !== "closed") {
+          audioCtx.close().catch(() => {});
+        }
+        audioCtx = new AudioContextClass();
+        if (audioCtx.state === "suspended") {
+          audioCtx.resume().catch(() => {});
+        }
+      }
+    } catch {
+      audioCtx = null;
+    }
 
     try {
       if ((callState === "active" || callState === "test" || callState === "outgoing") && localStream && localStream.getAudioTracks().length > 0) {
@@ -4644,6 +4795,7 @@ ${getHonorificRule(msgLang)}
 
       audioChunks = [];
       maxVolumePeak = 0;
+      meterWasActive = false;
       cancelRequested = false;
       recStartTime = Date.now();
 
@@ -4655,6 +4807,7 @@ ${getHonorificRule(msgLang)}
       };
 
       mediaRecorder.onstop = async () => {
+        const hadActiveMeter = meterWasActive;
         stopMeterAndStream();
         const duration = Date.now() - recStartTime;
 
@@ -4663,7 +4816,8 @@ ${getHonorificRule(msgLang)}
           return;
         }
 
-        if (duration < 400 || maxVolumePeak < 0.015 || audioChunks.length === 0) {
+        const isSilentByMeter = hadActiveMeter && maxVolumePeak < 0.015;
+        if (duration < 400 || isSilentByMeter || audioChunks.length === 0) {
           statusEl.textContent = t().noVoice;
           statusEl.style.color = "#ff9800";
           setTimeout(updatePartnerStatusUI, 2500);
@@ -4702,7 +4856,12 @@ ${getHonorificRule(msgLang)}
   function startVolumeMeter(stream) {
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      audioCtx = new AudioContextClass();
+      if (!audioCtx || audioCtx.state === "closed") {
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume().catch(() => {});
+      }
       const src = audioCtx.createMediaStreamSource(stream);
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
@@ -4710,7 +4869,12 @@ ${getHonorificRule(msgLang)}
 
       const dataArr = new Uint8Array(analyser.fftSize);
       const updateMeter = () => {
-        if (!analyser) return;
+        if (!analyser || !audioCtx) return;
+        if (audioCtx.state === "suspended") {
+          audioCtx.resume().catch(() => {});
+        } else if (audioCtx.state === "running") {
+          meterWasActive = true;
+        }
         analyser.getByteTimeDomainData(dataArr);
         let peak = 0;
         for (let i = 0; i < dataArr.length; i++) {
@@ -4724,6 +4888,7 @@ ${getHonorificRule(msgLang)}
       };
       updateMeter();
     } catch {
+      meterWasActive = false;
       maxVolumePeak = 1;
     }
 
