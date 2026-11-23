@@ -53,7 +53,8 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; -webkit-tap-highlight-color: transparent; }
-    body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100dvh; overflow: hidden; transition: background 0.2s, color 0.2s; }
+    html { height: 100%; overflow: hidden; }
+    body { position: fixed; inset: 0; width: 100%; height: var(--app-height, 100%); background: var(--bg); color: var(--text); display: flex; flex-direction: column; overflow: hidden; transition: background 0.2s, color 0.2s; }
 
     body.in-video-call header,
     body.in-video-call #installBanner { display: none !important; }
@@ -277,7 +278,7 @@
 
     #videoSection { position: relative; width: 100%; flex: 1; min-height: 0; background: #000; overflow: hidden; border-bottom: 1px solid var(--border); }
     #videoSection.split { flex: none; height: 42dvh; }
-    body.in-video-call.video-fullscreen #videoSection { height: 100dvh; border-bottom: none; }
+    body.in-video-call.video-fullscreen #videoSection { height: 100%; border-bottom: none; }
 
     #remoteVideo { width: 100%; height: 100%; object-fit: cover; background: #0a0a0a; }
     #remoteVideo.fit-contain { object-fit: contain; }
@@ -630,7 +631,7 @@
     .meter-track { width: 100%; height: 9px; background: #2e3b2e; border-radius: 5px; overflow: hidden; }
     #volBar { width: 4%; height: 100%; background: #4caf50; transition: width 0.06s linear; }
 
-    footer { position: relative; padding: 8px 12px 12px; background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 7px; flex-shrink: 0; }
+    footer { position: relative; padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 7px; flex-shrink: 0; }
 
     body.in-video-call.video-fullscreen footer {
       position: fixed;
@@ -639,7 +640,7 @@
       bottom: 0;
       background: transparent;
       border-top: none;
-      padding: 8px 14px 14px;
+      padding: 8px 14px calc(14px + env(safe-area-inset-bottom, 0px));
       z-index: 15;
       pointer-events: none;
     }
@@ -1007,7 +1008,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 43;
+  const APP_VERSION = 45;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const ONESIGNAL_APP_ID = "f9fb09c5-1acd-4df1-b2e9-c9cd177ece17";
   const OS_KEY_PARTS = [
@@ -1058,6 +1059,23 @@
       }
     ]
   };
+
+  function syncAppHeight() {
+    try {
+      const vv = window.visualViewport;
+      if (vv && vv.scale > 1.05) return;
+      const h = vv ? vv.height : window.innerHeight;
+      if (h > 0) {
+        document.documentElement.style.setProperty("--app-height", `${Math.floor(h)}px`);
+      }
+    } catch {}
+  }
+  syncAppHeight();
+  window.addEventListener("resize", syncAppHeight);
+  window.addEventListener("orientationchange", () => setTimeout(syncAppHeight, 120));
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", syncAppHeight);
+  }
 
   if (window.location.search.includes("v=")) {
     window.history.replaceState(null, "", window.location.pathname);
@@ -1851,6 +1869,9 @@
   let lastChunkVolLevel = 0;
   let lastChunkAt = 0;
   let cancelRequested = false;
+  let speechRec = null;
+  let speechFinalText = "";
+  let speechInterimText = "";
 
   let currentAudioEl = null;
   let currentPlayingTs = null;
@@ -2687,8 +2708,7 @@ ${getHonorificRule(msgLang)}
         contents,
         generationConfig: {
           temperature: 0.2,
-          maxOutputTokens: 280,
-          thinkingConfig: { thinkingBudget: 0 }
+          maxOutputTokens: 280
         }
       }, {
         baseTimeoutMs: 4000,
@@ -2882,8 +2902,7 @@ ${getHonorificRule(msgLang)}
         contents,
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 280,
-          thinkingConfig: { thinkingBudget: 0 }
+          maxOutputTokens: 280
         }
       }, { baseTimeoutMs: 4500, fallbackTimeoutMs: 6500 });
 
@@ -5196,8 +5215,12 @@ ${getHonorificRule(msgLang)}
     const fullPlan = [...round1, ...round2];
 
     let lastErr = null;
+    const skipInRound2 = new Set();
     for (let i = 0; i < fullPlan.length; i++) {
       const { model, timeout, delayBefore } = fullPlan[i];
+      if (i >= round1.length && skipInRound2.has(model)) {
+        continue;
+      }
       if (i > 0 && onRetry) {
         onRetry(i, model);
       }
@@ -5223,17 +5246,20 @@ ${getHonorificRule(msgLang)}
         const errText = await res.text();
         recordModelResult(model, false, Date.now() - t0, `HTTP ${res.status}`);
         lastErr = new Error(`Gemini (${model} / ${res.status}): ${errText}`);
-        if (res.status === 400 || res.status === 401 || res.status === 403) {
+        if (res.status === 401 || res.status === 403) {
           throw lastErr;
         }
+        if (res.status === 400 || res.status === 404) {
+          skipInRound2.add(model);
+        }
       } catch (err) {
-        const isAuthOrBadReq = err && err.message && /\/ (400|401|403)\)/.test(err.message);
-        if (!isAuthOrBadReq) {
+        const isAuthErr = err && err.message && /\/ (401|403)\)/.test(err.message);
+        if (!isAuthErr) {
           const errTag = (err && err.name === "AbortError") ? "timeout" : "network";
           recordModelResult(model, false, Date.now() - t0, errTag);
         }
         lastErr = err;
-        if (isAuthOrBadReq) {
+        if (isAuthErr) {
           throw err;
         }
       }
@@ -5281,6 +5307,53 @@ ${getHonorificRule(msgLang)}
       if (MediaRecorder.isTypeSupported(c)) return c;
     }
     return "";
+  }
+
+  function startSpeechBackup() {
+    speechFinalText = "";
+    speechInterimText = "";
+    if (callState !== "idle") return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    try {
+      stopSpeechBackup();
+      const rec = new SR();
+      rec.lang = myRole === "ko" ? "ko-KR" : "vi-VN";
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.onresult = (event) => {
+        let fin = "";
+        let interim = "";
+        for (let i = 0; i < event.results.length; i++) {
+          const res = event.results[i];
+          const txt = (res[0] && res[0].transcript) ? res[0].transcript : "";
+          if (res.isFinal) fin += txt + " ";
+          else interim += txt;
+        }
+        speechFinalText = fin.trim();
+        speechInterimText = interim.trim();
+      };
+      rec.onerror = () => {};
+      rec.onend = () => {
+        if (speechRec === rec) speechRec = null;
+      };
+      speechRec = rec;
+      rec.start();
+    } catch {
+      speechRec = null;
+    }
+  }
+
+  function getSpeechBackupText() {
+    return `${speechFinalText} ${speechInterimText}`.trim();
+  }
+
+  function stopSpeechBackup() {
+    if (speechRec) {
+      const r = speechRec;
+      speechRec = null;
+      try { r.onresult = null; r.onerror = null; r.onend = null; r.stop(); } catch {}
+    }
   }
 
   async function startRecording() {
@@ -5368,6 +5441,7 @@ ${getHonorificRule(msgLang)}
       };
 
       mediaRecorder.onstop = async () => {
+        const backupTranscript = getSpeechBackupText();
         stopMeterAndStream();
         const duration = Date.now() - recStartTime;
 
@@ -5388,7 +5462,7 @@ ${getHonorificRule(msgLang)}
         const audioBlob = new Blob(audioChunks, { type: actualMime });
         isProcessing = true;
         setProcessingStage("recognizing");
-        await translateAudioAndBroadcast(audioBlob, actualMime, durationSec);
+        await translateAudioAndBroadcast(audioBlob, actualMime, durationSec, backupTranscript);
       };
 
       startVolumeMeter(currentStream);
@@ -5398,6 +5472,7 @@ ${getHonorificRule(msgLang)}
       } catch {
         mediaRecorder.start();
       }
+      startSpeechBackup();
       isRecording = true;
       isMyTurn = false;
       updateButtonUI();
@@ -5494,6 +5569,7 @@ ${getHonorificRule(msgLang)}
   }
 
   function stopMeterAndStream() {
+    stopSpeechBackup();
     if (meterRaf) { cancelAnimationFrame(meterRaf); meterRaf = null; }
     if (recTimerId) { clearInterval(recTimerId); recTimerId = null; }
     if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; analyser = null; }
@@ -5600,7 +5676,7 @@ ${getHonorificRule(msgLang)}
     return `[이전 대화 문맥 참고]\n${lines.join("\n")}\n\n`;
   }
 
-  async function translateAudioAndBroadcast(audioBlob, cleanMime, durationSec = 0) {
+  async function translateAudioAndBroadcast(audioBlob, cleanMime, durationSec = 0, backupTranscript = "") {
     const msgTs = Date.now();
 
     try {
@@ -5608,6 +5684,8 @@ ${getHonorificRule(msgLang)}
       const base64Audio = await blobToBase64(audioBlob);
       const sourceLang = myRole === "ko" ? "한국어" : "베트남어";
       const targetLang = myRole === "ko" ? "베트남어" : "한국어";
+      const slCode = myRole === "ko" ? "ko" : "vi";
+      const tlCode = myRole === "ko" ? "vi" : "ko";
 
       audioCache[msgTs] = { data: base64Audio, mime: cleanMime };
       idbPut("audios", { ts: msgTs, data: base64Audio, mime: cleanMime });
@@ -5639,31 +5717,58 @@ ${getHonorificRule(myRole)}
         }
       }, 1200);
 
-      const data = await callGeminiWithFallback({
-        system_instruction: { parts: [{ text: systemInstruction }] },
-        contents,
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 350,
-          responseMimeType: "application/json",
-          thinkingConfig: { thinkingBudget: 0 }
-        }
-      }, {
-        baseTimeoutMs: 9000,
-        fallbackTimeoutMs: 12000,
-        onRetry: () => setProcessingStage("retrying")
-      });
+      let orig = "";
+      let trans = "";
+      let isUntranslated = false;
+      let geminiFailed = false;
 
-      const parts = data.candidates?.[0]?.content?.parts || [];
-      let rawJson = "{}";
-      for (const p of parts) {
-        if (p.thought) continue;
-        if (p.text) { rawJson = p.text.trim(); break; }
+      try {
+        const data = await callGeminiWithFallback({
+          system_instruction: { parts: [{ text: systemInstruction }] },
+          contents,
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 350,
+            responseMimeType: "application/json"
+          }
+        }, {
+          baseTimeoutMs: 9000,
+          fallbackTimeoutMs: 12000,
+          onRetry: () => setProcessingStage("retrying")
+        });
+
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        let rawJson = "{}";
+        for (const p of parts) {
+          if (p.thought) continue;
+          if (p.text) { rawJson = p.text.trim(); break; }
+        }
+        rawJson = rawJson.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+        const parsed = JSON.parse(rawJson);
+        orig = (parsed.original || "").trim();
+        trans = (parsed.translated || "").trim();
+      } catch {
+        geminiFailed = true;
       }
 
-      const parsed = JSON.parse(rawJson);
-      const orig = (parsed.original || "").trim();
-      const trans = (parsed.translated || "").trim();
+      // Fallback to browser Web Speech API transcript + Free Google Translate if Gemini failed or returned empty
+      const fallbackText = (backupTranscript || "").trim();
+      if (!orig && fallbackText) {
+        orig = fallbackText;
+        setProcessingStage("translating");
+        try {
+          trans = await translateWithFreeGoogle(orig, slCode, tlCode);
+        } catch {
+          if (myRole === "vi") {
+            isUntranslated = true;
+            trans = "";
+          } else {
+            trans = orig;
+          }
+        }
+      } else if (geminiFailed && !orig) {
+        throw new Error("Audio translation failed");
+      }
 
       if (!orig) {
         delete audioCache[msgTs];
@@ -5678,7 +5783,8 @@ ${getHonorificRule(myRole)}
       const newMsg = {
         lang: myRole,
         original: orig,
-        translated: trans || orig,
+        translated: isUntranslated ? "" : (trans || orig),
+        untranslated: isUntranslated,
         hasAudio: true,
         audioDuration: durationSec,
         hasPhoto: false,
@@ -5766,8 +5872,7 @@ ${getHonorificRule(myRole)}
             contents,
             generationConfig: {
               temperature: 0.2,
-              maxOutputTokens: 280,
-              thinkingConfig: { thinkingBudget: 0 }
+              maxOutputTokens: 280
             }
           }, {
             baseTimeoutMs: 4000,
