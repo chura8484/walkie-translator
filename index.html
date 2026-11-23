@@ -61,7 +61,6 @@
     #inAppBanner { background: #d32f2f; color: #fff; padding: 9px 14px; font-size: 13px; font-weight: bold; line-height: 1.4; text-align: center; flex-shrink: 0; }
     #diagBanner { background: #3e2723; color: #ffcc80; padding: 6px 14px; font-size: 12px; border-bottom: 1px solid #5d4037; flex-shrink: 0; }
 
-    /* 홈 화면 추가 안내 배너 (설치 전 상단 노출) */
     #installBanner {
       background: linear-gradient(135deg, #ff5e7e, #ff8a65);
       color: #fff;
@@ -149,7 +148,6 @@
       font-weight: bold;
     }
 
-    /* 홈 화면 추가 안내 모달 */
     #installGuideModal {
       position: fixed;
       inset: 0;
@@ -873,7 +871,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 35;
+  const APP_VERSION = 36;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const ONESIGNAL_APP_ID = "f9fb09c5-1acd-4df1-b2e9-c9cd177ece17";
   const OS_KEY_PARTS = [
@@ -897,7 +895,6 @@
   const VOICE_BOOST_GAIN = 1.8;
   const SILENT_WAV_DATA_URL = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
 
-  // Metered 전용 STUN / TURN / TURNS 서버
   const ICE_CONFIG = {
     iceServers: [
       { urls: "stun:stun.relay.metered.ca:80" },
@@ -929,7 +926,6 @@
     window.history.replaceState(null, "", window.location.pathname);
   }
 
-  // 암호(862534)로 XOR 암호화된 Gemini 키 데이터
   const ENC_KEY_BYTES = [
     121,103,28,116,81,12,106,120,4,127,82,124,79,80,69,102,106,80,
     103,70,115,82,1,112,79,81,72,121,6,1,93,103,80,120,1,121,85,91,
@@ -1103,8 +1099,12 @@
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   window.OneSignalDeferred.push(async function(OneSignal) {
     try {
+      const basePath = window.location.pathname.replace(/[^/]*$/, "");
+      const swPath = `${basePath.replace(/^\//, "")}OneSignalSDKWorker.js`;
       await OneSignal.init({
         appId: ONESIGNAL_APP_ID,
+        serviceWorkerPath: swPath,
+        serviceWorkerParam: { scope: basePath },
         allowLocalhostAsSecureOrigin: true
       });
       oneSignalReady = true;
@@ -1151,11 +1151,12 @@
     if (label) label.textContent = t().pushTimeLabel;
   }
 
-  async function saveMyPushConfigToDb() {
+  async function saveMyPushConfigToDb(overrideEnabled = null) {
     if (!roomPass) return;
+    const enabledVal = overrideEnabled !== null ? overrideEnabled : pushEnabled;
     await patchRoom({
       [`pushConfig/${myRole}`]: {
-        enabled: pushEnabled,
+        enabled: enabledVal,
         startHour: pushStartHour,
         endHour: pushEndHour,
         tzOffsetMin: new Date().getTimezoneOffset()
@@ -1173,6 +1174,15 @@
         } else {
           await OneSignal.User.PushSubscription.optOut();
         }
+      } catch {}
+    });
+  }
+
+  function disablePushOnLogout() {
+    window.OneSignalDeferred.push(async function(OneSignal) {
+      try {
+        await OneSignal.User.PushSubscription.optOut();
+        await OneSignal.logout();
       } catch {}
     });
   }
@@ -1272,7 +1282,7 @@
     } catch {}
   }
 
-  /* ================= 오디오 포커스(배경음악 정지 유도) & 볼륨 증폭 ================= */
+  /* ================= 오디오 포커스 & 볼륨 증폭 ================= */
 
   let playbackAudioCtx = null;
 
@@ -1297,7 +1307,7 @@
     } catch {}
   }
 
-  /* ================= PWA 아이콘 (A번: 핑크 하트 말풍선) & Manifest 자동 생성 ================= */
+  /* ================= PWA 아이콘 & Manifest 자동 생성 ================= */
 
   let deferredInstallPrompt = null;
   let generatedAppIconUrl = "";
@@ -1513,6 +1523,30 @@
       const tx = db.transaction(storeName, "readwrite");
       tx.objectStore(storeName).delete(ts);
     } catch {}
+  }
+
+  /* ================= 하이브리드 음성 업로드 (채팅: 번역 후 즉시 / 영통: 종료 후 일괄) ================= */
+
+  let pendingCallAudios = [];
+
+  function uploadAudioToFirebase(ts, data, mime) {
+    if (!roomPass || !ts || !data) return Promise.resolve();
+    return fetch(`${getAudioBaseUrl()}/${ts}.json`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data, mime })
+    }).catch(() => {});
+  }
+
+  function flushPendingCallAudios() {
+    if (!roomPass || pendingCallAudios.length === 0) return;
+    const queue = pendingCallAudios.slice();
+    pendingCallAudios = [];
+    (async () => {
+      for (const item of queue) {
+        await uploadAudioToFirebase(item.ts, item.data, item.mime);
+      }
+    })();
   }
 
   /* ================= 앱 상태 ================= */
@@ -2025,7 +2059,7 @@
     replyPreviewText.textContent = "";
   }
 
-  function releaseMyLocks(keepalive = false) {
+  function releaseMyLocks(keepalive = false, disablePush = false) {
     if (!roomPass) return;
     const patch = {
       [`presence/${myRole}`]: 0,
@@ -2033,6 +2067,9 @@
       [`emojiBurst/${myRole}`]: null,
       [`doodleBurst/${myRole}`]: null
     };
+    if (disablePush) {
+      patch[`pushConfig/${myRole}/enabled`] = false;
+    }
     if (roomState.lockedBy === myRole) { patch.lockedBy = ""; patch.lockedAt = 0; }
     if (roomState.reservedBy === myRole) { patch.reservedBy = ""; }
     if (roomState.turnFor === myRole) { patch.turnFor = ""; patch.turnAt = 0; }
@@ -2048,7 +2085,10 @@
     }).catch(() => {});
   }
 
-  window.addEventListener("pagehide", () => releaseMyLocks(true));
+  window.addEventListener("pagehide", () => {
+    flushPendingCallAudios();
+    releaseMyLocks(true, false);
+  });
 
   function stopPolling() {
     if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
@@ -2066,7 +2106,9 @@
   function logoutRoom() {
     settingsMenu.classList.add("hidden");
     if (callState !== "idle") cleanupVideoCall(false);
-    releaseMyLocks(true);
+    flushPendingCallAudios();
+    releaseMyLocks(true, true);
+    disablePushOnLogout();
     stopCurrentAudio();
     clearReplyTarget();
     localStorage.removeItem("wt_pass");
@@ -2157,7 +2199,7 @@
 
   function setRole(role) {
     if (isRecording || callState !== "idle" || systemRole === "vi") return;
-    releaseMyLocks(false);
+    releaseMyLocks(false, false);
     myRole = role;
     wasPartnerOnline = null;
     emojiInitialized = false;
@@ -2331,6 +2373,7 @@
 
     if (currentPlayingTs === msgTs) stopCurrentAudio();
     if (target.hasAudio) {
+      pendingCallAudios = pendingCallAudios.filter(a => a.ts !== msgTs);
       delete audioCache[msgTs];
       idbDelete("audios", msgTs);
       fetch(`${getAudioBaseUrl()}/${msgTs}.json`, { method: "DELETE" }).catch(() => {});
@@ -3341,9 +3384,12 @@ ${getHonorificRule(msgLang)}
         cached = await res.json();
         if (!cached || !cached.data) {
           currentPlayingTs = null;
-          const b = subtitlesEl.querySelector(`.play-btn[data-ts="${targetTs}"]`);
-          if (b) b.classList.add("hidden");
-          await markAudioUnavailable(targetTs);
+          updatePlayButtonVisual(targetTs, false);
+          if (callState === "idle" && (Date.now() - targetTs > 15000)) {
+            const b = subtitlesEl.querySelector(`.play-btn[data-ts="${targetTs}"]`);
+            if (b) b.classList.add("hidden");
+            await markAudioUnavailable(targetTs);
+          }
           return;
         }
         audioCache[targetTs] = cached;
@@ -4138,6 +4184,7 @@ ${getHonorificRule(msgLang)}
     applyVideoLayout();
     if (resetRemote) patchRoom({ "callMeta/status": "idle" });
     updatePartnerStatusUI();
+    flushPendingCallAudios();
   }
 
   async function switchCamera() {
@@ -4333,7 +4380,7 @@ ${getHonorificRule(msgLang)}
     throw new Error("Free translate invalid response");
   }
 
-  /* ================= 무전기 / 음성 번역 로직 ================= */
+  /* ================= 무전기 / 음성 번역 로직 (32kbps + 하이브리드 업로드) ================= */
 
   micBtn.addEventListener("click", async () => {
     if (isProcessing || !apiKey) return;
@@ -4402,7 +4449,7 @@ ${getHonorificRule(msgLang)}
       }
 
       const mimeType = pickAudioMimeType();
-      const options = { audioBitsPerSecond: 64000 };
+      const options = { audioBitsPerSecond: 32000 };
       if (mimeType) options.mimeType = mimeType;
 
       audioChunks = [];
@@ -4606,7 +4653,6 @@ ${getHonorificRule(msgLang)}
 
   async function translateAudioAndBroadcast(audioBlob, cleanMime, durationSec = 0) {
     const msgTs = Date.now();
-    let audioUploaded = false;
 
     try {
       const base64Audio = await blobToBase64(audioBlob);
@@ -4615,11 +4661,6 @@ ${getHonorificRule(msgLang)}
 
       audioCache[msgTs] = { data: base64Audio, mime: cleanMime };
       idbPut("audios", { ts: msgTs, data: base64Audio, mime: cleanMime });
-      const audioUploadPromise = fetch(`${getAudioBaseUrl()}/${msgTs}.json`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: base64Audio, mime: cleanMime })
-      }).then(() => { audioUploaded = true; }).catch(() => {});
 
       const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
 [규칙]
@@ -4666,9 +4707,6 @@ ${getHonorificRule(myRole)}
       if (!orig) {
         delete audioCache[msgTs];
         idbDelete("audios", msgTs);
-        audioUploadPromise.then(() => {
-          fetch(`${getAudioBaseUrl()}/${msgTs}.json`, { method: "DELETE" }).catch(() => {});
-        });
         statusEl.textContent = t().noVoice;
         statusEl.style.color = "#ff9800";
         setTimeout(updatePartnerStatusUI, 2500);
@@ -4705,15 +4743,18 @@ ${getHonorificRule(myRole)}
         });
         await finishTurnLock({ lastMsgTs: syncTs });
         sendPartnerPushNotification("Anh & Em", `🎤 ${(trans || orig).slice(0, 60)}`);
+
+        if (callState === "idle") {
+          uploadAudioToFirebase(msgTs, base64Audio, cleanMime);
+        } else {
+          pendingCallAudios.push({ ts: msgTs, data: base64Audio, mime: cleanMime });
+        }
       } finally {
         pendingSaveCount = Math.max(0, pendingSaveCount - 1);
       }
     } catch (err) {
       delete audioCache[msgTs];
       idbDelete("audios", msgTs);
-      if (audioUploaded) {
-        fetch(`${getAudioBaseUrl()}/${msgTs}.json`, { method: "DELETE" }).catch(() => {});
-      }
       alert("Error: " + err.message);
       await finishTurnLock();
     }
