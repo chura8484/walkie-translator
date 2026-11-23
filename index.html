@@ -410,7 +410,10 @@
     }
 
     #photoPreviewModal { position: fixed; inset: 0; background: rgba(0,0,0,0.94); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 95; padding: 14px; gap: 10px; }
-    #photoPreviewCanvas { max-width: 100%; max-height: 56dvh; border-radius: 10px; touch-action: none; background: #000; display: block; }
+    #photoPreviewCanvas { max-width: 100%; max-height: 52dvh; border-radius: 10px; touch-action: none; background: #000; display: block; }
+    .photo-rotate-tools { display: flex; gap: 8px; width: 100%; max-width: 380px; justify-content: center; }
+    .photo-rotate-tools button { flex: 1; padding: 8px 6px; border: 1px solid #444; border-radius: 8px; background: #2e2e2e; color: #fff; font-size: 13px; font-weight: bold; cursor: pointer; }
+    .photo-rotate-tools button:active { transform: scale(0.96); }
     .sticker-palette { display: flex; gap: 6px; width: 100%; max-width: 380px; justify-content: space-between; }
     .sticker-palette button { flex: 1; padding: 6px 0; border: 1px solid #444; border-radius: 8px; background: #242424; font-size: 20px; cursor: pointer; }
     .sticker-palette button:active { transform: scale(0.9); }
@@ -716,6 +719,10 @@
 
 <div id="photoPreviewModal" class="hidden">
   <canvas id="photoPreviewCanvas"></canvas>
+  <div class="photo-rotate-tools">
+    <button id="photoRotateLeftBtn" onclick="rotatePendingPhoto(-90)">↺ 왼쪽 회전</button>
+    <button id="photoRotateRightBtn" onclick="rotatePendingPhoto(90)">↻ 오른쪽 회전</button>
+  </div>
   <div class="sticker-palette">
     <button onclick="addSticker('❤️')">❤️</button>
     <button onclick="addSticker('😘')">😘</button>
@@ -871,7 +878,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 38;
+  const APP_VERSION = 39;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const ONESIGNAL_APP_ID = "f9fb09c5-1acd-4df1-b2e9-c9cd177ece17";
   const OS_KEY_PARTS = [
@@ -999,6 +1006,8 @@
       stkLarger: "크게 +",
       stkRemove: "삭제",
       stkClear: "초기화",
+      photoRotateLeft: "↺ 왼쪽 회전",
+      photoRotateRight: "↻ 오른쪽 회전",
       pushOn: "🔔 푸시 알림 켜짐",
       pushOff: "🔕 푸시 알림 꺼짐",
       pushTimeLabel: "⏰ 알림 시간",
@@ -1079,6 +1088,8 @@
       stkLarger: "To +",
       stkRemove: "Xóa",
       stkClear: "Xóa hết",
+      photoRotateLeft: "↺ Xoay trái",
+      photoRotateRight: "↻ Xoay phải",
       pushOn: "🔔 Thông báo: BẬT",
       pushOff: "🔕 Thông báo: TẮT",
       pushTimeLabel: "⏰ Giờ báo",
@@ -1681,6 +1692,9 @@
   let lastPhotoTapAt = 0;
 
   let pendingPhotoImg = null;
+  let pendingPhotoBaseW = 0;
+  let pendingPhotoBaseH = 0;
+  let pendingPhotoRotation = 0;
   let pendingStickers = [];
   let selectedStickerId = null;
   let draggingSticker = null;
@@ -1785,6 +1799,8 @@
   const stkLargerBtn = document.getElementById("stkLargerBtn");
   const stkRemoveBtn = document.getElementById("stkRemoveBtn");
   const stkClearBtn = document.getElementById("stkClearBtn");
+  const photoRotateLeftBtn = document.getElementById("photoRotateLeftBtn");
+  const photoRotateRightBtn = document.getElementById("photoRotateRightBtn");
   const photoConfirmSendBtn = document.getElementById("photoConfirmSendBtn");
   const photoConfirmCancelBtn = document.getElementById("photoConfirmCancelBtn");
   const inAppBanner = document.getElementById("inAppBanner");
@@ -2007,6 +2023,8 @@
     stkLargerBtn.textContent = text.stkLarger;
     stkRemoveBtn.textContent = text.stkRemove;
     stkClearBtn.textContent = text.stkClear;
+    photoRotateLeftBtn.textContent = text.photoRotateLeft;
+    photoRotateRightBtn.textContent = text.photoRotateRight;
     typingIndicator.textContent = text.typing;
     installBannerTitle.textContent = text.installBannerTitle;
     installBannerSub.textContent = text.installBannerSub;
@@ -2636,6 +2654,9 @@ ${getHonorificRule(msgLang)}
     try {
       const { img, w, h } = await loadImageFromFile(file, 800);
       pendingPhotoImg = img;
+      pendingPhotoBaseW = w;
+      pendingPhotoBaseH = h;
+      pendingPhotoRotation = 0;
       pendingStickers = [];
       selectedStickerId = null;
       draggingSticker = null;
@@ -2651,13 +2672,44 @@ ${getHonorificRule(msgLang)}
     }
   }
 
+  function rotatePendingPhoto(deltaDeg) {
+    if (!pendingPhotoImg) return;
+    pendingPhotoRotation = (pendingPhotoRotation + deltaDeg + 360) % 360;
+    const swap = (pendingPhotoRotation === 90 || pendingPhotoRotation === 270);
+    photoPreviewCanvas.width = swap ? pendingPhotoBaseH : pendingPhotoBaseW;
+    photoPreviewCanvas.height = swap ? pendingPhotoBaseW : pendingPhotoBaseH;
+
+    pendingStickers.forEach(s => {
+      const ox = s.x;
+      const oy = s.y;
+      if (deltaDeg > 0) {
+        s.x = 1 - oy;
+        s.y = ox;
+      } else {
+        s.x = oy;
+        s.y = 1 - ox;
+      }
+    });
+    renderPhotoPreviewCanvas(true);
+  }
+
   function renderPhotoPreviewCanvas(showSelection = true) {
     if (!pendingPhotoImg) return;
     const ctx = photoPreviewCanvas.getContext("2d");
     const w = photoPreviewCanvas.width;
     const h = photoPreviewCanvas.height;
     ctx.clearRect(0, 0, w, h);
-    ctx.drawImage(pendingPhotoImg, 0, 0, w, h);
+    ctx.save();
+    ctx.translate(w / 2, h / 2);
+    ctx.rotate((pendingPhotoRotation * Math.PI) / 180);
+    ctx.drawImage(
+      pendingPhotoImg,
+      -pendingPhotoBaseW / 2,
+      -pendingPhotoBaseH / 2,
+      pendingPhotoBaseW,
+      pendingPhotoBaseH
+    );
+    ctx.restore();
 
     const minDim = Math.min(w, h);
     ctx.textAlign = "center";
@@ -2783,6 +2835,9 @@ ${getHonorificRule(msgLang)}
 
   function cancelPendingPhoto(fromPopState = false) {
     pendingPhotoImg = null;
+    pendingPhotoBaseW = 0;
+    pendingPhotoBaseH = 0;
+    pendingPhotoRotation = 0;
     pendingStickers = [];
     selectedStickerId = null;
     draggingSticker = null;
