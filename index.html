@@ -1007,7 +1007,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 42;
+  const APP_VERSION = 43;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const ONESIGNAL_APP_ID = "f9fb09c5-1acd-4df1-b2e9-c9cd177ece17";
   const OS_KEY_PARTS = [
@@ -5135,7 +5135,7 @@ ${getHonorificRule(msgLang)}
   }
 
   function openModelStatsModal() {
-    closeSettingsMenu(false);
+    settingsMenu.classList.add("hidden");
     renderModelStatsModal();
     document.getElementById("modelStatsModal").classList.remove("hidden");
     ensureModalHistory();
