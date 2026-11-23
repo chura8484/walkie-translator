@@ -1008,7 +1008,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 45;
+  const APP_VERSION = 46;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const ONESIGNAL_APP_ID = "f9fb09c5-1acd-4df1-b2e9-c9cd177ece17";
   const OS_KEY_PARTS = [
@@ -1018,9 +1018,12 @@
     "sequz2m2wtabrpvg5rcuqx6imhmeihrl",
     "yjf5capix7hb4kphdtq7ir7mhl2gtfuaod4ozdy"
   ];
-  const MODEL_31 = "gemini-3.1-flash-lite";
-  const MODEL_35 = "gemini-3.5-flash-lite";
-  const MODEL_25 = "gemini-2.5-flash-lite";
+  const MODEL_35_LITE = "gemini-3.5-flash-lite";
+  const MODEL_31_LITE = "gemini-3.1-flash-lite";
+  const MODEL_36_FLASH = "gemini-3.6-flash";
+  const MODEL_38_FLASH = "gemini-3.8-flash";
+  const PRIMARY_MODELS = [MODEL_35_LITE, MODEL_31_LITE];
+  const FALLBACK_MODELS = [MODEL_36_FLASH, MODEL_38_FLASH];
   const MAX_CONTEXT_MSGS = 4;
   const MAX_AUDIO_MSGS = 500;
   const MAX_PHOTO_MSGS = 100;
@@ -1177,6 +1180,8 @@
       modelStatsResetBtn: "🔄 순위 초기화",
       modelStatsCloseBtn: "닫기",
       modelRankUnit: "위",
+      tierPrimary: "기본",
+      tierFallback: "예비",
       modelStatusOk: "🟢 정상",
       modelStatusWarn: "🟠 지연/오류",
       modelStatusIdle: "⚪ 미사용",
@@ -1279,6 +1284,8 @@
       modelStatsResetBtn: "🔄 Đặt lại thứ tự",
       modelStatsCloseBtn: "Đóng",
       modelRankUnit: "",
+      tierPrimary: "Chính",
+      tierFallback: "Dự phòng",
       modelStatusOk: "🟢 Tốt",
       modelStatusWarn: "🟠 Chậm/Lỗi",
       modelStatusIdle: "⚪ Chưa dùng",
@@ -4982,9 +4989,9 @@ ${getHonorificRule(msgLang)}
     showPipBtn.classList.add("hidden");
   }
 
-  /* ================= Gemini API 자동 모델 순위 조절 & 상태 패널 ================= */
+  /* ================= Gemini API 자동 모델 순위 조절 (1군 Lite -> 2군 Flash) & 상태 패널 ================= */
 
-  const MODEL_LIST = [MODEL_31, MODEL_35, MODEL_25];
+  const MODEL_LIST = [...PRIMARY_MODELS, ...FALLBACK_MODELS];
   const MODEL_STATS_KEY = "wt_model_stats_v1";
 
   function createEmptyModelStats() {
@@ -5047,16 +5054,15 @@ ${getHonorificRule(msgLang)}
     return score;
   }
 
-  function getRankedModels(allowExplore = false) {
-    const scored = MODEL_LIST.map((model, idx) => ({
+  function sortTierModels(tierModels, allowExplore = false) {
+    const scored = tierModels.map((model, idx) => ({
       model,
       score: computeModelScore(model, idx)
     }));
     scored.sort((a, b) => b.score - a.score);
     const ranked = scored.map(x => x.model);
 
-    // Every 12 calls, probe a non-top model that hasn't been tried for 3+ min so recovered models can reclaim #1
-    if (allowExplore && modelStats.totalCalls > 0 && modelStats.totalCalls % 12 === 0) {
+    if (allowExplore && ranked.length > 1 && modelStats.totalCalls > 0 && modelStats.totalCalls % 10 === 0) {
       const now = Date.now();
       const probeCandidate = ranked.slice(1).find(m => {
         const lastTried = modelStats.models[m]?.lastTriedAt || 0;
@@ -5067,6 +5073,12 @@ ${getHonorificRule(msgLang)}
       }
     }
     return ranked;
+  }
+
+  function getRankedModels(allowExplore = false) {
+    const primaryRanked = sortTierModels(PRIMARY_MODELS, allowExplore);
+    const fallbackRanked = sortTierModels(FALLBACK_MODELS, false);
+    return [...primaryRanked, ...fallbackRanked];
   }
 
   function recordModelResult(model, success, latencyMs, errLabel = "") {
@@ -5114,7 +5126,9 @@ ${getHonorificRule(msgLang)}
         badge = st.streakFail > 0 ? text.modelStatusWarn : text.modelStatusOk;
       }
 
-      const rankLabel = myRole === "ko" ? `${idx + 1}${text.modelRankUnit}` : `#${idx + 1}`;
+      const isPrimary = PRIMARY_MODELS.includes(model);
+      const tierTag = isPrimary ? text.tierPrimary : text.tierFallback;
+      const rankLabel = myRole === "ko" ? `${idx + 1}${text.modelRankUnit}·${tierTag}` : `#${idx + 1}·${tierTag}`;
       const item = document.createElement("div");
       item.className = "model-stat-item" + (idx === 0 ? " rank-1" : "");
 
@@ -5202,12 +5216,22 @@ ${getHonorificRule(msgLang)}
     modelStats.totalCalls = (modelStats.totalCalls || 0) + 1;
     const ranked = getRankedModels(true);
 
-    const round1 = ranked.map((model, idx) => ({
-      model,
-      timeout: idx === 0 ? baseTimeout : fallbackTimeout,
-      delayBefore: idx === 0 ? 0 : 250
-    }));
-    const round2 = ranked.map((model, idx) => ({
+    const primaryRanked = ranked.filter(m => PRIMARY_MODELS.includes(m));
+    const fallbackRanked = ranked.filter(m => FALLBACK_MODELS.includes(m));
+
+    const round1 = [
+      ...primaryRanked.map((model, idx) => ({
+        model,
+        timeout: idx === 0 ? baseTimeout : fallbackTimeout,
+        delayBefore: idx === 0 ? 0 : 200
+      })),
+      ...fallbackRanked.map((model) => ({
+        model,
+        timeout: fallbackTimeout,
+        delayBefore: 350
+      }))
+    ];
+    const round2 = primaryRanked.map((model, idx) => ({
       model,
       timeout: fallbackTimeout,
       delayBefore: idx === 0 ? 800 : 300
