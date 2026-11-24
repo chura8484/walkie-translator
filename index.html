@@ -317,6 +317,45 @@
     #videoSubtitleOverlay.other { border-left: 4px solid #ff9800; }
     #videoSubtitleOverlay.mine { border-left: 4px solid #42a5f5; }
 
+    #partnerSubtitleStack {
+      position: absolute;
+      bottom: 62px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 92%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      z-index: 8;
+      pointer-events: none;
+      transition: bottom 0.2s ease;
+    }
+    body.in-video-call.video-fullscreen #partnerSubtitleStack { bottom: 96px; }
+    body.in-video-call.video-fullscreen.video-menu-open #partnerSubtitleStack { bottom: 196px; }
+    body.in-video-call.video-fullscreen.video-menu-open.no-emoji-bar #partnerSubtitleStack { bottom: 148px; }
+    .partner-sub-item {
+      max-width: 100%;
+      padding: 8px 14px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.76);
+      backdrop-filter: blur(5px);
+      border-left: 4px solid #ff9800;
+      color: #fff;
+      text-align: left;
+      word-break: break-word;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+      animation: subFadeIn 0.2s ease-out;
+    }
+    .partner-sub-item.test-preview { border-left-color: #26c6da; }
+    .partner-sub-trans { font-size: 16px; font-weight: bold; line-height: 1.38; }
+    .partner-sub-orig { font-size: 11px; color: rgba(255,255,255,0.72); margin-top: 2px; line-height: 1.3; }
+    @keyframes subFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     #localVideoWrap { position: absolute; width: 92px; height: 126px; border-radius: 10px; overflow: hidden; border: 2px solid rgba(255,255,255,0.55); background: #1a1a1a; z-index: 6; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: all 0.2s ease; }
     #localVideoWrap.pos-br { right: 10px; bottom: 60px; left: auto; top: auto; }
     #localVideoWrap.pos-tr { right: 10px; top: 12px; left: auto; bottom: auto; }
@@ -660,12 +699,106 @@
       pointer-events: auto;
     }
     body.in-video-call.video-fullscreen footer #micBtn,
+    body.in-video-call.video-fullscreen footer #liveCallBox,
+    body.in-video-call.video-fullscreen footer #liveToggleBtn,
     body.in-video-call.video-fullscreen footer #floatEndCallBtn,
     body.in-video-call.video-fullscreen footer #recordingControls button {
       box-shadow: 0 4px 16px rgba(0,0,0,0.45);
     }
 
     #micRow { display: flex; gap: 8px; align-items: stretch; }
+    #liveToggleBtn {
+      display: none;
+      width: 50px;
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 14px;
+      background: #424242;
+      color: #bbb;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      line-height: 1.05;
+      padding: 4px 2px;
+      transition: background 0.15s, color 0.15s;
+    }
+    #liveToggleBtn.on {
+      background: #00897b;
+      color: #fff;
+      border-color: #26a69a;
+    }
+    #liveToggleBtn span.lt-sub { font-size: 9px; margin-top: 2px; letter-spacing: 0.2px; }
+    body.in-video-call #liveToggleBtn { display: flex; }
+
+    #liveCallBox {
+      flex: 1;
+      min-width: 0;
+      min-height: 52px;
+      padding: 7px 12px;
+      border-radius: 14px;
+      background: rgba(18, 28, 42, 0.86);
+      backdrop-filter: blur(6px);
+      border: 1.5px solid #42a5f5;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 3px;
+      overflow: hidden;
+    }
+    #liveCallBox.speaking {
+      border-color: #4caf50;
+      background: rgba(18, 38, 24, 0.9);
+    }
+    #liveCallBox.muted {
+      border-color: #ef6c00;
+      background: rgba(42, 24, 14, 0.86);
+    }
+    .live-call-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: bold;
+      color: #90caf9;
+    }
+    #liveCallBox.speaking .live-call-top { color: #81c784; }
+    #liveCallBox.muted .live-call-top { color: #ffb74d; }
+    .live-mini-meter {
+      width: 58px;
+      height: 5px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.16);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    #liveMiniVolBar {
+      width: 4%;
+      height: 100%;
+      background: #4caf50;
+      transition: width 0.06s linear;
+    }
+    #liveMyText {
+      font-size: 14px;
+      font-weight: bold;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+    #liveMyTrans {
+      font-size: 11px;
+      color: #b3e5fc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.25;
+    }
     #floatEndCallBtn {
       display: none;
       width: 54px;
@@ -909,6 +1042,7 @@
   <div id="callTimerBadge" class="hidden">00:00</div>
   <div id="remoteStatusBadge" class="hidden">연결 중...</div>
   <div id="videoSubtitleOverlay"></div>
+  <div id="partnerSubtitleStack"></div>
 
   <div id="localVideoWrap" class="pos-br" onclick="cyclePipPosition()">
     <video id="localVideo" class="mirrored" autoplay playsinline muted></video>
@@ -976,6 +1110,15 @@
   </div>
 
   <div id="micRow">
+    <button id="liveToggleBtn" class="on" onclick="toggleLiveTranslate()" title="실시간 번역 ON/OFF"><span>🌐</span><span class="lt-sub">ON</span></button>
+    <div id="liveCallBox" class="hidden">
+      <div class="live-call-top">
+        <span id="liveCallStatus">🟢 실시간 번역 대기 중...</span>
+        <div class="live-mini-meter"><div id="liveMiniVolBar"></div></div>
+      </div>
+      <div id="liveMyText"></div>
+      <div id="liveMyTrans" class="hidden"></div>
+    </div>
     <button id="micBtn">🎤 말하기</button>
     <button id="floatEndCallBtn" onclick="endVideoCall()" title="통화 종료">📵</button>
   </div>
@@ -986,7 +1129,12 @@
 </footer>
 
 <script>
-  const APP_VERSION = 53;
+  const APP_VERSION = 54;
+  const LIVE_MAX_CHUNK_MS = 10000;
+  const LIVE_MIN_SPEECH_MS = 500;
+  const LIVE_SILENCE_MS = 900;
+  const LIVE_SUBTITLE_TTL_MS = 8000;
+  const LIVE_SUBTITLE_MAX_LINES = 2;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const GROQ_STT_MODEL = "whisper-large-v3-turbo";
   const GROQ_STT_MODEL_VI = "whisper-large-v3";
@@ -1162,7 +1310,12 @@
       infoCodec: "녹음 코덱",
       infoNone: "없음",
       installStepsIOS: "1. 아래쪽 가운데 <b>공유 버튼 (⬆️)</b>을 누르세요.<br>2. 메뉴를 살짝 올려 <b>'홈 화면에 추가'</b>를 누르세요.<br>3. 오른쪽 위 <b>'추가'</b>를 누르면 완료!<br><br><small>※ 추가 완료를 누르면 이 버튼은 ⚙️ 설정으로 이동합니다.</small>",
-      installStepsAndroid: "1. 오른쪽 위 브라우저 <b>메뉴 (⋮)</b>를 누르세요.<br>2. <b>'홈 화면에 추가'</b> 또는 <b>'앱 설치'</b>를 누르세요.<br>3. <b>'추가'</b>를 누르면 바탕화면에 아이콘이 생깁니다!<br><br><small>※ 추가 완료를 누르면 이 버튼은 ⚙️ 설정으로 이동합니다.</small>"
+      installStepsAndroid: "1. 오른쪽 위 브라우저 <b>메뉴 (⋮)</b>를 누르세요.<br>2. <b>'홈 화면에 추가'</b> 또는 <b>'앱 설치'</b>를 누르세요.<br>3. <b>'추가'</b>를 누르면 바탕화면에 아이콘이 생깁니다!<br><br><small>※ 추가 완료를 누르면 이 버튼은 ⚙️ 설정으로 이동합니다.</small>",
+      liveStatusListening: "🟢 실시간 번역 중 (말씀하세요)",
+      liveStatusSpeaking: "🔴 음성 인식 중...",
+      liveStatusTranslating: "🌐 번역 중...",
+      liveStatusMuted: "🔇 마이크 음소거됨 (실시간 번역 일시정지)",
+      livePlaceholderIdle: "조용할 때 말하면 자동으로 번역됩니다"
     },
     vi: {
       lockTitle: "🔒 Nhập mật khẩu phòng",
@@ -1262,7 +1415,12 @@
       infoCodec: "Định dạng ghi âm",
       infoNone: "Chưa có",
       installStepsIOS: "1. Bấm nút <b>Chia sẻ (⬆️)</b> ở giữa bên dưới.<br>2. Kéo xuống chọn <b>'Thêm vào MH chính'</b>.<br>3. Bấm <b>'Thêm'</b> ở góc trên bên phải là xong!<br><br><small>※ Bấm 'Đã thêm xong' để chuyển nút này vào ⚙️ Cài đặt.</small>",
-      installStepsAndroid: "1. Bấm <b>Menu (⋮)</b> ở góc trên bên phải.<br>2. Chọn <b>'Thêm vào màn hình chính'</b> hoặc <b>'Cài đặt ứng dụng'</b>.<br>3. Bấm <b>'Thêm'</b> là có biểu tượng ngoài màn hình!<br><br><small>※ Bấm 'Đã thêm xong' để chuyển nút này vào ⚙️ Cài đặt.</small>"
+      installStepsAndroid: "1. Bấm <b>Menu (⋮)</b> ở góc trên bên phải.<br>2. Chọn <b>'Thêm vào màn hình chính'</b> hoặc <b>'Cài đặt ứng dụng'</b>.<br>3. Bấm <b>'Thêm'</b> là có biểu tượng ngoài màn hình!<br><br><small>※ Bấm 'Đã thêm xong' để chuyển nút này vào ⚙️ Cài đặt.</small>",
+      liveStatusListening: "🟢 Đang dịch trực tiếp (Hãy nói)",
+      liveStatusSpeaking: "🔴 Đang nghe giọng nói...",
+      liveStatusTranslating: "🌐 Đang dịch...",
+      liveStatusMuted: "🔇 Mic đang tắt (Tạm dừng dịch)",
+      livePlaceholderIdle: "Nói khi yên tĩnh để tự động dịch"
     }
   };
 
@@ -1729,6 +1887,32 @@
   let callTimerInterval = null;
   let videoSubtitleTimer = null;
   let lastOverlayMsgTs = 0;
+  let isLiveTranslateEnabled = true;
+  let liveVadActive = false;
+  let liveAudioCtx = null;
+  let liveAnalyser = null;
+  let liveVadRaf = null;
+  let liveSourceStream = null;
+  let liveStopSourceOnFinish = false;
+  let liveNoiseFloor = 0.012;
+  let liveRecorder = null;
+  let liveChunks = [];
+  let liveSpeaking = false;
+  let liveSpeechStartAt = 0;
+  let liveLastVoiceAt = 0;
+  let liveChunkMime = "";
+  let liveDiscardCurrent = false;
+  let liveSpeechRec = null;
+  let liveInterimText = "";
+  let liveFinalBuffer = "";
+  let liveInFlightCount = 0;
+  let myLiveClearTimer = null;
+  let partnerSubtitleQueue = [];
+  let partnerSubtitlePruneTimer = null;
+  let myLiveSubEvents = [];
+  let seenLiveSubIds = new Set();
+  let liveSubInitialized = false;
+  let liveSubClearTimer = null;
   let pipPosIndex = 0;
   const PIP_CLASSES = ["pos-br", "pos-tr", "pos-tl", "pos-bl"];
   let signalPollTimer = null;
@@ -1811,6 +1995,13 @@
   const callTimerBadge = document.getElementById("callTimerBadge");
   const remoteStatusBadge = document.getElementById("remoteStatusBadge");
   const videoSubtitleOverlay = document.getElementById("videoSubtitleOverlay");
+  const partnerSubtitleStack = document.getElementById("partnerSubtitleStack");
+  const liveToggleBtn = document.getElementById("liveToggleBtn");
+  const liveCallBox = document.getElementById("liveCallBox");
+  const liveCallStatus = document.getElementById("liveCallStatus");
+  const liveMiniVolBar = document.getElementById("liveMiniVolBar");
+  const liveMyText = document.getElementById("liveMyText");
+  const liveMyTrans = document.getElementById("liveMyTrans");
   const localVideoWrap = document.getElementById("localVideoWrap");
   const localVideo = document.getElementById("localVideo");
   const localCamOffMask = document.getElementById("localCamOffMask");
@@ -2170,7 +2361,8 @@
       [`presence/${myRole}`]: 0,
       [`typing/${myRole}`]: 0,
       [`emojiBurst/${myRole}`]: null,
-      [`doodleBurst/${myRole}`]: null
+      [`doodleBurst/${myRole}`]: null,
+      [`liveSubtitles/${myRole}`]: null
     };
     if (roomState.lockedBy === myRole) { patch.lockedBy = ""; patch.lockedAt = 0; }
     if (roomState.reservedBy === myRole) { patch.reservedBy = ""; }
@@ -2221,11 +2413,15 @@
     seenEmojiIds.clear();
     doodleInitialized = false;
     seenDoodleIds.clear();
+    liveSubInitialized = false;
+    seenLiveSubIds.clear();
+    myLiveSubEvents = [];
     visibleMsgCount = INITIAL_VISIBLE_MSGS;
     stopPolling();
     if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
     if (emojiClearTimer) { clearTimeout(emojiClearTimer); emojiClearTimer = null; }
     if (doodleClearTimer) { clearTimeout(doodleClearTimer); doodleClearTimer = null; }
+    if (liveSubClearTimer) { clearTimeout(liveSubClearTimer); liveSubClearTimer = null; }
     passInput.value = "";
     lockScreen.classList.remove("hidden");
   }
@@ -2263,6 +2459,8 @@
     seenEmojiIds.clear();
     doodleInitialized = false;
     seenDoodleIds.clear();
+    liveSubInitialized = false;
+    seenLiveSubIds.clear();
     visibleMsgCount = INITIAL_VISIBLE_MSGS;
     sendHeartbeat();
     reportDiag(myDiagCode);
@@ -2307,6 +2505,8 @@
     seenEmojiIds.clear();
     doodleInitialized = false;
     seenDoodleIds.clear();
+    liveSubInitialized = false;
+    seenLiveSubIds.clear();
     localStorage.setItem("wt_role", role);
     applyStaticText();
     if (roomPass) {
@@ -2378,6 +2578,7 @@
     recordingControls.classList.add("hidden");
     liveBox.classList.add("hidden");
     micRow.classList.remove("hidden");
+    updateLiveCallUI();
 
     if (isProcessing) {
       micBtn.disabled = true;
@@ -3436,6 +3637,508 @@ ${getHonorificRule(msgLang)}
     }
   }
 
+  /* ================= 영상통화 실시간 번역 엔진 (VAD + 비동기 파이프라인 + 영역 분리) ================= */
+
+  function isLiveCallReady() {
+    return (callState === "active" || callState === "test") && Boolean(localStream);
+  }
+
+  function updateLiveCallUI() {
+    const inLiveEligibleCall = (callState === "active" || callState === "test");
+    if (!inLiveEligibleCall) {
+      liveToggleBtn.classList.remove("on");
+      liveCallBox.classList.add("hidden");
+      micBtn.classList.remove("hidden");
+      return;
+    }
+
+    liveToggleBtn.classList.toggle("on", isLiveTranslateEnabled);
+    liveToggleBtn.innerHTML = `<span>🌐</span><span class="lt-sub">${isLiveTranslateEnabled ? "ON" : "OFF"}</span>`;
+
+    if (isLiveTranslateEnabled) {
+      micBtn.classList.add("hidden");
+      liveCallBox.classList.remove("hidden");
+      refreshLiveCallBoxState();
+    } else {
+      liveCallBox.classList.add("hidden");
+      micBtn.classList.remove("hidden");
+    }
+  }
+
+  function refreshLiveCallBoxState() {
+    const text = t();
+    liveCallBox.classList.remove("speaking", "muted");
+    if (isMuted) {
+      liveCallBox.classList.add("muted");
+      liveCallStatus.textContent = text.liveStatusMuted;
+      liveMiniVolBar.style.width = "4%";
+    } else if (liveSpeaking) {
+      liveCallBox.classList.add("speaking");
+      liveCallStatus.textContent = text.liveStatusSpeaking;
+    } else if (liveInFlightCount > 0) {
+      liveCallStatus.textContent = text.liveStatusTranslating;
+    } else {
+      liveCallStatus.textContent = text.liveStatusListening;
+    }
+
+    const preview = `${liveFinalBuffer} ${liveInterimText}`.trim();
+    if (preview) {
+      liveMyText.textContent = preview;
+      liveMyTrans.classList.add("hidden");
+    } else if (!liveMyText.textContent) {
+      liveMyText.textContent = text.livePlaceholderIdle;
+    }
+  }
+
+  function showMyLiveResult(orig, trans) {
+    if (myLiveClearTimer) { clearTimeout(myLiveClearTimer); myLiveClearTimer = null; }
+    liveMyText.textContent = orig || "";
+    if (trans && trans !== orig) {
+      liveMyTrans.textContent = `→ ${trans}`;
+      liveMyTrans.classList.remove("hidden");
+    } else {
+      liveMyTrans.textContent = "";
+      liveMyTrans.classList.add("hidden");
+    }
+    myLiveClearTimer = setTimeout(() => {
+      if (!liveSpeaking && !liveInterimText && !liveFinalBuffer) {
+        liveMyText.textContent = t().livePlaceholderIdle;
+        liveMyTrans.textContent = "";
+        liveMyTrans.classList.add("hidden");
+      }
+    }, LIVE_SUBTITLE_TTL_MS);
+  }
+
+  function toggleLiveTranslate() {
+    if (callState !== "active" && callState !== "test") return;
+    isLiveTranslateEnabled = !isLiveTranslateEnabled;
+    if (isLiveTranslateEnabled) {
+      if (!isMuted) startLiveTranslateEngine();
+    } else {
+      stopLiveTranslateEngine(false);
+    }
+    updateLiveCallUI();
+  }
+
+  function startLiveSpeechPreview() {
+    // iOS Safari에서는 WebRTC 통화 중 SpeechRecognition 동시 실행 시 마이크 충돌이 발생할 수 있어 생략
+    if (isIOSDevice()) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    stopLiveSpeechPreview();
+    try {
+      const rec = new SR();
+      rec.lang = myRole === "ko" ? "ko-KR" : "vi-VN";
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.onresult = (event) => {
+        if (!liveVadActive || !isLiveTranslateEnabled || isMuted) return;
+        let fin = "";
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const r = event.results[i];
+          const txt = (r[0] && r[0].transcript) ? r[0].transcript : "";
+          if (r.isFinal) fin += txt + " ";
+          else interim += txt;
+        }
+        if (fin.trim()) liveFinalBuffer = `${liveFinalBuffer} ${fin.trim()}`.trim();
+        liveInterimText = interim.trim();
+        refreshLiveCallBoxState();
+      };
+      rec.onerror = () => {};
+      rec.onend = () => {
+        if (liveSpeechRec === rec) {
+          liveSpeechRec = null;
+          if (liveVadActive && isLiveTranslateEnabled && !isMuted && !isIOSDevice()) {
+            setTimeout(() => {
+              if (liveVadActive && isLiveTranslateEnabled && !isMuted && !liveSpeechRec) {
+                startLiveSpeechPreview();
+              }
+            }, 400);
+          }
+        }
+      };
+      liveSpeechRec = rec;
+      rec.start();
+    } catch {
+      liveSpeechRec = null;
+    }
+  }
+
+  function stopLiveSpeechPreview() {
+    liveInterimText = "";
+    liveFinalBuffer = "";
+    if (liveSpeechRec) {
+      const r = liveSpeechRec;
+      liveSpeechRec = null;
+      try { r.onresult = null; r.onerror = null; r.onend = null; r.stop(); } catch {}
+    }
+  }
+
+  function startLiveChunk() {
+    if (!liveSourceStream || liveRecorder || typeof MediaRecorder === "undefined") return;
+    const mimeType = pickAudioMimeType();
+    const options = { audioBitsPerSecond: 64000 };
+    if (mimeType) options.mimeType = mimeType;
+
+    liveChunks = [];
+    liveDiscardCurrent = false;
+    try {
+      liveRecorder = new MediaRecorder(liveSourceStream, options);
+    } catch {
+      try {
+        liveRecorder = new MediaRecorder(liveSourceStream);
+      } catch {
+        liveRecorder = null;
+        return;
+      }
+    }
+    liveChunkMime = (liveRecorder.mimeType || mimeType || "audio/mp4").split(";")[0];
+
+    const chunkRec = liveRecorder;
+    const chunkStart = Date.now();
+    chunkRec.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) liveChunks.push(e.data);
+    };
+    chunkRec.onstop = () => {
+      const chunksCopy = liveChunks.slice();
+      const mimeCopy = liveChunkMime;
+      const discarded = liveDiscardCurrent;
+      const hintText = `${liveFinalBuffer} ${liveInterimText}`.trim();
+      const durMs = Date.now() - chunkStart;
+
+      liveChunks = [];
+      liveFinalBuffer = "";
+      liveInterimText = "";
+      if (liveRecorder === chunkRec) liveRecorder = null;
+
+      if (discarded || durMs < LIVE_MIN_SPEECH_MS || chunksCopy.length === 0) {
+        refreshLiveCallBoxState();
+        return;
+      }
+
+      const blob = new Blob(chunksCopy, { type: mimeCopy });
+      processLiveUtterance(blob, mimeCopy, hintText);
+    };
+
+    try {
+      chunkRec.start(250);
+    } catch {
+      try { chunkRec.start(); } catch { liveRecorder = null; }
+    }
+  }
+
+  function stopLiveChunk(discard = false) {
+    liveSpeaking = false;
+    liveDiscardCurrent = discard;
+    if (liveRecorder && liveRecorder.state !== "inactive") {
+      try { liveRecorder.stop(); } catch { liveRecorder = null; }
+    } else {
+      liveRecorder = null;
+      liveChunks = [];
+    }
+    refreshLiveCallBoxState();
+  }
+
+  function startLiveTranslateEngine() {
+    if (!isLiveCallReady() || !isLiveTranslateEnabled || isMuted) return;
+    if (liveVadActive) return;
+
+    const tracks = localStream.getAudioTracks();
+    if (!tracks || tracks.length === 0) return;
+
+    try {
+      try {
+        const cloned = tracks[0].clone();
+        cloned.enabled = true;
+        liveSourceStream = new MediaStream([cloned]);
+        liveStopSourceOnFinish = true;
+      } catch {
+        liveSourceStream = new MediaStream([tracks[0]]);
+        liveStopSourceOnFinish = false;
+      }
+
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      if (liveAudioCtx && liveAudioCtx.state !== "closed") {
+        liveAudioCtx.close().catch(() => {});
+      }
+      liveAudioCtx = new AudioContextClass();
+      if (liveAudioCtx.state === "suspended") {
+        liveAudioCtx.resume().catch(() => {});
+      }
+      const src = liveAudioCtx.createMediaStreamSource(liveSourceStream);
+      liveAnalyser = liveAudioCtx.createAnalyser();
+      liveAnalyser.fftSize = 256;
+      src.connect(liveAnalyser);
+
+      liveVadActive = true;
+      liveNoiseFloor = 0.012;
+      liveSpeaking = false;
+      liveSpeechStartAt = 0;
+      liveLastVoiceAt = 0;
+      liveMyText.textContent = t().livePlaceholderIdle;
+      liveMyTrans.textContent = "";
+      liveMyTrans.classList.add("hidden");
+
+      startLiveSpeechPreview();
+      refreshLiveCallBoxState();
+
+      const dataArr = new Uint8Array(256);
+      const vadTick = () => {
+        if (!liveVadActive) return;
+        let peak = 0;
+        if (liveAnalyser && liveAudioCtx) {
+          if (liveAudioCtx.state === "suspended") {
+            liveAudioCtx.resume().catch(() => {});
+          }
+          liveAnalyser.getByteTimeDomainData(dataArr);
+          for (let i = 0; i < dataArr.length; i++) {
+            const v = Math.abs(dataArr[i] - 128) / 128;
+            if (v > peak) peak = v;
+          }
+        }
+
+        const pct = Math.min(100, Math.max(4, Math.round(peak * 220)));
+        liveMiniVolBar.style.width = `${pct}%`;
+
+        const now = Date.now();
+        const threshold = Math.max(0.032, liveNoiseFloor * 2.35);
+
+        if (!liveSpeaking) {
+          // 비발화 구간에서 주변 소음 기준치 자동 적응
+          liveNoiseFloor = Math.min(0.045, Math.max(0.006, liveNoiseFloor * 0.96 + Math.min(peak, 0.08) * 0.04));
+          if (peak > threshold && !isRecording && !isMuted) {
+            liveSpeaking = true;
+            liveSpeechStartAt = now;
+            liveLastVoiceAt = now;
+            startLiveChunk();
+            refreshLiveCallBoxState();
+          }
+        } else {
+          if (peak > threshold * 0.72) {
+            liveLastVoiceAt = now;
+          }
+          const elapsed = now - liveSpeechStartAt;
+          const silenceFor = now - liveLastVoiceAt;
+          if (silenceFor >= LIVE_SILENCE_MS || elapsed >= LIVE_MAX_CHUNK_MS) {
+            stopLiveChunk(false);
+          }
+        }
+
+        liveVadRaf = requestAnimationFrame(vadTick);
+      };
+      liveVadRaf = requestAnimationFrame(vadTick);
+    } catch {
+      stopLiveTranslateEngine(false);
+    }
+  }
+
+  function stopLiveTranslateEngine(clearText = false) {
+    liveVadActive = false;
+    if (liveVadRaf) { cancelAnimationFrame(liveVadRaf); liveVadRaf = null; }
+    stopLiveSpeechPreview();
+    stopLiveChunk(true);
+    if (liveAudioCtx) { liveAudioCtx.close().catch(() => {}); liveAudioCtx = null; liveAnalyser = null; }
+    if (liveSourceStream) {
+      if (liveStopSourceOnFinish) liveSourceStream.getTracks().forEach(tr => tr.stop());
+      liveSourceStream = null;
+      liveStopSourceOnFinish = false;
+    }
+    liveMiniVolBar.style.width = "4%";
+    if (clearText) {
+      if (myLiveClearTimer) { clearTimeout(myLiveClearTimer); myLiveClearTimer = null; }
+      liveMyText.textContent = "";
+      liveMyTrans.textContent = "";
+      liveMyTrans.classList.add("hidden");
+    }
+  }
+
+  async function processLiveUtterance(audioBlob, cleanMime, speechHint = "") {
+    if (!apiKey || !roomPass) return;
+    if (callState !== "active" && callState !== "test") return;
+
+    liveInFlightCount++;
+    refreshLiveCallBoxState();
+
+    try {
+      const slCode = myRole === "ko" ? "ko" : "vi";
+      const sourceLang = myRole === "ko" ? "한국어" : "베트남어";
+      const targetLang = myRole === "ko" ? "베트남어" : "한국어";
+
+      let orig = "";
+      let trans = "";
+
+      const groqRes = await transcribeWithGroq(audioBlob, cleanMime, slCode);
+      if (groqRes.ok && groqRes.text) {
+        orig = groqRes.text;
+      } else if (speechHint) {
+        orig = speechHint;
+      }
+
+      if (orig) {
+        trans = await translateTextForLang(orig, myRole);
+      } else if (!groqRes.ok) {
+        // Groq 실패 시 Gemini 오디오 직접 청취 백업 (MIME 정규화 적용)
+        const base64Audio = await blobToBase64(audioBlob);
+        const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
+[규칙]
+${getHonorificRule(myRole)}
+- 배경 잡음은 무시하고 화자의 ${sourceLang} 목소리만 받아써서 반드시 ${targetLang}로 번역해.
+- 말 없이 잡음뿐이면 {"original": "", "translated": ""} 반환.
+- 반드시 JSON으로만 응답: {"original": "${sourceLang} 원문", "translated": "${targetLang} 번역문"}`;
+        const data = await callGeminiWithFallback({
+          system_instruction: { parts: [{ text: systemInstruction }] },
+          contents: [{
+            role: "user",
+            parts: [
+              { text: `[실시간 영상통화 통역: ${sourceLang} → ${targetLang}]` },
+              { inline_data: { mime_type: normalizeGeminiAudioMime(cleanMime), data: base64Audio } }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 260,
+            responseMimeType: "application/json"
+          }
+        }, { baseTimeoutMs: 6500, fallbackTimeoutMs: 8000 });
+
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        let rawJson = "{}";
+        for (const p of parts) {
+          if (p.thought) continue;
+          if (p.text) { rawJson = p.text.trim(); break; }
+        }
+        rawJson = rawJson.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+        const parsed = JSON.parse(rawJson);
+        orig = (parsed.original || "").trim();
+        trans = (parsed.translated || "").trim();
+      }
+
+      if (!orig) return;
+      const finalTrans = (trans || orig).trim();
+      showMyLiveResult(orig, finalTrans);
+
+      if (callState === "active") {
+        broadcastLiveSubtitle(orig, finalTrans);
+      } else if (callState === "test") {
+        // 1인 테스트 모드에서는 상단 상대방 자막 영역에도 미리보기 표시
+        pushPartnerSubtitleItem({
+          id: `test_${Date.now()}`,
+          orig,
+          trans: finalTrans,
+          isTest: true
+        });
+      }
+    } catch {
+      // 실시간 자막 실패는 통화를 방해하지 않도록 조용히 무시
+    } finally {
+      liveInFlightCount = Math.max(0, liveInFlightCount - 1);
+      refreshLiveCallBoxState();
+    }
+  }
+
+  function broadcastLiveSubtitle(orig, trans) {
+    if (!roomPass || callState !== "active") return;
+    const now = Date.now();
+    const id = `${now}_${Math.random().toString(36).slice(2, 6)}`;
+    myLiveSubEvents = myLiveSubEvents.filter(e => now - e.ts < 12000);
+    myLiveSubEvents.push({ id, orig, trans, ts: now });
+    if (myLiveSubEvents.length > 5) myLiveSubEvents = myLiveSubEvents.slice(-5);
+
+    patchRoom({ [`liveSubtitles/${myRole}`]: myLiveSubEvents });
+
+    if (liveSubClearTimer) clearTimeout(liveSubClearTimer);
+    liveSubClearTimer = setTimeout(() => {
+      myLiveSubEvents = [];
+      if (roomPass) patchRoom({ [`liveSubtitles/${myRole}`]: null });
+    }, 13000);
+  }
+
+  function pushPartnerSubtitleItem(item) {
+    const expiresAt = Date.now() + LIVE_SUBTITLE_TTL_MS;
+    partnerSubtitleQueue.push({ ...item, expiresAt });
+    if (partnerSubtitleQueue.length > LIVE_SUBTITLE_MAX_LINES) {
+      partnerSubtitleQueue = partnerSubtitleQueue.slice(-LIVE_SUBTITLE_MAX_LINES);
+    }
+    renderPartnerSubtitleStack();
+    schedulePartnerSubtitlePrune();
+  }
+
+  function renderPartnerSubtitleStack() {
+    const now = Date.now();
+    partnerSubtitleQueue = partnerSubtitleQueue.filter(it => it.expiresAt > now);
+    partnerSubtitleStack.innerHTML = "";
+    if (callState !== "active" && callState !== "test") return;
+
+    partnerSubtitleQueue.forEach(it => {
+      const div = document.createElement("div");
+      div.className = "partner-sub-item" + (it.isTest ? " test-preview" : "");
+      const transEl = document.createElement("div");
+      transEl.className = "partner-sub-trans";
+      transEl.textContent = it.trans || it.orig || "";
+      div.appendChild(transEl);
+
+      if (it.orig && it.orig !== it.trans) {
+        const origEl = document.createElement("div");
+        origEl.className = "partner-sub-orig";
+        origEl.textContent = it.orig;
+        div.appendChild(origEl);
+      }
+      partnerSubtitleStack.appendChild(div);
+    });
+  }
+
+  function schedulePartnerSubtitlePrune() {
+    if (partnerSubtitlePruneTimer) clearTimeout(partnerSubtitlePruneTimer);
+    if (partnerSubtitleQueue.length === 0) {
+      partnerSubtitlePruneTimer = null;
+      return;
+    }
+    const nextExpiry = Math.min(...partnerSubtitleQueue.map(it => it.expiresAt));
+    const waitMs = Math.max(150, nextExpiry - Date.now() + 50);
+    partnerSubtitlePruneTimer = setTimeout(() => {
+      renderPartnerSubtitleStack();
+      schedulePartnerSubtitlePrune();
+    }, waitMs);
+  }
+
+  function clearPartnerSubtitleStack() {
+    partnerSubtitleQueue = [];
+    if (partnerSubtitlePruneTimer) {
+      clearTimeout(partnerSubtitlePruneTimer);
+      partnerSubtitlePruneTimer = null;
+    }
+    partnerSubtitleStack.innerHTML = "";
+  }
+
+  function handleIncomingLiveSubtitles(subMap) {
+    const otherList = Array.isArray(subMap?.[getOtherRole()]) ? subMap[getOtherRole()] : [];
+    const now = Date.now();
+
+    if (!liveSubInitialized) {
+      otherList.forEach(ev => { if (ev && ev.id) seenLiveSubIds.add(ev.id); });
+      liveSubInitialized = true;
+      return;
+    }
+
+    if (callState !== "active") return;
+
+    const fresh = otherList.filter(ev => ev && ev.id && !seenLiveSubIds.has(ev.id) && (now - ev.ts < 12000));
+    fresh.forEach(ev => {
+      seenLiveSubIds.add(ev.id);
+      pushPartnerSubtitleItem({
+        id: ev.id,
+        orig: ev.orig || "",
+        trans: ev.trans || ev.orig || ""
+      });
+    });
+
+    if (seenLiveSubIds.size > 100) {
+      seenLiveSubIds = new Set(Array.from(seenLiveSubIds).slice(-50));
+    }
+  }
+
   /* ================= 메시지 렌더링 ================= */
 
   function renderMessages(preserveScroll = false) {
@@ -3943,6 +4646,7 @@ ${getHonorificRule(msgLang)}
 
           handleIncomingEmojiBurst(data.emojiBurst);
           handleIncomingDoodleBurst(data.doodleBurst);
+          handleIncomingLiveSubtitles(data.liveSubtitles);
 
           const serverMsgSyncTs = Number(data.lastMsgTs || 0);
           if (pendingSaveCount === 0 && (loadedMsgSyncTs === -1 || serverMsgSyncTs !== loadedMsgSyncTs)) {
@@ -4092,6 +4796,7 @@ ${getHonorificRule(msgLang)}
     }
     remoteVideo.classList.toggle("fit-contain", isVideoContain);
     updateVideoControlButtons();
+    updateLiveCallUI();
   }
 
   async function startSoloVideoTest() {
@@ -4136,6 +4841,9 @@ ${getHonorificRule(msgLang)}
       remoteStatusBadge.classList.remove("hidden");
       isStartingCall = false;
       startCallTimer();
+      isLiveTranslateEnabled = true;
+      updateLiveCallUI();
+      startLiveTranslateEngine();
     } catch {
       isStartingCall = false;
       cleanupVideoCall(false);
@@ -4258,6 +4966,9 @@ ${getHonorificRule(msgLang)}
       await patchRoom({ "callMeta/status": "active" });
       isStartingCall = false;
       startSignalPolling();
+      isLiveTranslateEnabled = true;
+      updateLiveCallUI();
+      startLiveTranslateEngine();
     } catch (err) {
       isStartingCall = false;
       await patchRoom({ "callMeta/status": "idle" });
@@ -4360,6 +5071,9 @@ ${getHonorificRule(msgLang)}
     await initPeerConnection();
     startSignalPolling();
     await sendOffer(false);
+    isLiveTranslateEnabled = true;
+    updateLiveCallUI();
+    startLiveTranslateEngine();
   }
 
   function stopMediaWatchdog() {
@@ -4635,6 +5349,14 @@ ${getHonorificRule(msgLang)}
     const dCtx = doodleCanvas.getContext("2d");
     if (dCtx) dCtx.clearRect(0, 0, doodleCanvas.width, doodleCanvas.height);
 
+    stopLiveTranslateEngine(true);
+    clearPartnerSubtitleStack();
+    if (roomPass && myLiveSubEvents.length > 0) {
+      myLiveSubEvents = [];
+      patchRoom({ [`liveSubtitles/${myRole}`]: null });
+    }
+    if (liveSubClearTimer) { clearTimeout(liveSubClearTimer); liveSubClearTimer = null; }
+    isLiveTranslateEnabled = true;
     stopCallTimer();
     hideVideoSubtitle();
     releaseWakeLock();
@@ -4750,6 +5472,14 @@ ${getHonorificRule(msgLang)}
     isMuted = !isMuted;
     localStream.getAudioTracks().forEach(tr => tr.enabled = !isMuted);
     updateVideoControlButtons();
+    if (callState === "active" || callState === "test") {
+      if (isMuted) {
+        stopLiveTranslateEngine(false);
+      } else if (isLiveTranslateEnabled) {
+        startLiveTranslateEngine();
+      }
+      updateLiveCallUI();
+    }
   }
 
   function toggleRemoteMute() {
