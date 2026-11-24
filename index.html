@@ -986,7 +986,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 48;
+  const APP_VERSION = 49;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const GROQ_STT_MODEL = "whisper-large-v3-turbo";
   const GROQ_COOLDOWN_MS = 10 * 60 * 1000;
@@ -2476,8 +2476,8 @@ ${getHonorificRule(msgLang)}
           maxOutputTokens: 280
         }
       }, {
-        baseTimeoutMs: 4000,
-        fallbackTimeoutMs: 5500
+        baseTimeoutMs: 6000,
+        fallbackTimeoutMs: 8000
       });
 
       const parts = data.candidates?.[0]?.content?.parts || [];
