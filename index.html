@@ -986,7 +986,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 49;
+  const APP_VERSION = 51;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const GROQ_STT_MODEL = "whisper-large-v3-turbo";
   const GROQ_TRANSLATE_MODEL = "openai/gpt-oss-20b";
@@ -1076,6 +1076,7 @@
       micTranslating: "🌐 번역 중...",
       micRetrying: "🔄 재시도 중...",
       errTranslateFail: "번역 응답이 지연되었거나 서버가 혼잡합니다. 잠시 후 다시 말씀해 주세요.",
+      errNetworkSend: "네트워크 연결이 불안정해 전송하지 못했습니다. 연결을 확인한 뒤 다시 시도해 주세요.",
       micReserve: "✋ 상대방 말하는 중 (눌러서 다음 차례 예약)",
       micReserved: "✅ 다음 차례 예약됨 (다시 누르면 취소)",
       micMyTurn: "🎤 내 차례! 눌러서 말하기",
@@ -1175,6 +1176,7 @@
       micTranslating: "🌐 Đang dịch...",
       micRetrying: "🔄 Đang thử lại...",
       errTranslateFail: "Phản hồi dịch bị chậm hoặc máy chủ đang bận. Vui lòng thử lại sau.",
+      errNetworkSend: "Kết nối mạng không ổn định nên chưa gửi được. Vui lòng kiểm tra mạng rồi thử lại.",
       micReserve: "✋ Đối phương đang nói (Bấm để đăng ký nói tiếp)",
       micReserved: "✅ Đã đăng ký nói tiếp (Bấm để hủy)",
       micMyTurn: "🎤 Đến lượt bạn! Bấm để nói",
@@ -2531,7 +2533,7 @@ ${getHonorificRule(msgLang)}
 
         const syncTs = Date.now();
         loadedMsgSyncTs = syncTs;
-        await saveMessagesToDb(updated, syncTs);
+        await saveMessagesToDb(updated, syncTs, { upsertMsg: updated[curIdx] });
       }
     } catch {
       translatingIncomingSet.delete(msgTs);
@@ -2589,7 +2591,7 @@ ${getHonorificRule(msgLang)}
 
     const syncTs = Date.now();
     loadedMsgSyncTs = syncTs;
-    await saveMessagesToDb(updated, syncTs);
+    await saveMessagesToDb(updated, syncTs, { upsertMsg: updated[idx] });
   }
 
   async function deleteMyMessage(msgTs) {
@@ -2617,7 +2619,7 @@ ${getHonorificRule(msgLang)}
 
     const syncTs = Date.now();
     loadedMsgSyncTs = syncTs;
-    await saveMessagesToDb(updated, syncTs);
+    await saveMessagesToDb(updated, syncTs, { deletedTs: msgTs });
   }
 
   async function markAudioUnavailable(msgTs) {
@@ -2634,7 +2636,7 @@ ${getHonorificRule(msgLang)}
 
     const syncTs = Date.now();
     loadedMsgSyncTs = syncTs;
-    await saveMessagesToDb(updated, syncTs);
+    await saveMessagesToDb(updated, syncTs, { upsertMsg: updated[idx] });
   }
 
   /* ================= 어색한 번역 다시 번역하기 ================= */
@@ -2698,7 +2700,7 @@ ${getHonorificRule(msgLang)}
 
           const syncTs = Date.now();
           loadedMsgSyncTs = syncTs;
-          await saveMessagesToDb(updated, syncTs);
+          await saveMessagesToDb(updated, syncTs, { upsertMsg: updated[curIdx] });
         }
       }
     } catch {
@@ -3002,11 +3004,14 @@ ${getHonorificRule(msgLang)}
 
       const syncTs = Date.now();
       loadedMsgSyncTs = syncTs;
-      await saveMessagesToDb(updatedMessages, syncTs);
+      await saveMessagesToDb(updatedMessages, syncTs, { upsertMsg: newMsg, throwOnFail: true });
     } catch (err) {
+      roomState.messages = (roomState.messages || []).filter(m => m.ts !== msgTs);
+      lastRenderSig = "";
+      renderMessages(true);
       delete photoCache[msgTs];
       idbDelete("photos", msgTs);
-      alert("Photo Error: " + err.message);
+      alert(err && err.message === "network_save_failed" ? t().errNetworkSend : ("Photo Error: " + (err?.message || "")));
     } finally {
       isProcessing = false;
       setProcessingStage("idle");
@@ -3744,16 +3749,77 @@ ${getHonorificRule(msgLang)}
     } catch {}
   }
 
-  async function saveMessagesToDb(updatedMessages, syncTs) {
+  function coerceMessageArray(raw) {
+    if (Array.isArray(raw)) return raw.filter(m => m && typeof m === "object");
+    if (raw && typeof raw === "object") {
+      return Object.values(raw).filter(m => m && typeof m === "object");
+    }
+    return [];
+  }
+
+  async function fetchServerMessagesWithRetry() {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetchWithTimeout(`${getMsgsBaseUrl()}.json`, { method: "GET" }, 6000);
+        if (res.ok) {
+          const data = await res.json();
+          return { ok: true, messages: data === null ? [] : coerceMessageArray(data) };
+        }
+      } catch {}
+      if (attempt === 0) await sleepMs(400);
+    }
+    return { ok: false, messages: null };
+  }
+
+  async function saveMessagesToDb(updatedMessages, syncTs, opts = {}) {
     pendingSaveCount++;
     try {
-      await fetch(`${getMsgsBaseUrl()}.json`, {
+      const serverRes = await fetchServerMessagesWithRetry();
+      if (!serverRes.ok) {
+        if (opts.throwOnFail) throw new Error("network_save_failed");
+        return false;
+      }
+
+      const msgMap = new Map();
+      serverRes.messages.forEach(m => {
+        if (m && m.ts) msgMap.set(m.ts, m);
+      });
+
+      if (opts.deletedTs) {
+        msgMap.delete(opts.deletedTs);
+      } else if (opts.upsertMsg && opts.upsertMsg.ts) {
+        msgMap.set(opts.upsertMsg.ts, opts.upsertMsg);
+      } else {
+        coerceMessageArray(updatedMessages).forEach(m => {
+          if (m && m.ts) msgMap.set(m.ts, m);
+        });
+      }
+
+      const mergedMessages = normalizeAndTrimMessages(Array.from(msgMap.values()));
+
+      const putRes = await fetchWithTimeout(`${getMsgsBaseUrl()}.json`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedMessages)
-      });
-      await patchRoom({ lastMsgTs: syncTs });
-    } catch {
+        body: JSON.stringify(mergedMessages)
+      }, 7000);
+
+      if (!putRes.ok) {
+        if (opts.throwOnFail) throw new Error("network_save_failed");
+        return false;
+      }
+
+      roomState.messages = mergedMessages;
+      loadedMsgSyncTs = syncTs;
+      lastRenderSig = "";
+      renderMessages(true);
+
+      if (!opts.skipPatchRoom) {
+        await patchRoom({ lastMsgTs: syncTs });
+      }
+      return true;
+    } catch (err) {
+      if (opts.throwOnFail) throw err;
+      return false;
     } finally {
       pendingSaveCount = Math.max(0, pendingSaveCount - 1);
     }
@@ -3764,10 +3830,9 @@ ${getHonorificRule(msgLang)}
 
     try {
       if (checkServerFirst) {
-        const res = await fetch(`${getMsgsBaseUrl()}.json`);
-        if (res.ok) {
-          const latest = await res.json();
-          if (Array.isArray(latest)) roomState.messages = latest;
+        const serverRes = await fetchServerMessagesWithRetry();
+        if (serverRes.ok) {
+          roomState.messages = serverRes.messages;
         }
       }
 
@@ -3787,7 +3852,7 @@ ${getHonorificRule(msgLang)}
 
       const syncTs = Date.now();
       loadedMsgSyncTs = syncTs;
-      await saveMessagesToDb(updatedMessages, syncTs);
+      await saveMessagesToDb(updatedMessages, syncTs, { upsertMsg: logMsg });
     } catch {}
   }
 
@@ -3800,23 +3865,26 @@ ${getHonorificRule(msgLang)}
     );
 
     try {
-      const res = await fetch(`${getMsgsBaseUrl()}.json`);
-      let fetched = res.ok ? await res.json() : null;
+      const res = await fetchWithTimeout(`${getMsgsBaseUrl()}.json`, { method: "GET" }, 6000);
+      if (!res.ok) return;
+      const rawFetched = await res.json();
       if (pendingSaveCount > 0) return;
 
-      if (Array.isArray(fetched) && fetched.length > 0) {
+      const fetched = rawFetched === null ? [] : coerceMessageArray(rawFetched);
+
+      if (fetched.length > 0) {
         roomState.messages = fetched;
       } else if (Array.isArray(legacyMessages) && legacyMessages.length > 0) {
         roomState.messages = legacyMessages;
         const ts = Date.now();
-        await fetch(`${getMsgsBaseUrl()}.json`, {
+        await fetchWithTimeout(`${getMsgsBaseUrl()}.json`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(legacyMessages)
-        });
+        }, 7000);
         await patchRoom({ lastMsgTs: ts, messages: null });
         targetSyncTs = ts;
-      } else {
+      } else if (rawFetched === null) {
         roomState.messages = [];
       }
 
@@ -5632,12 +5700,14 @@ ${getHonorificRule(msgLang)}
     });
   }
 
-  function buildUpdatedMessages(newMsg) {
-    const cleaned = (roomState.messages || []).map(m => {
+  function normalizeAndTrimMessages(rawList) {
+    const dedupMap = new Map();
+    (rawList || []).forEach(m => {
+      if (!m || typeof m !== "object") return;
       const { audioData, audioMime, ...rest } = m;
-      return rest;
+      if (rest.ts) dedupMap.set(rest.ts, rest);
     });
-    const combined = [...cleaned, newMsg];
+    const combined = Array.from(dedupMap.values()).sort((a, b) => (a.ts || 0) - (b.ts || 0));
     const dropped = combined.length > MAX_STORED_MSGS ? combined.slice(0, combined.length - MAX_STORED_MSGS) : [];
     const updated = combined.slice(-MAX_STORED_MSGS);
 
@@ -5679,6 +5749,10 @@ ${getHonorificRule(msgLang)}
       }
     }
     return updated;
+  }
+
+  function buildUpdatedMessages(newMsg) {
+    return normalizeAndTrimMessages([...(roomState.messages || []), newMsg]);
   }
 
   function buildContextReference() {
@@ -5728,7 +5802,7 @@ ${getHonorificRule(msgLang)}
         const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
 [규칙]
 ${getHonorificRule(myRole)}
-- 음성 인식으로 받아쓴 ${sourceLang} 구어체 문장이므로, 미세한 오탈자나 띄어쓰기는 문맥에 맞게 자연스럽게 이해한 뒤 반드시 자연스러운 구어체 ${targetLang}로만 번역해서 출력해. (절대 원문과 같은 언어로 출력하거나 설명을 덧붙이지 마)`;
+- 음성 인식으로 받아쓴 ${sourceLang} 구어체 문장이므로, 미세한 오탈자나 띄어쓰기는 자연스럽게 이해해 번역해. 특히 짧은 구어체에서 발음·성조 오인식으로 명백히 어색한 단어가 보일 때만 직전 대화 문맥을 참고해 자연스럽게 보정하고, 화제가 바뀐 정상 문장은 억지로 이전 문맥에 끼워 맞추지 마. 반드시 자연스러운 구어체 ${targetLang}로만 출력해. (절대 원문과 같은 언어로 출력하거나 설명을 덧붙이지 마)`;
 
         const contextText = buildContextReference();
         const userPrompt = `${contextText}[${sourceLang} → ${targetLang} 번역]\n${orig}`;
@@ -5859,28 +5933,26 @@ ${getHonorificRule(myRole)}
       renderMessages(false);
 
       const syncTs = Date.now();
-      loadedMsgSyncTs = syncTs;
-      pendingSaveCount++;
-      try {
-        await fetch(`${getMsgsBaseUrl()}.json`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatedMessages)
-        });
-        await finishTurnLock({ lastMsgTs: syncTs });
+      await saveMessagesToDb(updatedMessages, syncTs, {
+        upsertMsg: newMsg,
+        skipPatchRoom: true,
+        throwOnFail: true
+      });
+      await finishTurnLock({ lastMsgTs: syncTs });
 
-        if (callState === "idle") {
-          uploadAudioToFirebase(msgTs, base64Audio, cleanMime);
-        } else {
-          pendingCallAudios.push({ ts: msgTs, data: base64Audio, mime: cleanMime });
-        }
-      } finally {
-        pendingSaveCount = Math.max(0, pendingSaveCount - 1);
+      if (callState === "idle") {
+        uploadAudioToFirebase(msgTs, base64Audio, cleanMime);
+      } else {
+        pendingCallAudios.push({ ts: msgTs, data: base64Audio, mime: cleanMime });
       }
-    } catch {
+    } catch (err) {
+      roomState.messages = (roomState.messages || []).filter(m => m.ts !== msgTs);
+      lastRenderSig = "";
+      renderMessages(true);
       delete audioCache[msgTs];
       idbDelete("audios", msgTs);
-      alert(t().errTranslateFail);
+      const isNetErr = (err && (err.message === "network_save_failed" || err.name === "TypeError"));
+      alert(isNetErr ? t().errNetworkSend : t().errTranslateFail);
       await finishTurnLock();
     }
   }
@@ -5956,17 +6028,17 @@ ${getHonorificRule(myRole)}
               if (!translated) throw new Error("empty");
             } catch {
               if (myRole === "vi") {
-                setNoTranslateMode(true);
                 isUntranslated = true;
                 translated = "";
               } else {
-                throw new Error("translate failed");
+                translated = spokenText;
               }
             }
           }
         }
       }
 
+      const msgTs = Date.now();
       const newMsg = {
         lang: myRole,
         original: spokenText,
@@ -5976,7 +6048,7 @@ ${getHonorificRule(myRole)}
         hasPhoto: false,
         liked: false,
         replyTo: replyTarget ? { ...replyTarget } : null,
-        ts: Date.now()
+        ts: msgTs
       };
       clearReplyTarget();
 
@@ -5986,10 +6058,20 @@ ${getHonorificRule(myRole)}
       renderMessages(false);
 
       const syncTs = Date.now();
-      loadedMsgSyncTs = syncTs;
-      await saveMessagesToDb(updatedMessages, syncTs);
-    } catch {
-      alert(t().errTranslateFail);
+      try {
+        await saveMessagesToDb(updatedMessages, syncTs, { upsertMsg: newMsg, throwOnFail: true });
+      } catch (saveErr) {
+        roomState.messages = (roomState.messages || []).filter(m => m.ts !== msgTs);
+        lastRenderSig = "";
+        renderMessages(true);
+        throw saveErr;
+      }
+    } catch (err) {
+      if (!textInput.value.trim()) {
+        textInput.value = spokenText;
+      }
+      const isNetErr = (err && (err.message === "network_save_failed" || err.name === "TypeError"));
+      alert(isNetErr ? t().errNetworkSend : t().errTranslateFail);
     } finally {
       isProcessing = false;
       setProcessingStage("idle");
