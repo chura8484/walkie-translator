@@ -16,7 +16,6 @@
   <title>Anh & Em</title>
   <meta property="og:title" content="Anh & Em" />
   <meta property="og:description" content="Phiên dịch trực tiếp Hàn - Việt" />
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <style>
     :root {
       --bg: #121212;
@@ -135,19 +134,6 @@
     }
     .setting-btns button.active { background: #0078ff; color: #fff; border-color: #0078ff; }
     .setting-full-btn { width: 100%; text-align: center; padding: 8px; }
-    .setting-full-btn.push-on { background: #2e7d32; color: #fff; border-color: #2e7d32; }
-    .setting-divider { height: 1px; background: var(--border); margin: 2px 0; }
-    .push-time-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12px; font-weight: bold; color: var(--text-sub); }
-    .push-time-selects { display: flex; align-items: center; gap: 4px; }
-    .push-time-selects select {
-      padding: 4px 6px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--surface-2);
-      color: var(--text);
-      font-size: 12px;
-      font-weight: bold;
-    }
 
     #installGuideModal {
       position: fixed;
@@ -816,6 +802,8 @@
 <div id="modelStatsModal" class="hidden" onclick="if(event.target===this) closeModelStatsModal()">
   <div class="stats-card">
     <h3 id="modelStatsTitle">📊 모델 순위 / 앱 정보</h3>
+    <div id="modelStatsSttTitle" class="stats-section-title">🎙️ 음성 인식 (Groq Whisper STT)</div>
+    <div id="groqStatsBox" class="stats-list"></div>
     <div id="modelStatsRankTitle" class="stats-section-title">🤖 AI 번역 모델 자동 순위</div>
     <div id="modelStatsList" class="stats-list"></div>
     <div id="modelStatsOtherTitle" class="stats-section-title">ℹ️ 앱 및 저장 상태</div>
@@ -896,16 +884,6 @@
 </div>
 
 <div id="settingsMenu" class="hidden">
-  <button id="pushToggleBtn" class="setting-full-btn" onclick="togglePushNotification()">🔕 푸시 알림 꺼짐</button>
-  <div id="pushTimeRow" class="push-time-row">
-    <span id="pushTimeLabel">⏰ 알림 시간</span>
-    <div class="push-time-selects">
-      <select id="pushStartHour" onchange="updatePushTimeRange()"></select>
-      <span>~</span>
-      <select id="pushEndHour" onchange="updatePushTimeRange()"></select>
-    </div>
-  </div>
-  <div class="setting-divider"></div>
   <div class="setting-row">
     <span id="settingFontLabel">글자 크기</span>
     <div class="setting-btns">
@@ -1008,22 +986,14 @@
 </footer>
 
 <script>
-  const APP_VERSION = 46;
+  const APP_VERSION = 48;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
-  const ONESIGNAL_APP_ID = "f9fb09c5-1acd-4df1-b2e9-c9cd177ece17";
-  const OS_KEY_PARTS = [
-    "os_v2",
-    "_app_",
-    "7h5qtri2zvg7dmxjzhgro7woc5scdiiv",
-    "sequz2m2wtabrpvg5rcuqx6imhmeihrl",
-    "yjf5capix7hb4kphdtq7ir7mhl2gtfuaod4ozdy"
-  ];
+  const GROQ_STT_MODEL = "whisper-large-v3-turbo";
+  const GROQ_COOLDOWN_MS = 10 * 60 * 1000;
+  const GROQ_MASK = "anhem_stt_v47_mask";
+  const GROQ_ENC_BYTES = [6,29,3,58,93,106,3,25,64,25,38,80,109,16,56,42,69,26,13,91,90,93,93,13,36,51,16,38,20,7,113,6,88,86,71,46,87,59,50,36,0,53,23,68,53,109,71,85,126,28,3,25,43,63,83,39];
   const MODEL_35_LITE = "gemini-3.5-flash-lite";
   const MODEL_31_LITE = "gemini-3.1-flash-lite";
-  const MODEL_36_FLASH = "gemini-3.6-flash";
-  const MODEL_38_FLASH = "gemini-3.8-flash";
-  const PRIMARY_MODELS = [MODEL_35_LITE, MODEL_31_LITE];
-  const FALLBACK_MODELS = [MODEL_36_FLASH, MODEL_38_FLASH];
   const MAX_CONTEXT_MSGS = 4;
   const MAX_AUDIO_MSGS = 500;
   const MAX_PHOTO_MSGS = 100;
@@ -1161,11 +1131,6 @@
       stkClear: "초기화",
       photoRotateLeft: "↺ 왼쪽 회전",
       photoRotateRight: "↻ 오른쪽 회전",
-      pushOn: "🔔 푸시 알림 켜짐",
-      pushOff: "🔕 푸시 알림 꺼짐",
-      pushTimeLabel: "⏰ 알림 시간",
-      pushNotSupported: "이 브라우저에서는 푸시 알림을 지원하지 않습니다. (아이폰은 홈 화면에 추가한 앱에서 켜주세요)",
-      pushDeniedAlert: "브라우저 설정에서 알림 권한을 허용해 주세요.",
       installBannerTitle: "홈 화면에 앱으로 추가",
       installBannerSub: "주소창 없이 앱처럼 편하게 쓰기",
       installBannerBtn: "📲 추가하기",
@@ -1175,15 +1140,15 @@
       installCloseBtn: "닫기",
       modelStatsBtn: "📊 모델 순위 / 앱 정보",
       modelStatsTitle: "📊 모델 순위 / 앱 정보",
+      modelStatsSttTitle: "🎙️ 음성 인식 1순위 (Groq Whisper)",
       modelStatsRankTitle: "🤖 AI 번역 모델 자동 순위 (성공률·속도 기준)",
       modelStatsOtherTitle: "ℹ️ 앱 및 저장 상태",
       modelStatsResetBtn: "🔄 순위 초기화",
       modelStatsCloseBtn: "닫기",
       modelRankUnit: "위",
-      tierPrimary: "기본",
-      tierFallback: "예비",
       modelStatusOk: "🟢 정상",
       modelStatusWarn: "🟠 지연/오류",
+      modelStatusCooldown: "⏸️ 우회 중",
       modelStatusIdle: "⚪ 미사용",
       infoVersion: "앱 버전",
       infoLastModel: "최근 사용 모델",
@@ -1265,11 +1230,6 @@
       stkClear: "Xóa hết",
       photoRotateLeft: "↺ Xoay trái",
       photoRotateRight: "↻ Xoay phải",
-      pushOn: "🔔 Thông báo: BẬT",
-      pushOff: "🔕 Thông báo: TẮT",
-      pushTimeLabel: "⏰ Giờ báo",
-      pushNotSupported: "Trình duyệt này chưa hỗ trợ thông báo đẩy. (iPhone cần mở từ biểu tượng ngoài màn hình chính)",
-      pushDeniedAlert: "Vui lòng cho phép thông báo trong cài đặt trình duyệt.",
       installBannerTitle: "Thêm vào màn hình chính",
       installBannerSub: "Mở toàn màn hình tiện như ứng dụng",
       installBannerBtn: "📲 Thêm",
@@ -1279,15 +1239,15 @@
       installCloseBtn: "Đóng",
       modelStatsBtn: "📊 Thứ tự AI & Trạng thái",
       modelStatsTitle: "📊 Thứ tự AI & Trạng thái",
+      modelStatsSttTitle: "🎙️ Nhận diện giọng nói (Groq Whisper)",
       modelStatsRankTitle: "🤖 Thứ tự mô hình AI tự động",
       modelStatsOtherTitle: "ℹ️ Thông tin ứng dụng & lưu trữ",
       modelStatsResetBtn: "🔄 Đặt lại thứ tự",
       modelStatsCloseBtn: "Đóng",
       modelRankUnit: "",
-      tierPrimary: "Chính",
-      tierFallback: "Dự phòng",
       modelStatusOk: "🟢 Tốt",
       modelStatusWarn: "🟠 Chậm/Lỗi",
+      modelStatusCooldown: "⏸️ Tạm bỏ qua",
       modelStatusIdle: "⚪ Chưa dùng",
       infoVersion: "Phiên bản",
       infoLastModel: "Mô hình gần nhất",
@@ -1358,199 +1318,6 @@
       ensureModalHistory();
     }
   });
-
-  /* ================= OneSignal 백그라운드 푸시 알림 & 시간대 제어 ================= */
-
-  let oneSignalReady = false;
-  let pushEnabled = localStorage.getItem("wt_push_on") === "1";
-  let pushStartHour = Number(localStorage.getItem("wt_push_start") ?? 8);
-  let pushEndHour = Number(localStorage.getItem("wt_push_end") ?? 23);
-
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  window.OneSignalDeferred.push(async function(OneSignal) {
-    try {
-      const basePath = window.location.pathname.replace(/[^/]*$/, "");
-      const swPath = `${basePath.replace(/^\//, "")}OneSignalSDKWorker.js`;
-      await OneSignal.init({
-        appId: ONESIGNAL_APP_ID,
-        serviceWorkerPath: swPath,
-        serviceWorkerParam: { scope: basePath },
-        allowLocalhostAsSecureOrigin: true
-      });
-      oneSignalReady = true;
-      if (roomPass) {
-        await syncOneSignalIdentity();
-      }
-    } catch {}
-  });
-
-  function getPushExternalId(role) {
-    return `anhem_${roomPass}_${role}`;
-  }
-
-  function initPushHourSelects() {
-    const startSel = document.getElementById("pushStartHour");
-    const endSel = document.getElementById("pushEndHour");
-    if (!startSel || !endSel) return;
-    startSel.innerHTML = "";
-    endSel.innerHTML = "";
-    for (let h = 0; h < 24; h++) {
-      const label = `${String(h).padStart(2, "0")}:00`;
-      const opt1 = document.createElement("option");
-      opt1.value = String(h);
-      opt1.textContent = label;
-      startSel.appendChild(opt1);
-
-      const opt2 = document.createElement("option");
-      opt2.value = String(h);
-      opt2.textContent = label;
-      endSel.appendChild(opt2);
-    }
-    startSel.value = String(pushStartHour);
-    endSel.value = String(pushEndHour);
-  }
-
-  function updatePushUI() {
-    const btn = document.getElementById("pushToggleBtn");
-    const row = document.getElementById("pushTimeRow");
-    const label = document.getElementById("pushTimeLabel");
-    if (!btn || !row) return;
-    btn.textContent = pushEnabled ? t().pushOn : t().pushOff;
-    btn.classList.toggle("push-on", pushEnabled);
-    row.style.opacity = pushEnabled ? "1" : "0.45";
-    if (label) label.textContent = t().pushTimeLabel;
-  }
-
-  async function saveMyPushConfigToDb(overrideEnabled = null) {
-    if (!roomPass) return;
-    const enabledVal = overrideEnabled !== null ? overrideEnabled : pushEnabled;
-    await patchRoom({
-      [`pushConfig/${myRole}`]: {
-        enabled: enabledVal,
-        startHour: pushStartHour,
-        endHour: pushEndHour,
-        tzOffsetMin: new Date().getTimezoneOffset()
-      }
-    });
-  }
-
-  async function syncOneSignalIdentity() {
-    if (!oneSignalReady || !roomPass) return;
-    window.OneSignalDeferred.push(async function(OneSignal) {
-      try {
-        await OneSignal.login(getPushExternalId(myRole));
-        if (pushEnabled) {
-          await OneSignal.User.PushSubscription.optIn();
-        } else {
-          await OneSignal.User.PushSubscription.optOut();
-        }
-      } catch {}
-    });
-  }
-
-  function disablePushOnLogout() {
-    window.OneSignalDeferred.push(async function(OneSignal) {
-      try {
-        await OneSignal.User.PushSubscription.optOut();
-        await OneSignal.logout();
-      } catch {}
-    });
-  }
-
-  async function togglePushNotification() {
-    if (!("Notification" in window)) {
-      alert(t().pushNotSupported);
-      return;
-    }
-
-    if (!pushEnabled) {
-      if (Notification.permission === "denied") {
-        alert(t().pushDeniedAlert);
-        return;
-      }
-      pushEnabled = true;
-      localStorage.setItem("wt_push_on", "1");
-      updatePushUI();
-
-      window.OneSignalDeferred.push(async function(OneSignal) {
-        try {
-          await OneSignal.Notifications.requestPermission();
-          if (roomPass) await OneSignal.login(getPushExternalId(myRole));
-          await OneSignal.User.PushSubscription.optIn();
-        } catch {}
-      });
-    } else {
-      pushEnabled = false;
-      localStorage.setItem("wt_push_on", "0");
-      updatePushUI();
-
-      window.OneSignalDeferred.push(async function(OneSignal) {
-        try {
-          await OneSignal.User.PushSubscription.optOut();
-        } catch {}
-      });
-    }
-    await saveMyPushConfigToDb();
-  }
-
-  async function updatePushTimeRange() {
-    const startSel = document.getElementById("pushStartHour");
-    const endSel = document.getElementById("pushEndHour");
-    if (!startSel || !endSel) return;
-    pushStartHour = Number(startSel.value);
-    pushEndHour = Number(endSel.value);
-    localStorage.setItem("wt_push_start", String(pushStartHour));
-    localStorage.setItem("wt_push_end", String(pushEndHour));
-    await saveMyPushConfigToDb();
-  }
-
-  function isPartnerWithinPushHours(cfg) {
-    if (!cfg) return true;
-    const start = Number(cfg.startHour ?? 8);
-    const end = Number(cfg.endHour ?? 23);
-    if (start === end) return true;
-
-    const tzOffsetMin = typeof cfg.tzOffsetMin === "number"
-      ? cfg.tzOffsetMin
-      : (getOtherRole() === "ko" ? -540 : -420);
-    const nowUtcMs = Date.now();
-    const partnerLocalMs = nowUtcMs - tzOffsetMin * 60000;
-    const partnerHour = new Date(partnerLocalMs).getUTCHours();
-
-    if (start < end) {
-      return partnerHour >= start && partnerHour < end;
-    }
-    return partnerHour >= start || partnerHour < end;
-  }
-
-  async function sendPartnerPushNotification(title, body, forceWhenOnline = false) {
-    if (!roomPass) return;
-    if (!forceWhenOnline && isPartnerOnline()) return;
-
-    const otherRole = getOtherRole();
-    const partnerCfg = roomState.pushConfig?.[otherRole];
-    if (partnerCfg && partnerCfg.enabled === false) return;
-    if (partnerCfg && !isPartnerWithinPushHours(partnerCfg)) return;
-
-    try {
-      const osKey = OS_KEY_PARTS.join("");
-      await fetch("https://api.onesignal.com/notifications", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Authorization": `Key ${osKey}`
-        },
-        body: JSON.stringify({
-          app_id: ONESIGNAL_APP_ID,
-          include_aliases: { external_id: [getPushExternalId(otherRole)] },
-          target_channel: "push",
-          headings: { en: title },
-          contents: { en: body },
-          url: window.location.origin + window.location.pathname
-        })
-      });
-    } catch {}
-  }
 
   /* ================= 오디오 포커스 & 볼륨 증폭 ================= */
 
@@ -1983,7 +1750,6 @@
     presence: {},
     typing: {},
     diagnostics: {},
-    pushConfig: {},
     callMeta: null
   };
   let lastRenderSig = "";
@@ -2258,6 +2024,8 @@
     if (msBtn) msBtn.textContent = text.modelStatsBtn;
     const msTitle = document.getElementById("modelStatsTitle");
     if (msTitle) msTitle.textContent = text.modelStatsTitle;
+    const msSttTitle = document.getElementById("modelStatsSttTitle");
+    if (msSttTitle) msSttTitle.textContent = text.modelStatsSttTitle;
     const msRankTitle = document.getElementById("modelStatsRankTitle");
     if (msRankTitle) msRankTitle.textContent = text.modelStatsRankTitle;
     const msOtherTitle = document.getElementById("modelStatsOtherTitle");
@@ -2271,7 +2039,6 @@
     applyThemeAndFont();
     updatePartnerClock();
     updatePwaInstallUI();
-    updatePushUI();
 
     if (inAppName) {
       inAppBanner.textContent = `${text.inAppWarn} (${inAppName})`;
@@ -2281,7 +2048,6 @@
     }
   }
 
-  initPushHourSelects();
   setupPwaMetaAndManifest();
   applyStaticText();
   clockTimer = setInterval(updatePartnerClock, 10000);
@@ -2311,8 +2077,6 @@
     lockScreen.classList.add("hidden");
     applyStaticText();
     startSync();
-    syncOneSignalIdentity();
-    saveMyPushConfigToDb();
     spawnGlobalHearts(5);
     return true;
   }
@@ -2395,7 +2159,7 @@
     replyPreviewText.textContent = "";
   }
 
-  function releaseMyLocks(keepalive = false, disablePush = false) {
+  function releaseMyLocks(keepalive = false) {
     if (!roomPass) return;
     const patch = {
       [`presence/${myRole}`]: 0,
@@ -2403,9 +2167,6 @@
       [`emojiBurst/${myRole}`]: null,
       [`doodleBurst/${myRole}`]: null
     };
-    if (disablePush) {
-      patch[`pushConfig/${myRole}/enabled`] = false;
-    }
     if (roomState.lockedBy === myRole) { patch.lockedBy = ""; patch.lockedAt = 0; }
     if (roomState.reservedBy === myRole) { patch.reservedBy = ""; }
     if (roomState.turnFor === myRole) { patch.turnFor = ""; patch.turnAt = 0; }
@@ -2423,7 +2184,7 @@
 
   window.addEventListener("pagehide", () => {
     flushPendingCallAudios();
-    releaseMyLocks(true, false);
+    releaseMyLocks(true);
   });
 
   function stopPolling() {
@@ -2443,8 +2204,7 @@
     closeSettingsMenu(false);
     if (callState !== "idle") cleanupVideoCall(false);
     flushPendingCallAudios();
-    releaseMyLocks(true, true);
-    disablePushOnLogout();
+    releaseMyLocks(true);
     stopCurrentAudio();
     clearReplyTarget();
     localStorage.removeItem("wt_pass");
@@ -2535,7 +2295,7 @@
 
   function setRole(role) {
     if (isRecording || callState !== "idle" || systemRole === "vi") return;
-    releaseMyLocks(false, false);
+    releaseMyLocks(false);
     myRole = role;
     wasPartnerOnline = null;
     emojiInitialized = false;
@@ -2547,8 +2307,6 @@
     if (roomPass) {
       sendHeartbeat();
       reportDiag(myDiagCode);
-      syncOneSignalIdentity();
-      saveMyPushConfigToDb();
     }
     lastRenderSig = "";
     renderMessages(false);
@@ -2719,7 +2477,7 @@ ${getHonorificRule(msgLang)}
         }
       }, {
         baseTimeoutMs: 4000,
-        fallbackTimeoutMs: 6000
+        fallbackTimeoutMs: 5500
       });
 
       const parts = data.candidates?.[0]?.content?.parts || [];
@@ -3237,10 +2995,6 @@ ${getHonorificRule(msgLang)}
       const syncTs = Date.now();
       loadedMsgSyncTs = syncTs;
       await saveMessagesToDb(updatedMessages, syncTs);
-      sendPartnerPushNotification(
-        "Anh & Em",
-        myRole === "ko" ? "📷 Đã gửi một bức ảnh" : "📷 새 사진이 도착했습니다"
-      );
     } catch (err) {
       delete photoCache[msgTs];
       idbDelete("photos", msgTs);
@@ -4108,7 +3862,6 @@ ${getHonorificRule(msgLang)}
           roomState.presence = data.presence || {};
           roomState.typing = data.typing || {};
           roomState.diagnostics = data.diagnostics || {};
-          roomState.pushConfig = data.pushConfig || {};
           roomState.callMeta = data.callMeta || null;
 
           handleIncomingEmojiBurst(data.emojiBurst);
@@ -4379,11 +4132,6 @@ ${getHonorificRule(msgLang)}
           callId: activeCallId
         }
       });
-      sendPartnerPushNotification(
-        "Anh & Em",
-        myRole === "ko" ? "📹 Có cuộc gọi video đến!" : "📹 영상통화 요청이 왔습니다!",
-        true
-      );
       isStartingCall = false;
     } catch (err) {
       isStartingCall = false;
@@ -4989,17 +4737,35 @@ ${getHonorificRule(msgLang)}
     showPipBtn.classList.add("hidden");
   }
 
-  /* ================= Gemini API 자동 모델 순위 조절 (1군 Lite -> 2군 Flash) & 상태 패널 ================= */
+  /* ================= Groq Whisper STT & Gemini API 2모델 자동 순위 조절 ================= */
 
-  const MODEL_LIST = [...PRIMARY_MODELS, ...FALLBACK_MODELS];
-  const MODEL_STATS_KEY = "wt_model_stats_v1";
+  const MODEL_LIST = [MODEL_35_LITE, MODEL_31_LITE];
+  const MODEL_STATS_KEY = "wt_model_stats_v2";
+
+  function getGroqKey() {
+    if (!apiKey) return "";
+    return GROQ_ENC_BYTES.map((b, i) =>
+      String.fromCharCode(b ^ GROQ_MASK.charCodeAt(i % GROQ_MASK.length))
+    ).join("");
+  }
+
+  function createEmptyGroqStats() {
+    return { ok: 0, fail: 0, streakFail: 0, avgMs: 0, lastOkAt: 0, lastFailAt: 0, lastTriedAt: 0, lastErr: "", cooldownUntil: 0 };
+  }
 
   function createEmptyModelStats() {
     const models = {};
     MODEL_LIST.forEach(m => {
       models[m] = { ok: 0, fail: 0, streakFail: 0, avgMs: 0, lastOkAt: 0, lastFailAt: 0, lastTriedAt: 0, lastErr: "" };
     });
-    return { totalCalls: 0, lastUsedModel: "", lastUsedAt: 0, lastLatencyMs: 0, models };
+    return {
+      totalCalls: 0,
+      lastUsedModel: "",
+      lastUsedAt: 0,
+      lastLatencyMs: 0,
+      groq: createEmptyGroqStats(),
+      models
+    };
   }
 
   function loadModelStats() {
@@ -5011,6 +4777,9 @@ ${getHonorificRule(msgLang)}
         base.lastUsedModel = raw.lastUsedModel || "";
         base.lastUsedAt = Number(raw.lastUsedAt || 0);
         base.lastLatencyMs = Number(raw.lastLatencyMs || 0);
+        if (raw.groq && typeof raw.groq === "object") {
+          base.groq = { ...base.groq, ...raw.groq };
+        }
         MODEL_LIST.forEach(m => {
           if (raw.models && raw.models[m]) {
             base.models[m] = { ...base.models[m], ...raw.models[m] };
@@ -5027,6 +4796,98 @@ ${getHonorificRule(msgLang)}
     try {
       localStorage.setItem(MODEL_STATS_KEY, JSON.stringify(modelStats));
     } catch {}
+  }
+
+  function isGroqInCooldown() {
+    const until = Number(modelStats.groq?.cooldownUntil || 0);
+    return until > Date.now();
+  }
+
+  function recordGroqResult(success, latencyMs, errLabel = "", forceCooldown = false) {
+    if (!modelStats.groq) modelStats.groq = createEmptyGroqStats();
+    const st = modelStats.groq;
+    const now = Date.now();
+    st.lastTriedAt = now;
+    if (success) {
+      st.ok = (st.ok || 0) + 1;
+      st.streakFail = 0;
+      st.lastOkAt = now;
+      st.lastErr = "";
+      st.cooldownUntil = 0;
+      st.avgMs = st.avgMs > 0 ? Math.round(st.avgMs * 0.7 + latencyMs * 0.3) : Math.round(latencyMs);
+    } else {
+      st.fail = (st.fail || 0) + 1;
+      st.streakFail = (st.streakFail || 0) + 1;
+      st.lastFailAt = now;
+      st.lastErr = errLabel || "error";
+      if (forceCooldown || st.streakFail >= 3) {
+        st.cooldownUntil = now + GROQ_COOLDOWN_MS;
+      }
+    }
+    saveModelStats();
+  }
+
+  function cleanWhisperText(rawText) {
+    const txt = (rawText || "").trim();
+    if (!txt) return "";
+    if (/^[\s.,!?~…·\-_"'()\[\]]+$/.test(txt)) return "";
+    const lower = txt.toLowerCase().replace(/[.,!?~…\s]+$/g, "");
+    const hallucinations = [
+      "mbc 뉴스", "kbs 뉴스", "sbs 뉴스", "시청해주셔서 감사합니다", "시청해 주셔서 감사합니다",
+      "구독과 좋아요", "자막 제공", "영상 편집", "고맙습니다",
+      "thank you", "thank you for watching", "thanks for watching", "subtitles by", "amara.org",
+      "hãy đăng ký kênh", "cảm ơn các bạn đã xem", "cảm ơn các bạn đã theo dõi"
+    ];
+    if (hallucinations.includes(lower)) return "";
+    return txt;
+  }
+
+  function pickGroqFilename(cleanMime) {
+    const m = (cleanMime || "").toLowerCase();
+    if (m.includes("webm")) return "audio.webm";
+    if (m.includes("ogg")) return "audio.ogg";
+    if (m.includes("wav")) return "audio.wav";
+    return "audio.m4a";
+  }
+
+  async function transcribeWithGroq(audioBlob, cleanMime, langCode) {
+    const groqKey = getGroqKey();
+    if (!groqKey || isGroqInCooldown()) {
+      return { ok: false, skipped: true, text: "" };
+    }
+
+    const formData = new FormData();
+    formData.append("file", audioBlob, pickGroqFilename(cleanMime));
+    formData.append("model", GROQ_STT_MODEL);
+    formData.append("language", langCode);
+    formData.append("response_format", "json");
+    formData.append("temperature", "0");
+
+    const t0 = Date.now();
+    try {
+      const res = await fetchWithTimeout("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${groqKey}`
+        },
+        body: formData
+      }, 6000);
+
+      if (res.ok) {
+        const json = await res.json();
+        const cleaned = cleanWhisperText(json.text || "");
+        recordGroqResult(true, Date.now() - t0);
+        return { ok: true, skipped: false, text: cleaned };
+      }
+
+      const isRateOrAuth = (res.status === 429 || res.status === 401 || res.status === 403);
+      recordGroqResult(false, Date.now() - t0, `HTTP ${res.status}`, isRateOrAuth);
+      return { ok: false, skipped: false, text: "" };
+    } catch (err) {
+      const errTag = (err && err.name === "AbortError") ? "timeout" : "network";
+      recordGroqResult(false, Date.now() - t0, errTag, false);
+      return { ok: false, skipped: false, text: "" };
+    }
   }
 
   function computeModelScore(model, defaultIdx) {
@@ -5054,8 +4915,8 @@ ${getHonorificRule(msgLang)}
     return score;
   }
 
-  function sortTierModels(tierModels, allowExplore = false) {
-    const scored = tierModels.map((model, idx) => ({
+  function getRankedModels(allowExplore = false) {
+    const scored = MODEL_LIST.map((model, idx) => ({
       model,
       score: computeModelScore(model, idx)
     }));
@@ -5073,12 +4934,6 @@ ${getHonorificRule(msgLang)}
       }
     }
     return ranked;
-  }
-
-  function getRankedModels(allowExplore = false) {
-    const primaryRanked = sortTierModels(PRIMARY_MODELS, allowExplore);
-    const fallbackRanked = sortTierModels(FALLBACK_MODELS, false);
-    return [...primaryRanked, ...fallbackRanked];
   }
 
   function recordModelResult(model, success, latencyMs, errLabel = "") {
@@ -5105,11 +4960,46 @@ ${getHonorificRule(msgLang)}
   }
 
   function renderModelStatsModal() {
+    const groqBoxEl = document.getElementById("groqStatsBox");
     const listEl = document.getElementById("modelStatsList");
     const infoEl = document.getElementById("appInfoBox");
     if (!listEl || !infoEl) return;
 
     const text = t();
+
+    if (groqBoxEl) {
+      const gs = modelStats.groq || createEmptyGroqStats();
+      const gOk = gs.ok || 0;
+      const gFail = gs.fail || 0;
+      const gTotal = gOk + gFail;
+      const gPct = gTotal > 0 ? Math.round((gOk / gTotal) * 100) : 0;
+      const gSpeed = gs.avgMs > 0 ? `${(gs.avgMs / 1000).toFixed(2)}s` : "-";
+      const inCooldown = isGroqInCooldown();
+      const remMin = inCooldown ? Math.max(1, Math.ceil((gs.cooldownUntil - Date.now()) / 60000)) : 0;
+
+      let gBadge = text.modelStatusIdle;
+      if (inCooldown) {
+        gBadge = `${text.modelStatusCooldown} (${remMin}m)`;
+      } else if (gTotal > 0) {
+        gBadge = gs.streakFail > 0 ? text.modelStatusWarn : text.modelStatusOk;
+      }
+
+      const gStatLine = myRole === "ko"
+        ? `성공 ${gOk} / 실패 ${gFail} (${gTotal > 0 ? gPct + "%" : "-"}) · 평균 ${gSpeed}`
+        : `OK ${gOk} / Lỗi ${gFail} (${gTotal > 0 ? gPct + "%" : "-"}) · TB ${gSpeed}`;
+      const gErrLine = gs.lastErr ? `<br>최근 오류: ${gs.lastErr}` : "";
+
+      groqBoxEl.innerHTML = `
+        <div class="model-stat-item ${!inCooldown && gOk > 0 ? "rank-1" : ""}">
+          <div class="model-stat-top">
+            <span><span class="model-rank-badge">STT</span>${GROQ_STT_MODEL}</span>
+            <span>${gBadge}</span>
+          </div>
+          <div class="model-stat-sub">${gStatLine}${gErrLine}</div>
+        </div>
+      `;
+    }
+
     const ranked = getRankedModels(false);
     listEl.innerHTML = "";
 
@@ -5126,9 +5016,7 @@ ${getHonorificRule(msgLang)}
         badge = st.streakFail > 0 ? text.modelStatusWarn : text.modelStatusOk;
       }
 
-      const isPrimary = PRIMARY_MODELS.includes(model);
-      const tierTag = isPrimary ? text.tierPrimary : text.tierFallback;
-      const rankLabel = myRole === "ko" ? `${idx + 1}${text.modelRankUnit}·${tierTag}` : `#${idx + 1}·${tierTag}`;
+      const rankLabel = myRole === "ko" ? `${idx + 1}${text.modelRankUnit}` : `#${idx + 1}`;
       const item = document.createElement("div");
       item.className = "model-stat-item" + (idx === 0 ? " rank-1" : "");
 
@@ -5188,10 +5076,11 @@ ${getHonorificRule(msgLang)}
   }
 
   function getHonorificRule(lang = myRole) {
+    const contextFlowRule = "- 직전 상대방 발화(질문, 걱정, 제안 등)와의 대화 흐름을 반드시 반영해 사전식 직역이 아닌 실제 대화 상황에 맞는 자연스러운 구어체 대답으로 의역해.";
     if (lang === "ko") {
-      return "- 화자(남자)가 특정 이름이나 별명을 말했을 때는 그대로 살리되, 기본 호칭을 쓰거나 주어가 생략·애매할 때는 화자 자신을 'anh', 상대방(여자)을 'em bé'로 자연스럽게 보정해 다정한 베트남어 구어체로 번역해.";
+      return `- 화자(남자)가 특정 이름이나 별명을 말했을 때는 그대로 살리되, 기본 호칭을 쓰거나 주어가 생략·애매할 때는 화자 자신을 'anh', 상대방(여자)을 'em bé'로 자연스럽게 보정해 다정한 베트남어 구어체로 번역해.\n${contextFlowRule}`;
     }
-    return "- 화자(여자)가 실제로 말한 베트남어 호칭과 뉘앙스를 억지로 바꾸지 말고 그대로 살려서 자연스러운 한국어 구어체로 번역해.";
+    return `- 화자(여자)가 실제로 말한 베트남어 호칭과 뉘앙스를 억지로 바꾸지 말고 그대로 살려서 자연스러운 한국어 구어체로 번역해.\n${contextFlowRule}\n- 특히 걱정이나 염려하는 말 뒤에 오는 'không sao cả', 'không làm sao cả' 같은 표현은 '아무 일도 없어요'로 직역하지 말고 문맥에 맞춰 '괜찮아요', '아무 문제 없어요'처럼 자연스럽게 번역해.`;
   }
 
   function sleepMs(ms) {
@@ -5209,42 +5098,22 @@ ${getHonorificRule(msgLang)}
   }
 
   async function callGeminiWithFallback(bodyObj, opts = {}) {
-    const baseTimeout = opts.baseTimeoutMs || 8000;
-    const fallbackTimeout = opts.fallbackTimeoutMs || 12000;
+    const baseTimeout = opts.baseTimeoutMs || 4500;
+    const fallbackTimeout = opts.fallbackTimeoutMs || 5500;
     const onRetry = typeof opts.onRetry === "function" ? opts.onRetry : null;
 
     modelStats.totalCalls = (modelStats.totalCalls || 0) + 1;
     const ranked = getRankedModels(true);
 
-    const primaryRanked = ranked.filter(m => PRIMARY_MODELS.includes(m));
-    const fallbackRanked = ranked.filter(m => FALLBACK_MODELS.includes(m));
-
-    const round1 = [
-      ...primaryRanked.map((model, idx) => ({
-        model,
-        timeout: idx === 0 ? baseTimeout : fallbackTimeout,
-        delayBefore: idx === 0 ? 0 : 200
-      })),
-      ...fallbackRanked.map((model) => ({
-        model,
-        timeout: fallbackTimeout,
-        delayBefore: 350
-      }))
-    ];
-    const round2 = primaryRanked.map((model, idx) => ({
+    const fullPlan = ranked.map((model, idx) => ({
       model,
-      timeout: fallbackTimeout,
-      delayBefore: idx === 0 ? 800 : 300
+      timeout: idx === 0 ? baseTimeout : fallbackTimeout,
+      delayBefore: idx === 0 ? 0 : 150
     }));
-    const fullPlan = [...round1, ...round2];
 
     let lastErr = null;
-    const skipInRound2 = new Set();
     for (let i = 0; i < fullPlan.length; i++) {
       const { model, timeout, delayBefore } = fullPlan[i];
-      if (i >= round1.length && skipInRound2.has(model)) {
-        continue;
-      }
       if (i > 0 && onRetry) {
         onRetry(i, model);
       }
@@ -5272,9 +5141,6 @@ ${getHonorificRule(msgLang)}
         lastErr = new Error(`Gemini (${model} / ${res.status}): ${errText}`);
         if (res.status === 401 || res.status === 403) {
           throw lastErr;
-        }
-        if (res.status === 400 || res.status === 404) {
-          skipInRound2.add(model);
         }
       } catch (err) {
         const isAuthErr = err && err.message && /\/ (401|403)\)/.test(err.message);
@@ -5705,16 +5571,88 @@ ${getHonorificRule(msgLang)}
 
     try {
       setProcessingStage("recognizing");
-      const base64Audio = await blobToBase64(audioBlob);
       const sourceLang = myRole === "ko" ? "한국어" : "베트남어";
       const targetLang = myRole === "ko" ? "베트남어" : "한국어";
       const slCode = myRole === "ko" ? "ko" : "vi";
       const tlCode = myRole === "ko" ? "vi" : "ko";
 
+      const base64Promise = blobToBase64(audioBlob);
+      const groqRes = await transcribeWithGroq(audioBlob, cleanMime, slCode);
+      const base64Audio = await base64Promise;
+
       audioCache[msgTs] = { data: base64Audio, mime: cleanMime };
       idbPut("audios", { ts: msgTs, data: base64Audio, mime: cleanMime });
 
-      const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
+      let orig = "";
+      let trans = "";
+      let isUntranslated = false;
+
+      // 1순위: Groq Whisper STT
+      if (groqRes.ok && groqRes.text) {
+        orig = groqRes.text;
+      }
+
+      // 2순위: 브라우저 음성 인식 백업
+      const fallbackText = (backupTranscript || "").trim();
+      if (!orig && fallbackText) {
+        orig = fallbackText;
+      }
+
+      if (orig) {
+        // 2단계: 가벼운 텍스트만 Gemini Lite로 번역 -> 실패 시 무료 구글 번역 즉시 우회
+        setProcessingStage("translating");
+        const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
+[규칙]
+${getHonorificRule(myRole)}
+- 음성 인식으로 받아쓴 ${sourceLang} 구어체 문장이므로, 미세한 오탈자나 띄어쓰기는 문맥에 맞게 자연스럽게 이해한 뒤 반드시 자연스러운 구어체 ${targetLang}로만 번역해서 출력해. (절대 원문과 같은 언어로 출력하거나 설명을 덧붙이지 마)`;
+
+        const contextText = buildContextReference();
+        const contents = [
+          {
+            role: "user",
+            parts: [
+              { text: `${contextText}[${sourceLang} → ${targetLang} 번역]\n${orig}` }
+            ]
+          }
+        ];
+
+        try {
+          const data = await callGeminiWithFallback({
+            system_instruction: { parts: [{ text: systemInstruction }] },
+            contents,
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 280
+            }
+          }, {
+            baseTimeoutMs: 4000,
+            fallbackTimeoutMs: 5500,
+            onRetry: () => setProcessingStage("retrying")
+          });
+
+          const parts = data.candidates?.[0]?.content?.parts || [];
+          for (const p of parts) {
+            if (p.thought) continue;
+            if (p.text && p.text.trim()) { trans = p.text.trim(); break; }
+          }
+          if (!trans) throw new Error("empty");
+        } catch {
+          try {
+            trans = await translateWithFreeGoogle(orig, slCode, tlCode);
+            if (!trans) throw new Error("empty");
+          } catch {
+            if (myRole === "vi") {
+              isUntranslated = true;
+              trans = "";
+            } else {
+              trans = orig;
+            }
+          }
+        }
+      } else if (!groqRes.ok || maxVolumePeak > 0.02) {
+        // 3순위: Groq 실패/쿨다운 또는 브라우저 인식 불가 시에만 Gemini 오디오 직접 처리
+        setProcessingStage("translating");
+        const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
 [규칙]
 ${getHonorificRule(myRole)}
 - 배경 음악, TV 소리, 주변 잡음은 철저히 무시하고 마이크에 가까이 말하는 화자의 ${sourceLang} 목소리만 정확하게 받아써.
@@ -5723,30 +5661,17 @@ ${getHonorificRule(myRole)}
 - 원문과 같은 문장 수 유지, 불필요한 설명 금지.
 - 반드시 JSON으로만 응답: {"original": "${sourceLang} 원문", "translated": "자연스러운 구어체 ${targetLang} 번역문"}`;
 
-      const contextText = buildContextReference();
-      const contents = [
-        {
-          role: "user",
-          parts: [
-            { text: `${contextText}[현재 통역 지시: 배경 잡음은 무시하고 화자의 ${sourceLang} 음성을 정확히 받아쓴 뒤 반드시 ${targetLang}로 번역하세요]` },
-            { inline_data: { mime_type: cleanMime, data: base64Audio } }
-          ]
-        }
-      ];
+        const contextText = buildContextReference();
+        const contents = [
+          {
+            role: "user",
+            parts: [
+              { text: `${contextText}[현재 통역 지시: 배경 잡음은 무시하고 화자의 ${sourceLang} 음성을 정확히 받아쓴 뒤 반드시 ${targetLang}로 번역하세요]` },
+              { inline_data: { mime_type: cleanMime, data: base64Audio } }
+            ]
+          }
+        ];
 
-      if (stageSwitchTimer) clearTimeout(stageSwitchTimer);
-      stageSwitchTimer = setTimeout(() => {
-        if (isProcessing && processingStage === "recognizing") {
-          setProcessingStage("translating");
-        }
-      }, 1200);
-
-      let orig = "";
-      let trans = "";
-      let isUntranslated = false;
-      let geminiFailed = false;
-
-      try {
         const data = await callGeminiWithFallback({
           system_instruction: { parts: [{ text: systemInstruction }] },
           contents,
@@ -5756,8 +5681,8 @@ ${getHonorificRule(myRole)}
             responseMimeType: "application/json"
           }
         }, {
-          baseTimeoutMs: 9000,
-          fallbackTimeoutMs: 12000,
+          baseTimeoutMs: 7000,
+          fallbackTimeoutMs: 9000,
           onRetry: () => setProcessingStage("retrying")
         });
 
@@ -5771,27 +5696,6 @@ ${getHonorificRule(myRole)}
         const parsed = JSON.parse(rawJson);
         orig = (parsed.original || "").trim();
         trans = (parsed.translated || "").trim();
-      } catch {
-        geminiFailed = true;
-      }
-
-      // Fallback to browser Web Speech API transcript + Free Google Translate if Gemini failed or returned empty
-      const fallbackText = (backupTranscript || "").trim();
-      if (!orig && fallbackText) {
-        orig = fallbackText;
-        setProcessingStage("translating");
-        try {
-          trans = await translateWithFreeGoogle(orig, slCode, tlCode);
-        } catch {
-          if (myRole === "vi") {
-            isUntranslated = true;
-            trans = "";
-          } else {
-            trans = orig;
-          }
-        }
-      } else if (geminiFailed && !orig) {
-        throw new Error("Audio translation failed");
       }
 
       if (!orig) {
@@ -5833,7 +5737,6 @@ ${getHonorificRule(myRole)}
           body: JSON.stringify(updatedMessages)
         });
         await finishTurnLock({ lastMsgTs: syncTs });
-        sendPartnerPushNotification("Anh & Em", `🎤 ${(trans || orig).slice(0, 60)}`);
 
         if (callState === "idle") {
           uploadAudioToFirebase(msgTs, base64Audio, cleanMime);
@@ -5900,7 +5803,7 @@ ${getHonorificRule(myRole)}
             }
           }, {
             baseTimeoutMs: 4000,
-            fallbackTimeoutMs: 6000,
+            fallbackTimeoutMs: 5500,
             onRetry: () => setProcessingStage("retrying")
           });
 
@@ -5947,7 +5850,6 @@ ${getHonorificRule(myRole)}
       const syncTs = Date.now();
       loadedMsgSyncTs = syncTs;
       await saveMessagesToDb(updatedMessages, syncTs);
-      sendPartnerPushNotification("Anh & Em", (isUntranslated ? spokenText : (translated || spokenText)).slice(0, 60));
     } catch {
       alert(t().errTranslateFail);
     } finally {
