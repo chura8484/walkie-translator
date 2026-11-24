@@ -986,7 +986,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 52;
+  const APP_VERSION = 53;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const GROQ_STT_MODEL = "whisper-large-v3-turbo";
   const GROQ_STT_MODEL_VI = "whisper-large-v3";
@@ -4923,6 +4923,14 @@ ${getHonorificRule(msgLang)}
     return txt;
   }
 
+  function normalizeGeminiAudioMime(rawMime) {
+    const clean = String(rawMime || "audio/webm").split(";")[0].trim().toLowerCase();
+    if (clean === "audio/mp4" || clean === "audio/x-m4a") {
+      return "audio/m4a";
+    }
+    return clean;
+  }
+
   function pickGroqFilename(cleanMime) {
     const m = (cleanMime || "").toLowerCase();
     if (m.includes("webm")) return "audio.webm";
@@ -5796,7 +5804,7 @@ ${getHonorificRule(myRole)}
             role: "user",
             parts: [
               { text: `${contextText}[현재 통역 지시: 배경 잡음은 무시하고 화자의 ${sourceLang} 음성을 정확히 받아쓴 뒤 반드시 ${targetLang}로 번역하세요]` },
-              { inline_data: { mime_type: cleanMime, data: base64Audio } }
+              { inline_data: { mime_type: normalizeGeminiAudioMime(cleanMime), data: base64Audio } }
             ]
           }
         ];
