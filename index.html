@@ -986,9 +986,10 @@
 </footer>
 
 <script>
-  const APP_VERSION = 51;
+  const APP_VERSION = 52;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const GROQ_STT_MODEL = "whisper-large-v3-turbo";
+  const GROQ_STT_MODEL_VI = "whisper-large-v3";
   const GROQ_TRANSLATE_MODEL = "openai/gpt-oss-20b";
   const GROQ_TRANSLATE_TIMEOUT_MS = 4000;
   const GROQ_COOLDOWN_MS = 10 * 60 * 1000;
@@ -4936,9 +4937,11 @@ ${getHonorificRule(msgLang)}
       return { ok: false, skipped: true, text: "" };
     }
 
+    const sttModel = langCode === "vi" ? GROQ_STT_MODEL_VI : GROQ_STT_MODEL;
+    const sttTimeoutMs = langCode === "vi" ? 7500 : 6000;
     const formData = new FormData();
     formData.append("file", audioBlob, pickGroqFilename(cleanMime));
-    formData.append("model", GROQ_STT_MODEL);
+    formData.append("model", sttModel);
     formData.append("language", langCode);
     formData.append("response_format", "json");
     formData.append("temperature", "0");
@@ -4951,7 +4954,7 @@ ${getHonorificRule(msgLang)}
           "Authorization": `Bearer ${groqKey}`
         },
         body: formData
-      }, 6000);
+      }, sttTimeoutMs);
 
       if (res.ok) {
         const json = await res.json();
@@ -5154,7 +5157,7 @@ ${getHonorificRule(msgLang)}
       groqBoxEl.innerHTML = `
         <div class="model-stat-item ${!inCooldown && gOk > 0 ? "rank-1" : ""}">
           <div class="model-stat-top">
-            <span><span class="model-rank-badge">STT</span>${GROQ_STT_MODEL}</span>
+            <span><span class="model-rank-badge">STT</span>${myRole === "vi" ? GROQ_STT_MODEL_VI : GROQ_STT_MODEL}</span>
             <span>${gBadge}</span>
           </div>
           <div class="model-stat-sub">${gStatLine}${gErrLine}</div>
@@ -5494,7 +5497,7 @@ ${getHonorificRule(msgLang)}
       }
 
       const mimeType = pickAudioMimeType();
-      const options = { audioBitsPerSecond: 32000 };
+      const options = { audioBitsPerSecond: 64000 };
       if (mimeType) options.mimeType = mimeType;
 
       audioChunks = [];
@@ -5773,89 +5776,10 @@ ${getHonorificRule(msgLang)}
       const targetLang = myRole === "ko" ? "베트남어" : "한국어";
       const slCode = myRole === "ko" ? "ko" : "vi";
       const tlCode = myRole === "ko" ? "vi" : "ko";
-
-      const base64Promise = blobToBase64(audioBlob);
-      const groqRes = await transcribeWithGroq(audioBlob, cleanMime, slCode);
-      const base64Audio = await base64Promise;
-
-      audioCache[msgTs] = { data: base64Audio, mime: cleanMime };
-      idbPut("audios", { ts: msgTs, data: base64Audio, mime: cleanMime });
-
-      let orig = "";
-      let trans = "";
-      let isUntranslated = false;
-
-      // 1순위: Groq Whisper STT
-      if (groqRes.ok && groqRes.text) {
-        orig = groqRes.text;
-      }
-
-      // 2순위: 브라우저 음성 인식 백업
       const fallbackText = (backupTranscript || "").trim();
-      if (!orig && fallbackText) {
-        orig = fallbackText;
-      }
+      const preferGeminiAudio = (myRole === "vi" && callState === "idle");
 
-      if (orig) {
-        // 2단계: 가벼운 텍스트만 Gemini Lite로 번역 -> 실패 시 무료 구글 번역 즉시 우회
-        setProcessingStage("translating");
-        const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
-[규칙]
-${getHonorificRule(myRole)}
-- 음성 인식으로 받아쓴 ${sourceLang} 구어체 문장이므로, 미세한 오탈자나 띄어쓰기는 자연스럽게 이해해 번역해. 특히 짧은 구어체에서 발음·성조 오인식으로 명백히 어색한 단어가 보일 때만 직전 대화 문맥을 참고해 자연스럽게 보정하고, 화제가 바뀐 정상 문장은 억지로 이전 문맥에 끼워 맞추지 마. 반드시 자연스러운 구어체 ${targetLang}로만 출력해. (절대 원문과 같은 언어로 출력하거나 설명을 덧붙이지 마)`;
-
-        const contextText = buildContextReference();
-        const userPrompt = `${contextText}[${sourceLang} → ${targetLang} 번역]\n${orig}`;
-        const contents = [
-          {
-            role: "user",
-            parts: [
-              { text: userPrompt }
-            ]
-          }
-        ];
-
-        try {
-          const data = await callGeminiWithFallback({
-            system_instruction: { parts: [{ text: systemInstruction }] },
-            contents,
-            generationConfig: {
-              temperature: 0.2,
-              maxOutputTokens: 280
-            }
-          }, {
-            baseTimeoutMs: 6000,
-            fallbackTimeoutMs: 8000,
-            onRetry: () => setProcessingStage("retrying")
-          });
-
-          const parts = data.candidates?.[0]?.content?.parts || [];
-          for (const p of parts) {
-            if (p.thought) continue;
-            if (p.text && p.text.trim()) { trans = p.text.trim(); break; }
-          }
-          if (!trans) throw new Error("empty");
-        } catch {
-          try {
-            setProcessingStage("retrying");
-            trans = await translateWithGroq(systemInstruction, userPrompt);
-            if (!trans) throw new Error("empty");
-          } catch {
-            try {
-              trans = await translateWithFreeGoogle(orig, slCode, tlCode);
-              if (!trans) throw new Error("empty");
-            } catch {
-              if (myRole === "vi") {
-                isUntranslated = true;
-                trans = "";
-              } else {
-                trans = orig;
-              }
-            }
-          }
-        }
-      } else if (!groqRes.ok || maxVolumePeak > 0.02) {
-        // 3순위: Groq 실패/쿨다운 또는 브라우저 인식 불가 시에만 Gemini 오디오 직접 처리
+      const runGeminiDirectAudio = async (base64Audio) => {
         setProcessingStage("translating");
         const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
 [규칙]
@@ -5899,8 +5823,135 @@ ${getHonorificRule(myRole)}
         }
         rawJson = rawJson.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
         const parsed = JSON.parse(rawJson);
-        orig = (parsed.original || "").trim();
-        trans = (parsed.translated || "").trim();
+        return {
+          orig: (parsed.original || "").trim(),
+          trans: (parsed.translated || "").trim()
+        };
+      };
+
+      const runTextTranslation = async (recognizedOrig) => {
+        setProcessingStage("translating");
+        const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
+[규칙]
+${getHonorificRule(myRole)}
+- 음성 인식으로 받아쓴 ${sourceLang} 구어체 문장이므로, 미세한 오탈자나 띄어쓰기는 자연스럽게 이해해 번역해. 특히 짧은 구어체에서 발음·성조 오인식으로 명백히 어색한 단어가 보일 때만 직전 대화 문맥을 참고해 자연스럽게 보정하고, 화제가 바뀐 정상 문장은 억지로 이전 문맥에 끼워 맞추지 마. 반드시 자연스러운 구어체 ${targetLang}로만 출력해. (절대 원문과 같은 언어로 출력하거나 설명을 덧붙이지 마)`;
+
+        const contextText = buildContextReference();
+        const userPrompt = `${contextText}[${sourceLang} → ${targetLang} 번역]\n${recognizedOrig}`;
+        const contents = [
+          {
+            role: "user",
+            parts: [
+              { text: userPrompt }
+            ]
+          }
+        ];
+
+        try {
+          const data = await callGeminiWithFallback({
+            system_instruction: { parts: [{ text: systemInstruction }] },
+            contents,
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 280
+            }
+          }, {
+            baseTimeoutMs: 6000,
+            fallbackTimeoutMs: 8000,
+            onRetry: () => setProcessingStage("retrying")
+          });
+
+          const parts = data.candidates?.[0]?.content?.parts || [];
+          for (const p of parts) {
+            if (p.thought) continue;
+            if (p.text && p.text.trim()) {
+              return { trans: p.text.trim(), isUntranslated: false };
+            }
+          }
+          throw new Error("empty");
+        } catch {
+          try {
+            setProcessingStage("retrying");
+            const groqTrans = await translateWithGroq(systemInstruction, userPrompt);
+            if (!groqTrans) throw new Error("empty");
+            return { trans: groqTrans, isUntranslated: false };
+          } catch {
+            try {
+              const freeTrans = await translateWithFreeGoogle(recognizedOrig, slCode, tlCode);
+              if (!freeTrans) throw new Error("empty");
+              return { trans: freeTrans, isUntranslated: false };
+            } catch {
+              if (myRole === "vi") {
+                return { trans: "", isUntranslated: true };
+              }
+              return { trans: recognizedOrig, isUntranslated: false };
+            }
+          }
+        }
+      };
+
+      let base64Audio = "";
+      let orig = "";
+      let trans = "";
+      let isUntranslated = false;
+
+      if (preferGeminiAudio) {
+        // 일반 채팅 베트남어: 1순위 Gemini 오디오 직접 청취 -> 실패 시 Groq whisper-large-v3 풀버전 자동 백업
+        base64Audio = await blobToBase64(audioBlob);
+        audioCache[msgTs] = { data: base64Audio, mime: cleanMime };
+        idbPut("audios", { ts: msgTs, data: base64Audio, mime: cleanMime });
+
+        let geminiDirectOk = false;
+        try {
+          const directRes = await runGeminiDirectAudio(base64Audio);
+          geminiDirectOk = true;
+          orig = directRes.orig;
+          trans = directRes.trans;
+        } catch {
+          geminiDirectOk = false;
+        }
+
+        if (!orig && (!geminiDirectOk || maxVolumePeak > 0.02)) {
+          setProcessingStage("retrying");
+          const groqRes = await transcribeWithGroq(audioBlob, cleanMime, slCode);
+          if (groqRes.ok && groqRes.text) {
+            orig = groqRes.text;
+          } else if (fallbackText) {
+            orig = fallbackText;
+          }
+
+          if (orig) {
+            const tr = await runTextTranslation(orig);
+            trans = tr.trans;
+            isUntranslated = tr.isUntranslated;
+          } else if (!geminiDirectOk && !groqRes.ok) {
+            throw new Error("all_stt_failed");
+          }
+        }
+      } else {
+        // 한국어(채팅/영통) & 베트남어 영통 중: 1순위 Groq Whisper (한: turbo / 베: large-v3 풀버전)
+        const base64Promise = blobToBase64(audioBlob);
+        const groqRes = await transcribeWithGroq(audioBlob, cleanMime, slCode);
+        base64Audio = await base64Promise;
+
+        audioCache[msgTs] = { data: base64Audio, mime: cleanMime };
+        idbPut("audios", { ts: msgTs, data: base64Audio, mime: cleanMime });
+
+        if (groqRes.ok && groqRes.text) {
+          orig = groqRes.text;
+        } else if (fallbackText) {
+          orig = fallbackText;
+        }
+
+        if (orig) {
+          const tr = await runTextTranslation(orig);
+          trans = tr.trans;
+          isUntranslated = tr.isUntranslated;
+        } else if (!groqRes.ok || maxVolumePeak > 0.02) {
+          const directRes = await runGeminiDirectAudio(base64Audio);
+          orig = directRes.orig;
+          trans = directRes.trans;
+        }
       }
 
       if (!orig) {
