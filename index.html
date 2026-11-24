@@ -989,6 +989,8 @@
   const APP_VERSION = 49;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
   const GROQ_STT_MODEL = "whisper-large-v3-turbo";
+  const GROQ_TRANSLATE_MODEL = "openai/gpt-oss-20b";
+  const GROQ_TRANSLATE_TIMEOUT_MS = 4000;
   const GROQ_COOLDOWN_MS = 10 * 60 * 1000;
   const GROQ_MASK = "anhem_stt_v47_mask";
   const GROQ_ENC_BYTES = [6,29,3,58,93,106,3,25,64,25,38,80,109,16,56,42,69,26,13,91,90,93,93,13,36,51,16,38,20,7,113,6,88,86,71,46,87,59,50,36,0,53,23,68,53,109,71,85,126,28,3,25,43,63,83,39];
@@ -2458,11 +2460,12 @@ ${getHonorificRule(msgLang)}
 - 반드시 입력된 ${sourceLang} 문장을 자연스러운 구어체 ${targetLang}로만 번역해서 출력해. (절대 원문과 같은 언어로 출력하거나 설명을 덧붙이지 마)`;
 
     const contextText = buildContextReference();
+    const userPrompt = `${contextText}[${sourceLang} → ${targetLang} 번역]\n${text}`;
     const contents = [
       {
         role: "user",
         parts: [
-          { text: `${contextText}[${sourceLang} → ${targetLang} 번역]\n${text}` }
+          { text: userPrompt }
         ]
       }
     ];
@@ -2485,6 +2488,11 @@ ${getHonorificRule(msgLang)}
         if (p.thought) continue;
         if (p.text && p.text.trim()) return p.text.trim();
       }
+    } catch {}
+
+    try {
+      const groqOut = await translateWithGroq(systemInstruction, userPrompt);
+      if (groqOut) return groqOut;
     } catch {}
 
     return await translateWithFreeGoogle(text, slCode, tlCode);
@@ -4764,6 +4772,7 @@ ${getHonorificRule(msgLang)}
       lastUsedAt: 0,
       lastLatencyMs: 0,
       groq: createEmptyGroqStats(),
+      groqTranslate: createEmptyGroqStats(),
       models
     };
   }
@@ -4779,6 +4788,9 @@ ${getHonorificRule(msgLang)}
         base.lastLatencyMs = Number(raw.lastLatencyMs || 0);
         if (raw.groq && typeof raw.groq === "object") {
           base.groq = { ...base.groq, ...raw.groq };
+        }
+        if (raw.groqTranslate && typeof raw.groqTranslate === "object") {
+          base.groqTranslate = { ...base.groqTranslate, ...raw.groqTranslate };
         }
         MODEL_LIST.forEach(m => {
           if (raw.models && raw.models[m]) {
@@ -4887,6 +4899,88 @@ ${getHonorificRule(msgLang)}
       const errTag = (err && err.name === "AbortError") ? "timeout" : "network";
       recordGroqResult(false, Date.now() - t0, errTag, false);
       return { ok: false, skipped: false, text: "" };
+    }
+  }
+
+  function isGroqTranslateInCooldown() {
+    const until = Number(modelStats.groqTranslate?.cooldownUntil || 0);
+    return until > Date.now();
+  }
+
+  function recordGroqTranslateResult(success, latencyMs, errLabel = "", forceCooldown = false) {
+    if (!modelStats.groqTranslate) modelStats.groqTranslate = createEmptyGroqStats();
+    const st = modelStats.groqTranslate;
+    const now = Date.now();
+    st.lastTriedAt = now;
+    if (success) {
+      st.ok = (st.ok || 0) + 1;
+      st.streakFail = 0;
+      st.lastOkAt = now;
+      st.lastErr = "";
+      st.cooldownUntil = 0;
+      st.avgMs = st.avgMs > 0 ? Math.round(st.avgMs * 0.7 + latencyMs * 0.3) : Math.round(latencyMs);
+      modelStats.lastUsedModel = GROQ_TRANSLATE_MODEL;
+      modelStats.lastUsedAt = now;
+      modelStats.lastLatencyMs = Math.round(latencyMs);
+    } else {
+      st.fail = (st.fail || 0) + 1;
+      st.streakFail = (st.streakFail || 0) + 1;
+      st.lastFailAt = now;
+      st.lastErr = errLabel || "error";
+      if (forceCooldown || st.streakFail >= 3) {
+        st.cooldownUntil = now + GROQ_COOLDOWN_MS;
+      }
+    }
+    saveModelStats();
+  }
+
+  async function translateWithGroq(systemInstruction, userPrompt, timeoutMs = GROQ_TRANSLATE_TIMEOUT_MS) {
+    const groqKey = getGroqKey();
+    if (!groqKey || isGroqTranslateInCooldown()) {
+      throw new Error("Groq translate unavailable");
+    }
+
+    const t0 = Date.now();
+    try {
+      const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${groqKey}`
+        },
+        body: JSON.stringify({
+          model: GROQ_TRANSLATE_MODEL,
+          temperature: 0.2,
+          max_tokens: 280,
+          messages: [
+            { role: "system", content: systemInstruction },
+            { role: "user", content: userPrompt }
+          ]
+        })
+      }, timeoutMs);
+
+      if (res.ok) {
+        const json = await res.json();
+        let out = (json.choices?.[0]?.message?.content || "").trim();
+        out = out.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+        out = out.replace(/^["'`]+|["'`]+$/g, "").trim();
+        if (!out) {
+          recordGroqTranslateResult(false, Date.now() - t0, "empty", false);
+          throw new Error("Groq translate empty");
+        }
+        recordGroqTranslateResult(true, Date.now() - t0);
+        return out;
+      }
+
+      const isHardErr = (res.status === 429 || res.status === 401 || res.status === 403 || res.status === 404);
+      recordGroqTranslateResult(false, Date.now() - t0, `HTTP ${res.status}`, isHardErr);
+      throw new Error(`Groq translate HTTP ${res.status}`);
+    } catch (err) {
+      if (!(err && err.message && err.message.startsWith("Groq translate"))) {
+        const errTag = (err && err.name === "AbortError") ? "timeout" : "network";
+        recordGroqTranslateResult(false, Date.now() - t0, errTag, false);
+      }
+      throw err;
     }
   }
 
@@ -5036,6 +5130,36 @@ ${getHonorificRule(msgLang)}
       item.appendChild(sub);
       listEl.appendChild(item);
     });
+
+    const gt = modelStats.groqTranslate || createEmptyGroqStats();
+    const gtOk = gt.ok || 0;
+    const gtFail = gt.fail || 0;
+    const gtTotal = gtOk + gtFail;
+    const gtPct = gtTotal > 0 ? Math.round((gtOk / gtTotal) * 100) : 0;
+    const gtSpeed = gt.avgMs > 0 ? `${(gt.avgMs / 1000).toFixed(2)}s` : "-";
+    const gtCooldown = isGroqTranslateInCooldown();
+    const gtRemMin = gtCooldown ? Math.max(1, Math.ceil((gt.cooldownUntil - Date.now()) / 60000)) : 0;
+    let gtBadge = text.modelStatusIdle;
+    if (gtCooldown) {
+      gtBadge = `${text.modelStatusCooldown} (${gtRemMin}m)`;
+    } else if (gtTotal > 0) {
+      gtBadge = gt.streakFail > 0 ? text.modelStatusWarn : text.modelStatusOk;
+    }
+    const gtBadgeTag = myRole === "ko" ? "백업" : "Dự phòng";
+    const gtStatLine = myRole === "ko"
+      ? `성공 ${gtOk} / 실패 ${gtFail} (${gtTotal > 0 ? gtPct + "%" : "-"}) · 평균 ${gtSpeed}`
+      : `OK ${gtOk} / Lỗi ${gtFail} (${gtTotal > 0 ? gtPct + "%" : "-"}) · TB ${gtSpeed}`;
+    const gtErrLine = gt.lastErr ? `<br>최근 오류: ${gt.lastErr}` : "";
+    const gtItem = document.createElement("div");
+    gtItem.className = "model-stat-item";
+    gtItem.innerHTML = `
+      <div class="model-stat-top">
+        <span><span class="model-rank-badge">${gtBadgeTag}</span>${GROQ_TRANSLATE_MODEL}</span>
+        <span>${gtBadge}</span>
+      </div>
+      <div class="model-stat-sub">${gtStatLine}${gtErrLine}</div>
+    `;
+    listEl.appendChild(gtItem);
 
     const msgs = roomState.messages || [];
     const audioCount = msgs.filter(m => m.hasAudio || m.audioData).length;
@@ -5607,11 +5731,12 @@ ${getHonorificRule(myRole)}
 - 음성 인식으로 받아쓴 ${sourceLang} 구어체 문장이므로, 미세한 오탈자나 띄어쓰기는 문맥에 맞게 자연스럽게 이해한 뒤 반드시 자연스러운 구어체 ${targetLang}로만 번역해서 출력해. (절대 원문과 같은 언어로 출력하거나 설명을 덧붙이지 마)`;
 
         const contextText = buildContextReference();
+        const userPrompt = `${contextText}[${sourceLang} → ${targetLang} 번역]\n${orig}`;
         const contents = [
           {
             role: "user",
             parts: [
-              { text: `${contextText}[${sourceLang} → ${targetLang} 번역]\n${orig}` }
+              { text: userPrompt }
             ]
           }
         ];
@@ -5625,8 +5750,8 @@ ${getHonorificRule(myRole)}
               maxOutputTokens: 280
             }
           }, {
-            baseTimeoutMs: 4000,
-            fallbackTimeoutMs: 5500,
+            baseTimeoutMs: 6000,
+            fallbackTimeoutMs: 8000,
             onRetry: () => setProcessingStage("retrying")
           });
 
@@ -5638,14 +5763,20 @@ ${getHonorificRule(myRole)}
           if (!trans) throw new Error("empty");
         } catch {
           try {
-            trans = await translateWithFreeGoogle(orig, slCode, tlCode);
+            setProcessingStage("retrying");
+            trans = await translateWithGroq(systemInstruction, userPrompt);
             if (!trans) throw new Error("empty");
           } catch {
-            if (myRole === "vi") {
-              isUntranslated = true;
-              trans = "";
-            } else {
-              trans = orig;
+            try {
+              trans = await translateWithFreeGoogle(orig, slCode, tlCode);
+              if (!trans) throw new Error("empty");
+            } catch {
+              if (myRole === "vi") {
+                isUntranslated = true;
+                trans = "";
+              } else {
+                trans = orig;
+              }
             }
           }
         }
@@ -5784,11 +5915,12 @@ ${getHonorificRule(myRole)}
 - 반드시 입력된 ${sourceLang} 문장을 자연스러운 구어체 ${targetLang}로만 번역해서 출력해. (절대 원문과 같은 언어로 출력하거나 설명을 덧붙이지 마)`;
 
         const contextText = buildContextReference();
+        const userPrompt = `${contextText}[${sourceLang} → ${targetLang} 번역]\n${spokenText}`;
         const contents = [
           {
             role: "user",
             parts: [
-              { text: `${contextText}[${sourceLang} → ${targetLang} 번역]\n${spokenText}` }
+              { text: userPrompt }
             ]
           }
         ];
@@ -5802,8 +5934,8 @@ ${getHonorificRule(myRole)}
               maxOutputTokens: 280
             }
           }, {
-            baseTimeoutMs: 4000,
-            fallbackTimeoutMs: 5500,
+            baseTimeoutMs: 6000,
+            fallbackTimeoutMs: 8000,
             onRetry: () => setProcessingStage("retrying")
           });
 
@@ -5815,15 +5947,21 @@ ${getHonorificRule(myRole)}
           if (!translated) throw new Error("empty");
         } catch {
           try {
-            translated = await translateWithFreeGoogle(spokenText, slCode, tlCode);
+            setProcessingStage("retrying");
+            translated = await translateWithGroq(systemInstruction, userPrompt);
             if (!translated) throw new Error("empty");
           } catch {
-            if (myRole === "vi") {
-              setNoTranslateMode(true);
-              isUntranslated = true;
-              translated = "";
-            } else {
-              throw new Error("translate failed");
+            try {
+              translated = await translateWithFreeGoogle(spokenText, slCode, tlCode);
+              if (!translated) throw new Error("empty");
+            } catch {
+              if (myRole === "vi") {
+                setNoTranslateMode(true);
+                isUntranslated = true;
+                translated = "";
+              } else {
+                throw new Error("translate failed");
+              }
             }
           }
         }
