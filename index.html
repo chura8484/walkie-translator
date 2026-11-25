@@ -339,22 +339,26 @@
 
     #partnerSubtitleStack {
       position: absolute;
-      top: 76px;
+      bottom: 66px;
       left: 16px;
       width: auto;
-      max-width: min(82%, 380px);
+      max-width: min(calc(100% - 116px), 380px);
       display: flex;
       flex-direction: column;
       align-items: flex-start;
       gap: 8px;
       z-index: 9;
       pointer-events: none;
+      transition: bottom 0.2s ease;
     }
+    body.in-video-call.video-fullscreen #partnerSubtitleStack { bottom: 112px; }
+    body.in-video-call.video-fullscreen.video-menu-open #partnerSubtitleStack { bottom: 208px; }
+    body.in-video-call.video-fullscreen.video-menu-open.no-emoji-bar #partnerSubtitleStack { bottom: 160px; }
     .partner-sub-item {
       position: relative;
       max-width: 100%;
       padding: 10px 15px;
-      border-radius: 4px 18px 18px 18px;
+      border-radius: 18px 18px 18px 4px;
       background: rgba(18, 20, 26, 0.88);
       backdrop-filter: blur(7px);
       border: 1.5px solid rgba(255, 152, 0, 0.78);
@@ -362,30 +366,30 @@
       text-align: left;
       word-break: break-word;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
-      transform-origin: top left;
+      transform-origin: bottom left;
       animation: bubblePopIn 0.24s cubic-bezier(0.22, 1.28, 0.36, 1);
     }
     .partner-sub-item::before {
       content: "";
       position: absolute;
-      top: -1.5px;
+      bottom: -1.5px;
       left: -8px;
       width: 0;
       height: 0;
-      border-top: 0 solid transparent;
+      border-top: 9px solid transparent;
       border-right: 8px solid rgba(255, 152, 0, 0.78);
-      border-bottom: 9px solid transparent;
+      border-bottom: 0 solid transparent;
     }
     .partner-sub-item::after {
       content: "";
       position: absolute;
-      top: 0;
+      bottom: 0;
       left: -5px;
       width: 0;
       height: 0;
-      border-top: 0 solid transparent;
+      border-top: 7px solid transparent;
       border-right: 6px solid rgba(18, 20, 26, 0.92);
-      border-bottom: 7px solid transparent;
+      border-bottom: 0 solid transparent;
     }
     .partner-sub-item.test-preview { border-color: rgba(38, 198, 218, 0.82); }
     .partner-sub-item.test-preview::before { border-right-color: rgba(38, 198, 218, 0.82); }
@@ -402,7 +406,7 @@
       line-height: 1.32;
     }
     @keyframes bubblePopIn {
-      0% { opacity: 0; transform: scale(0.84) translateY(-4px); }
+      0% { opacity: 0; transform: scale(0.84) translateY(6px); }
       100% { opacity: 1; transform: scale(1) translateY(0); }
     }
 
@@ -1142,11 +1146,11 @@
 </footer>
 
 <script>
-  const APP_VERSION = 57;
+  const APP_VERSION = 58;
   const LIVE_MAX_CHUNK_MS = 10000;
-  const LIVE_MIN_SPEECH_MS = 450;
-  const LIVE_ONSET_MS = 120;
-  const LIVE_MIN_VOICED_MS = 220;
+  const LIVE_MIN_SPEECH_MS = 480;
+  const LIVE_ONSET_MS = 150;
+  const LIVE_MIN_VOICED_MS = 280;
   const LIVE_SILENCE_MS = 900;
   const LIVE_PREROLL_MS = 550;
   const LIVE_WAV_SAMPLE_RATE = 16000;
@@ -3964,7 +3968,7 @@ ${getHonorificRule(msgLang)}
       }, 1500);
 
       liveVadActive = true;
-      liveNoiseFloor = 0.008;
+      liveNoiseFloor = 0.010;
       liveSpeaking = false;
       liveOnsetAt = 0;
       liveVoicedMs = 0;
@@ -4007,8 +4011,8 @@ ${getHonorificRule(msgLang)}
         const chunkMs = (input.length / liveSampleRate) * 1000;
         const chunkCopy = new Float32Array(input);
 
-        // 비대칭 자동 주변소음 추적 (v54와 v56의 중간 감도)
-        const threshold = Math.max(0.014, liveNoiseFloor * 2.0 + 0.006);
+        // 비대칭 자동 주변소음 추적 (v56과 v57의 중간 감도)
+        const threshold = Math.max(0.020, liveNoiseFloor * 2.3 + 0.009);
 
         if (!liveSpeaking) {
           // 0.55초 블랙박스 프리롤 링 버퍼 유지 (말 앞부분 잘림 방지)
@@ -4019,11 +4023,11 @@ ${getHonorificRule(msgLang)}
           }
 
           if (rms > liveNoiseFloor) {
-            liveNoiseFloor = liveNoiseFloor * 0.92 + Math.min(rms, 0.08) * 0.08;
+            liveNoiseFloor = liveNoiseFloor * 0.91 + Math.min(rms, 0.10) * 0.09;
           } else {
-            liveNoiseFloor = liveNoiseFloor * 0.97 + rms * 0.03;
+            liveNoiseFloor = liveNoiseFloor * 0.975 + rms * 0.025;
           }
-          liveNoiseFloor = Math.min(0.055, Math.max(0.004, liveNoiseFloor));
+          liveNoiseFloor = Math.min(0.065, Math.max(0.006, liveNoiseFloor));
 
           if (rms > threshold) {
             if (!liveOnsetAt) liveOnsetAt = now;
@@ -4112,8 +4116,8 @@ ${getHonorificRule(msgLang)}
       let orig = "";
       let trans = "";
 
-      const groqRes = await transcribeWithGroq(audioBlob, cleanMime, slCode);
-      if (groqRes.ok && groqRes.text) {
+      const groqRes = await transcribeWithGroq(audioBlob, cleanMime, slCode, { strictNoSpeech: true });
+      if (groqRes.ok) {
         orig = groqRes.text;
       } else if (speechHint) {
         orig = speechHint;
@@ -5825,7 +5829,7 @@ ${getHonorificRule(myRole)}
     return "audio.m4a";
   }
 
-  async function transcribeWithGroq(audioBlob, cleanMime, langCode) {
+  async function transcribeWithGroq(audioBlob, cleanMime, langCode, opts = {}) {
     const groqKey = getGroqKey();
     if (!groqKey || isGroqInCooldown()) {
       return { ok: false, skipped: true, text: "" };
@@ -5837,7 +5841,7 @@ ${getHonorificRule(myRole)}
     formData.append("file", audioBlob, pickGroqFilename(cleanMime));
     formData.append("model", sttModel);
     formData.append("language", langCode);
-    formData.append("response_format", "json");
+    formData.append("response_format", "verbose_json");
     formData.append("temperature", "0");
 
     const t0 = Date.now();
@@ -5852,7 +5856,19 @@ ${getHonorificRule(myRole)}
 
       if (res.ok) {
         const json = await res.json();
-        const cleaned = cleanWhisperText(json.text || "");
+        let rawText = json.text || "";
+        if (Array.isArray(json.segments) && json.segments.length > 0) {
+          const maxNoSpeech = opts.strictNoSpeech ? 0.62 : 0.80;
+          const validSegs = json.segments.filter(seg => {
+            const nsp = typeof seg.no_speech_prob === "number" ? seg.no_speech_prob : 0;
+            const logp = typeof seg.avg_logprob === "number" ? seg.avg_logprob : 0;
+            if (nsp >= maxNoSpeech) return false;
+            if (opts.strictNoSpeech && nsp >= 0.45 && logp < -1.0) return false;
+            return true;
+          });
+          rawText = validSegs.map(s => (s.text || "").trim()).filter(Boolean).join(" ");
+        }
+        const cleaned = cleanWhisperText(rawText);
         recordGroqResult(true, Date.now() - t0);
         return { ok: true, skipped: false, text: cleaned };
       }
