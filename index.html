@@ -339,51 +339,71 @@
 
     #partnerSubtitleStack {
       position: absolute;
-      bottom: 66px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 94%;
-      max-width: 540px;
+      top: 76px;
+      left: 16px;
+      width: auto;
+      max-width: min(82%, 380px);
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 7px;
-      z-index: 8;
+      align-items: flex-start;
+      gap: 8px;
+      z-index: 9;
       pointer-events: none;
-      transition: bottom 0.2s ease;
     }
-    body.in-video-call.video-fullscreen #partnerSubtitleStack { bottom: 118px; }
-    body.in-video-call.video-fullscreen.video-menu-open #partnerSubtitleStack { bottom: 214px; }
-    body.in-video-call.video-fullscreen.video-menu-open.no-emoji-bar #partnerSubtitleStack { bottom: 166px; }
     .partner-sub-item {
+      position: relative;
       max-width: 100%;
-      padding: 10px 16px;
-      border-radius: 13px;
-      background: rgba(0, 0, 0, 0.85);
-      backdrop-filter: blur(6px);
-      border-left: 5px solid #ff9800;
+      padding: 10px 15px;
+      border-radius: 4px 18px 18px 18px;
+      background: rgba(18, 20, 26, 0.88);
+      backdrop-filter: blur(7px);
+      border: 1.5px solid rgba(255, 152, 0, 0.78);
       color: #fff;
       text-align: left;
       word-break: break-word;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.52);
-      animation: subFadeIn 0.2s ease-out;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
+      transform-origin: top left;
+      animation: bubblePopIn 0.24s cubic-bezier(0.22, 1.28, 0.36, 1);
     }
-    .partner-sub-item.test-preview { border-left-color: #26c6da; }
+    .partner-sub-item::before {
+      content: "";
+      position: absolute;
+      top: -1.5px;
+      left: -8px;
+      width: 0;
+      height: 0;
+      border-top: 0 solid transparent;
+      border-right: 8px solid rgba(255, 152, 0, 0.78);
+      border-bottom: 9px solid transparent;
+    }
+    .partner-sub-item::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -5px;
+      width: 0;
+      height: 0;
+      border-top: 0 solid transparent;
+      border-right: 6px solid rgba(18, 20, 26, 0.92);
+      border-bottom: 7px solid transparent;
+    }
+    .partner-sub-item.test-preview { border-color: rgba(38, 198, 218, 0.82); }
+    .partner-sub-item.test-preview::before { border-right-color: rgba(38, 198, 218, 0.82); }
     .partner-sub-trans {
-      font-size: 19px;
+      font-size: 18.5px;
       font-weight: bold;
       line-height: 1.38;
       text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
     }
     .partner-sub-orig {
-      font-size: 12.5px;
-      color: rgba(255,255,255,0.8);
+      font-size: 12px;
+      color: rgba(255,255,255,0.76);
       margin-top: 3px;
       line-height: 1.32;
     }
-    @keyframes subFadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
+    @keyframes bubblePopIn {
+      0% { opacity: 0; transform: scale(0.84) translateY(-4px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
     }
 
     #localVideoWrap { position: absolute; width: 92px; height: 126px; border-radius: 10px; overflow: hidden; border: 2px solid rgba(255,255,255,0.55); background: #1a1a1a; z-index: 6; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: all 0.2s ease; }
@@ -1122,12 +1142,14 @@
 </footer>
 
 <script>
-  const APP_VERSION = 55;
+  const APP_VERSION = 56;
   const LIVE_MAX_CHUNK_MS = 10000;
   const LIVE_MIN_SPEECH_MS = 500;
   const LIVE_ONSET_MS = 200;
   const LIVE_MIN_VOICED_MS = 350;
   const LIVE_SILENCE_MS = 900;
+  const LIVE_PREROLL_MS = 550;
+  const LIVE_WAV_SAMPLE_RATE = 16000;
   const LIVE_SUBTITLE_TTL_MS = 8000;
   const LIVE_SUBTITLE_MAX_LINES = 2;
   const FIREBASE_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
@@ -1885,21 +1907,20 @@
   let isLiveTranslateEnabled = true;
   let liveVadActive = false;
   let liveAudioCtx = null;
-  let liveAnalyser = null;
-  let liveVadRaf = null;
+  let liveProcessor = null;
+  let liveZeroGain = null;
   let liveSourceStream = null;
   let liveStopSourceOnFinish = false;
-  let liveNoiseFloor = 0.012;
-  let liveRecorder = null;
-  let liveChunks = [];
+  let liveNoiseFloor = 0.015;
+  let liveSampleRate = 48000;
+  let livePreRollChunks = [];
+  let livePreRollSamples = 0;
+  let liveSpeechPcmChunks = [];
   let liveSpeaking = false;
   let liveOnsetAt = 0;
   let liveVoicedMs = 0;
-  let liveLastTickAt = 0;
   let liveSpeechStartAt = 0;
   let liveLastVoiceAt = 0;
-  let liveChunkMime = "";
-  let liveDiscardCurrent = false;
   let liveSpeechRec = null;
   let liveInterimText = "";
   let liveFinalBuffer = "";
@@ -3775,71 +3796,82 @@ ${getHonorificRule(msgLang)}
     }
   }
 
-  function startLiveChunk() {
-    if (!liveSourceStream || liveRecorder || typeof MediaRecorder === "undefined") return;
-    const mimeType = pickAudioMimeType();
-    const options = { audioBitsPerSecond: 64000 };
-    if (mimeType) options.mimeType = mimeType;
-
-    liveChunks = [];
-    liveDiscardCurrent = false;
-    try {
-      liveRecorder = new MediaRecorder(liveSourceStream, options);
-    } catch {
-      try {
-        liveRecorder = new MediaRecorder(liveSourceStream);
-      } catch {
-        liveRecorder = null;
-        return;
-      }
+  function encodePcmToWavBlob(chunks, inputRate, targetRate = LIVE_WAV_SAMPLE_RATE) {
+    let totalLen = 0;
+    for (let i = 0; i < chunks.length; i++) totalLen += chunks[i].length;
+    const merged = new Float32Array(totalLen);
+    let offset = 0;
+    for (let i = 0; i < chunks.length; i++) {
+      merged.set(chunks[i], offset);
+      offset += chunks[i].length;
     }
-    liveChunkMime = (liveRecorder.mimeType || mimeType || "audio/mp4").split(";")[0];
 
-    const chunkRec = liveRecorder;
-    const chunkStart = Date.now();
-    chunkRec.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) liveChunks.push(e.data);
-    };
-    chunkRec.onstop = () => {
-      const chunksCopy = liveChunks.slice();
-      const mimeCopy = liveChunkMime;
-      const discarded = liveDiscardCurrent;
-      const hintText = `${liveFinalBuffer} ${liveInterimText}`.trim();
-      const durMs = Date.now() - chunkStart;
-      const voicedMsCopy = liveVoicedMs;
-
-      liveChunks = [];
-      liveFinalBuffer = "";
-      liveInterimText = "";
-      liveVoicedMs = 0;
-      if (liveRecorder === chunkRec) liveRecorder = null;
-
-      if (discarded || durMs < LIVE_MIN_SPEECH_MS || voicedMsCopy < LIVE_MIN_VOICED_MS || chunksCopy.length === 0) {
-        refreshLiveCallBoxState();
-        return;
+    let samples = merged;
+    let outRate = inputRate;
+    if (inputRate > targetRate) {
+      const ratio = inputRate / targetRate;
+      const newLen = Math.max(1, Math.floor(merged.length / ratio));
+      samples = new Float32Array(newLen);
+      for (let i = 0; i < newLen; i++) {
+        const idx = i * ratio;
+        const i0 = Math.floor(idx);
+        const i1 = Math.min(i0 + 1, merged.length - 1);
+        const frac = idx - i0;
+        samples[i] = merged[i0] + (merged[i1] - merged[i0]) * frac;
       }
+      outRate = targetRate;
+    }
 
-      const blob = new Blob(chunksCopy, { type: mimeCopy });
-      processLiveUtterance(blob, mimeCopy, hintText);
+    const dataBytes = samples.length * 2;
+    const buffer = new ArrayBuffer(44 + dataBytes);
+    const view = new DataView(buffer);
+    const writeStr = (pos, str) => {
+      for (let i = 0; i < str.length; i++) view.setUint8(pos + i, str.charCodeAt(i));
     };
 
-    try {
-      chunkRec.start(250);
-    } catch {
-      try { chunkRec.start(); } catch { liveRecorder = null; }
+    writeStr(0, "RIFF");
+    view.setUint32(4, 36 + dataBytes, true);
+    writeStr(8, "WAVE");
+    writeStr(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, outRate, true);
+    view.setUint32(28, outRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, "data");
+    view.setUint32(40, dataBytes, true);
+
+    let p = 44;
+    for (let i = 0; i < samples.length; i++) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(p, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      p += 2;
     }
+    return new Blob([buffer], { type: "audio/wav" });
   }
 
-  function stopLiveChunk(discard = false) {
+  function finishLivePcmCapture(discard = false) {
+    const chunksCopy = liveSpeechPcmChunks.slice();
+    const voicedMsCopy = liveVoicedMs;
+    const durMs = liveSpeechStartAt ? (Date.now() - liveSpeechStartAt) : 0;
+    const hintText = `${liveFinalBuffer} ${liveInterimText}`.trim();
+
     liveSpeaking = false;
-    liveDiscardCurrent = discard;
-    if (liveRecorder && liveRecorder.state !== "inactive") {
-      try { liveRecorder.stop(); } catch { liveRecorder = null; }
-    } else {
-      liveRecorder = null;
-      liveChunks = [];
-    }
+    liveSpeechPcmChunks = [];
+    liveVoicedMs = 0;
+    liveSpeechStartAt = 0;
+    liveFinalBuffer = "";
+    liveInterimText = "";
     refreshLiveCallBoxState();
+
+    if (discard || durMs < LIVE_MIN_SPEECH_MS || voicedMsCopy < LIVE_MIN_VOICED_MS || chunksCopy.length === 0) {
+      return;
+    }
+
+    const wavBlob = encodePcmToWavBlob(chunksCopy, liveSampleRate, LIVE_WAV_SAMPLE_RATE);
+    processLiveUtterance(wavBlob, "audio/wav", hintText);
   }
 
   function startLiveTranslateEngine() {
@@ -3869,19 +3901,28 @@ ${getHonorificRule(msgLang)}
       if (liveAudioCtx.state === "suspended") {
         liveAudioCtx.resume().catch(() => {});
       }
+      liveSampleRate = liveAudioCtx.sampleRate || 48000;
+      const maxPreRollSamples = Math.round(liveSampleRate * (LIVE_PREROLL_MS / 1000));
+
       const src = liveAudioCtx.createMediaStreamSource(liveSourceStream);
-      liveAnalyser = liveAudioCtx.createAnalyser();
-      liveAnalyser.fftSize = 256;
-      src.connect(liveAnalyser);
+      liveProcessor = liveAudioCtx.createScriptProcessor(2048, 1, 1);
+      liveZeroGain = liveAudioCtx.createGain();
+      liveZeroGain.gain.value = 0;
+
+      src.connect(liveProcessor);
+      liveProcessor.connect(liveZeroGain);
+      liveZeroGain.connect(liveAudioCtx.destination);
 
       liveVadActive = true;
       liveNoiseFloor = 0.015;
       liveSpeaking = false;
       liveOnsetAt = 0;
       liveVoicedMs = 0;
-      liveLastTickAt = Date.now();
       liveSpeechStartAt = 0;
       liveLastVoiceAt = 0;
+      livePreRollChunks = [];
+      livePreRollSamples = 0;
+      liveSpeechPcmChunks = [];
       liveMyText.textContent = t().livePlaceholderIdle;
       liveMyTrans.textContent = "";
       liveMyTrans.classList.add("hidden");
@@ -3889,33 +3930,44 @@ ${getHonorificRule(msgLang)}
       startLiveSpeechPreview();
       refreshLiveCallBoxState();
 
-      const dataArr = new Uint8Array(256);
-      const vadTick = () => {
+      liveProcessor.onaudioprocess = (event) => {
         if (!liveVadActive) return;
-        let sumSq = 0;
-        if (liveAnalyser && liveAudioCtx) {
-          if (liveAudioCtx.state === "suspended") {
-            liveAudioCtx.resume().catch(() => {});
-          }
-          liveAnalyser.getByteTimeDomainData(dataArr);
-          for (let i = 0; i < dataArr.length; i++) {
-            const v = (dataArr[i] - 128) / 128;
-            sumSq += v * v;
-          }
-        }
-        const rms = Math.sqrt(sumSq / dataArr.length);
+        const input = event.inputBuffer.getChannelData(0);
+        if (!input || input.length === 0) return;
 
+        if (isRecording || isMuted) {
+          liveMiniVolBar.style.width = "4%";
+          liveOnsetAt = 0;
+          livePreRollChunks = [];
+          livePreRollSamples = 0;
+          if (liveSpeaking) finishLivePcmCapture(true);
+          return;
+        }
+
+        let sumSq = 0;
+        for (let i = 0; i < input.length; i++) {
+          const v = input[i];
+          sumSq += v * v;
+        }
+        const rms = Math.sqrt(sumSq / input.length);
         const pct = Math.min(100, Math.max(4, Math.round(rms * 420)));
         liveMiniVolBar.style.width = `${pct}%`;
 
         const now = Date.now();
-        const dt = Math.min(100, Math.max(0, now - liveLastTickAt));
-        liveLastTickAt = now;
+        const chunkMs = (input.length / liveSampleRate) * 1000;
+        const chunkCopy = new Float32Array(input);
 
         // 비대칭 자동 주변소음 추적 (시끄러워지면 빠르게 상향, 조용해지면 천천히 하향)
         const threshold = Math.max(0.028, liveNoiseFloor * 2.6 + 0.012);
 
         if (!liveSpeaking) {
+          // 0.55초 블랙박스 프리롤 링 버퍼 유지 (말 앞부분 잘림 방지)
+          livePreRollChunks.push(chunkCopy);
+          livePreRollSamples += chunkCopy.length;
+          while (livePreRollSamples > maxPreRollSamples && livePreRollChunks.length > 1) {
+            livePreRollSamples -= livePreRollChunks.shift().length;
+          }
+
           if (rms > liveNoiseFloor) {
             liveNoiseFloor = liveNoiseFloor * 0.90 + Math.min(rms, 0.12) * 0.10;
           } else {
@@ -3923,7 +3975,7 @@ ${getHonorificRule(msgLang)}
           }
           liveNoiseFloor = Math.min(0.075, Math.max(0.008, liveNoiseFloor));
 
-          if (rms > threshold && !isRecording && !isMuted) {
+          if (rms > threshold) {
             if (!liveOnsetAt) liveOnsetAt = now;
             if (now - liveOnsetAt >= LIVE_ONSET_MS) {
               liveSpeaking = true;
@@ -3931,27 +3983,27 @@ ${getHonorificRule(msgLang)}
               liveLastVoiceAt = now;
               liveVoicedMs = LIVE_ONSET_MS;
               liveOnsetAt = 0;
-              startLiveChunk();
+              liveSpeechPcmChunks = livePreRollChunks.slice();
+              livePreRollChunks = [];
+              livePreRollSamples = 0;
               refreshLiveCallBoxState();
             }
           } else if (rms < threshold * 0.8) {
             liveOnsetAt = 0;
           }
         } else {
+          liveSpeechPcmChunks.push(chunkCopy);
           if (rms > threshold * 0.65) {
             liveLastVoiceAt = now;
-            liveVoicedMs += dt;
+            liveVoicedMs += chunkMs;
           }
           const elapsed = now - liveSpeechStartAt;
           const silenceFor = now - liveLastVoiceAt;
           if (silenceFor >= LIVE_SILENCE_MS || elapsed >= LIVE_MAX_CHUNK_MS) {
-            stopLiveChunk(false);
+            finishLivePcmCapture(false);
           }
         }
-
-        liveVadRaf = requestAnimationFrame(vadTick);
       };
-      liveVadRaf = requestAnimationFrame(vadTick);
     } catch {
       stopLiveTranslateEngine(false);
     }
@@ -3960,11 +4012,26 @@ ${getHonorificRule(msgLang)}
   function stopLiveTranslateEngine(clearText = false) {
     liveVadActive = false;
     liveOnsetAt = 0;
-    liveVoicedMs = 0;
-    if (liveVadRaf) { cancelAnimationFrame(liveVadRaf); liveVadRaf = null; }
+    livePreRollChunks = [];
+    livePreRollSamples = 0;
     stopLiveSpeechPreview();
-    stopLiveChunk(true);
-    if (liveAudioCtx) { liveAudioCtx.close().catch(() => {}); liveAudioCtx = null; liveAnalyser = null; }
+    if (liveSpeaking) {
+      finishLivePcmCapture(true);
+    } else {
+      liveSpeechPcmChunks = [];
+      liveVoicedMs = 0;
+      liveSpeechStartAt = 0;
+    }
+    if (liveProcessor) {
+      liveProcessor.onaudioprocess = null;
+      try { liveProcessor.disconnect(); } catch {}
+      liveProcessor = null;
+    }
+    if (liveZeroGain) {
+      try { liveZeroGain.disconnect(); } catch {}
+      liveZeroGain = null;
+    }
+    if (liveAudioCtx) { liveAudioCtx.close().catch(() => {}); liveAudioCtx = null; }
     if (liveSourceStream) {
       if (liveStopSourceOnFinish) liveSourceStream.getTracks().forEach(tr => tr.stop());
       liveSourceStream = null;
