@@ -317,40 +317,70 @@
     #videoSubtitleOverlay.other { border-left: 4px solid #ff9800; }
     #videoSubtitleOverlay.mine { border-left: 4px solid #42a5f5; }
 
+    #topEndCallBtn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 20;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.28);
+      background: rgba(198, 40, 40, 0.92);
+      color: #fff;
+      font-size: 19px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.5);
+    }
+    #topEndCallBtn:active { transform: scale(0.92); }
+
     #partnerSubtitleStack {
       position: absolute;
-      bottom: 62px;
+      bottom: 66px;
       left: 50%;
       transform: translateX(-50%);
-      width: 92%;
-      max-width: 520px;
+      width: 94%;
+      max-width: 540px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;
+      gap: 7px;
       z-index: 8;
       pointer-events: none;
       transition: bottom 0.2s ease;
     }
-    body.in-video-call.video-fullscreen #partnerSubtitleStack { bottom: 96px; }
-    body.in-video-call.video-fullscreen.video-menu-open #partnerSubtitleStack { bottom: 196px; }
-    body.in-video-call.video-fullscreen.video-menu-open.no-emoji-bar #partnerSubtitleStack { bottom: 148px; }
+    body.in-video-call.video-fullscreen #partnerSubtitleStack { bottom: 118px; }
+    body.in-video-call.video-fullscreen.video-menu-open #partnerSubtitleStack { bottom: 214px; }
+    body.in-video-call.video-fullscreen.video-menu-open.no-emoji-bar #partnerSubtitleStack { bottom: 166px; }
     .partner-sub-item {
       max-width: 100%;
-      padding: 8px 14px;
-      border-radius: 12px;
-      background: rgba(0, 0, 0, 0.76);
-      backdrop-filter: blur(5px);
-      border-left: 4px solid #ff9800;
+      padding: 10px 16px;
+      border-radius: 13px;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(6px);
+      border-left: 5px solid #ff9800;
       color: #fff;
       text-align: left;
       word-break: break-word;
-      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.52);
       animation: subFadeIn 0.2s ease-out;
     }
     .partner-sub-item.test-preview { border-left-color: #26c6da; }
-    .partner-sub-trans { font-size: 16px; font-weight: bold; line-height: 1.38; }
-    .partner-sub-orig { font-size: 11px; color: rgba(255,255,255,0.72); margin-top: 2px; line-height: 1.3; }
+    .partner-sub-trans {
+      font-size: 19px;
+      font-weight: bold;
+      line-height: 1.38;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+    }
+    .partner-sub-orig {
+      font-size: 12.5px;
+      color: rgba(255,255,255,0.8);
+      margin-top: 3px;
+      line-height: 1.32;
+    }
     @keyframes subFadeIn {
       from { opacity: 0; transform: translateY(6px); }
       to { opacity: 1; transform: translateY(0); }
@@ -358,20 +388,20 @@
 
     #localVideoWrap { position: absolute; width: 92px; height: 126px; border-radius: 10px; overflow: hidden; border: 2px solid rgba(255,255,255,0.55); background: #1a1a1a; z-index: 6; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.5); transition: all 0.2s ease; }
     #localVideoWrap.pos-br { right: 10px; bottom: 60px; left: auto; top: auto; }
-    #localVideoWrap.pos-tr { right: 10px; top: 12px; left: auto; bottom: auto; }
+    #localVideoWrap.pos-tr { right: 10px; top: 64px; left: auto; bottom: auto; }
     #localVideoWrap.pos-tl { left: 10px; top: 12px; right: auto; bottom: auto; }
     #localVideoWrap.pos-bl { left: 10px; bottom: 60px; right: auto; top: auto; }
     body.in-video-call.video-fullscreen #localVideoWrap.pos-br,
-    body.in-video-call.video-fullscreen #localVideoWrap.pos-bl { bottom: 82px; }
+    body.in-video-call.video-fullscreen #localVideoWrap.pos-bl { bottom: 112px; }
     body.in-video-call.video-fullscreen.video-menu-open #localVideoWrap.pos-br,
-    body.in-video-call.video-fullscreen.video-menu-open #localVideoWrap.pos-bl { bottom: 182px; }
+    body.in-video-call.video-fullscreen.video-menu-open #localVideoWrap.pos-bl { bottom: 208px; }
     body.in-video-call.video-fullscreen.video-menu-open.no-emoji-bar #localVideoWrap.pos-br,
-    body.in-video-call.video-fullscreen.video-menu-open.no-emoji-bar #localVideoWrap.pos-bl { bottom: 134px; }
+    body.in-video-call.video-fullscreen.video-menu-open.no-emoji-bar #localVideoWrap.pos-bl { bottom: 160px; }
 
     #localVideo { width: 100%; height: 100%; object-fit: cover; }
     .mirrored { transform: scaleX(-1); }
     #localCamOffMask { position: absolute; inset: 0; background: #222; display: flex; align-items: center; justify-content: center; font-size: 24px; z-index: 3; }
-    #showPipBtn { position: absolute; right: 10px; top: 12px; z-index: 6; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.4); background: rgba(0,0,0,0.55); color: #fff; font-size: 15px; cursor: pointer; }
+    #showPipBtn { position: absolute; right: 12px; top: 64px; z-index: 6; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.4); background: rgba(0,0,0,0.55); color: #fff; font-size: 15px; cursor: pointer; }
 
     #videoControls {
       position: absolute;
@@ -390,13 +420,13 @@
       transition: opacity 0.2s ease, transform 0.2s ease;
     }
     body.in-video-call.video-fullscreen #videoControls {
-      bottom: 126px;
+      bottom: 146px;
       opacity: 0;
       pointer-events: none;
       transform: translate(-50%, 10px);
     }
     body.in-video-call.video-fullscreen.no-emoji-bar #videoControls {
-      bottom: 78px;
+      bottom: 98px;
     }
     body.in-video-call.video-fullscreen.video-menu-open #videoControls {
       opacity: 1;
@@ -700,79 +730,52 @@
     }
     body.in-video-call.video-fullscreen footer #micBtn,
     body.in-video-call.video-fullscreen footer #liveCallBox,
-    body.in-video-call.video-fullscreen footer #liveToggleBtn,
-    body.in-video-call.video-fullscreen footer #floatEndCallBtn,
     body.in-video-call.video-fullscreen footer #recordingControls button {
       box-shadow: 0 4px 16px rgba(0,0,0,0.45);
     }
 
     #micRow { display: flex; gap: 8px; align-items: stretch; }
-    #liveToggleBtn {
-      display: none;
-      width: 50px;
-      flex-shrink: 0;
-      border: 1px solid rgba(255,255,255,0.22);
-      border-radius: 14px;
-      background: #424242;
-      color: #bbb;
-      font-size: 18px;
-      font-weight: bold;
-      cursor: pointer;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      line-height: 1.05;
-      padding: 4px 2px;
-      transition: background 0.15s, color 0.15s;
-    }
-    #liveToggleBtn.on {
-      background: #00897b;
-      color: #fff;
-      border-color: #26a69a;
-    }
-    #liveToggleBtn span.lt-sub { font-size: 9px; margin-top: 2px; letter-spacing: 0.2px; }
-    body.in-video-call #liveToggleBtn { display: flex; }
-
     #liveCallBox {
       flex: 1;
+      width: 100%;
       min-width: 0;
-      min-height: 52px;
-      padding: 7px 12px;
+      min-height: 64px;
+      padding: 9px 14px;
       border-radius: 14px;
-      background: rgba(18, 28, 42, 0.86);
-      backdrop-filter: blur(6px);
+      background: rgba(10, 20, 34, 0.9);
+      backdrop-filter: blur(7px);
       border: 1.5px solid #42a5f5;
       color: #fff;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 3px;
+      gap: 4px;
       overflow: hidden;
     }
     #liveCallBox.speaking {
       border-color: #4caf50;
-      background: rgba(18, 38, 24, 0.9);
+      background: rgba(14, 34, 20, 0.92);
     }
     #liveCallBox.muted {
       border-color: #ef6c00;
-      background: rgba(42, 24, 14, 0.86);
+      background: rgba(42, 22, 12, 0.9);
     }
     .live-call-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      font-size: 11px;
+      font-size: 11.5px;
       font-weight: bold;
       color: #90caf9;
     }
     #liveCallBox.speaking .live-call-top { color: #81c784; }
     #liveCallBox.muted .live-call-top { color: #ffb74d; }
     .live-mini-meter {
-      width: 58px;
-      height: 5px;
+      width: 68px;
+      height: 6px;
       border-radius: 4px;
-      background: rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.18);
       overflow: hidden;
       flex-shrink: 0;
     }
@@ -783,37 +786,28 @@
       transition: width 0.06s linear;
     }
     #liveMyText {
-      font-size: 14px;
+      font-size: 16px;
       font-weight: bold;
       color: #fff;
-      white-space: nowrap;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
       overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.3;
+      word-break: break-word;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
     }
     #liveMyTrans {
-      font-size: 11px;
-      color: #b3e5fc;
-      white-space: nowrap;
+      font-size: 14px;
+      font-weight: bold;
+      color: #ffe082;
+      line-height: 1.32;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
       overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.25;
-    }
-    #floatEndCallBtn {
-      display: none;
-      width: 54px;
-      flex-shrink: 0;
-      border: none;
-      border-radius: 14px;
-      background: #c62828;
-      color: #fff;
-      font-size: 20px;
-      cursor: pointer;
-      align-items: center;
-      justify-content: center;
-    }
-    body.in-video-call.video-fullscreen #floatEndCallBtn {
-      display: flex;
+      word-break: break-word;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
     }
 
     #replyPreviewBar { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface-2); border-left: 3px solid #0078ff; padding: 6px 10px; border-radius: 8px; font-size: 12px; color: var(--text-sub); }
@@ -1040,6 +1034,7 @@
   <video id="remoteVideo" autoplay playsinline></video>
   <canvas id="doodleCanvas"></canvas>
   <div id="callTimerBadge" class="hidden">00:00</div>
+  <button id="topEndCallBtn" onclick="endVideoCall()" title="통화 종료">📵</button>
   <div id="remoteStatusBadge" class="hidden">연결 중...</div>
   <div id="videoSubtitleOverlay"></div>
   <div id="partnerSubtitleStack"></div>
@@ -1055,9 +1050,9 @@
     <button class="vc-btn" id="vcMuteBtn" onclick="toggleMute()" title="내 마이크 음소거">🎤</button>
     <button class="vc-btn" id="vcSpkBtn" onclick="toggleRemoteMute()" title="상대방 소리 음소거">🔊</button>
     <button class="vc-btn" id="vcCamBtn" onclick="toggleCamera()" title="카메라 끄기">📷</button>
+    <button class="vc-btn active" id="vcLiveBtn" onclick="toggleLiveTranslate()" title="실시간 번역 ON/OFF">🌐</button>
     <button class="vc-btn" id="vcFitBtn" onclick="toggleVideoFit()" title="화면 비율 전환">⛶</button>
     <button class="vc-btn" id="vcRatioBtn" onclick="toggleVideoRatio()" title="채팅 보기/숨기기">💬</button>
-    <button class="vc-btn end" id="vcEndBtn" onclick="endVideoCall()" title="종료">📵</button>
   </div>
 </section>
 
@@ -1110,7 +1105,6 @@
   </div>
 
   <div id="micRow">
-    <button id="liveToggleBtn" class="on" onclick="toggleLiveTranslate()" title="실시간 번역 ON/OFF"><span>🌐</span><span class="lt-sub">ON</span></button>
     <div id="liveCallBox" class="hidden">
       <div class="live-call-top">
         <span id="liveCallStatus">🟢 실시간 번역 대기 중...</span>
@@ -1120,7 +1114,6 @@
       <div id="liveMyTrans" class="hidden"></div>
     </div>
     <button id="micBtn">🎤 말하기</button>
-    <button id="floatEndCallBtn" onclick="endVideoCall()" title="통화 종료">📵</button>
   </div>
   <div id="recordingControls" class="btn-row hidden">
     <button id="cancelBtn" onclick="cancelRecording()">❌ 취소</button>
@@ -1129,9 +1122,11 @@
 </footer>
 
 <script>
-  const APP_VERSION = 54;
+  const APP_VERSION = 55;
   const LIVE_MAX_CHUNK_MS = 10000;
   const LIVE_MIN_SPEECH_MS = 500;
+  const LIVE_ONSET_MS = 200;
+  const LIVE_MIN_VOICED_MS = 350;
   const LIVE_SILENCE_MS = 900;
   const LIVE_SUBTITLE_TTL_MS = 8000;
   const LIVE_SUBTITLE_MAX_LINES = 2;
@@ -1898,6 +1893,9 @@
   let liveRecorder = null;
   let liveChunks = [];
   let liveSpeaking = false;
+  let liveOnsetAt = 0;
+  let liveVoicedMs = 0;
+  let liveLastTickAt = 0;
   let liveSpeechStartAt = 0;
   let liveLastVoiceAt = 0;
   let liveChunkMime = "";
@@ -1996,7 +1994,7 @@
   const remoteStatusBadge = document.getElementById("remoteStatusBadge");
   const videoSubtitleOverlay = document.getElementById("videoSubtitleOverlay");
   const partnerSubtitleStack = document.getElementById("partnerSubtitleStack");
-  const liveToggleBtn = document.getElementById("liveToggleBtn");
+  const vcLiveBtn = document.getElementById("vcLiveBtn");
   const liveCallBox = document.getElementById("liveCallBox");
   const liveCallStatus = document.getElementById("liveCallStatus");
   const liveMiniVolBar = document.getElementById("liveMiniVolBar");
@@ -2578,7 +2576,6 @@
     recordingControls.classList.add("hidden");
     liveBox.classList.add("hidden");
     micRow.classList.remove("hidden");
-    updateLiveCallUI();
 
     if (isProcessing) {
       micBtn.disabled = true;
@@ -2612,6 +2609,7 @@
       micBtn.className = "";
       micBtn.textContent = text.micIdle;
     }
+    updateLiveCallUI();
   }
 
   function showVideoSubtitle(msg) {
@@ -3645,15 +3643,17 @@ ${getHonorificRule(msgLang)}
 
   function updateLiveCallUI() {
     const inLiveEligibleCall = (callState === "active" || callState === "test");
+    if (vcLiveBtn) {
+      vcLiveBtn.classList.toggle("active", isLiveTranslateEnabled);
+      vcLiveBtn.classList.toggle("off", !isLiveTranslateEnabled);
+      vcLiveBtn.classList.toggle("slash", !isLiveTranslateEnabled);
+    }
+
     if (!inLiveEligibleCall) {
-      liveToggleBtn.classList.remove("on");
       liveCallBox.classList.add("hidden");
       micBtn.classList.remove("hidden");
       return;
     }
-
-    liveToggleBtn.classList.toggle("on", isLiveTranslateEnabled);
-    liveToggleBtn.innerHTML = `<span>🌐</span><span class="lt-sub">${isLiveTranslateEnabled ? "ON" : "OFF"}</span>`;
 
     if (isLiveTranslateEnabled) {
       micBtn.classList.add("hidden");
@@ -3806,13 +3806,15 @@ ${getHonorificRule(msgLang)}
       const discarded = liveDiscardCurrent;
       const hintText = `${liveFinalBuffer} ${liveInterimText}`.trim();
       const durMs = Date.now() - chunkStart;
+      const voicedMsCopy = liveVoicedMs;
 
       liveChunks = [];
       liveFinalBuffer = "";
       liveInterimText = "";
+      liveVoicedMs = 0;
       if (liveRecorder === chunkRec) liveRecorder = null;
 
-      if (discarded || durMs < LIVE_MIN_SPEECH_MS || chunksCopy.length === 0) {
+      if (discarded || durMs < LIVE_MIN_SPEECH_MS || voicedMsCopy < LIVE_MIN_VOICED_MS || chunksCopy.length === 0) {
         refreshLiveCallBoxState();
         return;
       }
@@ -3873,8 +3875,11 @@ ${getHonorificRule(msgLang)}
       src.connect(liveAnalyser);
 
       liveVadActive = true;
-      liveNoiseFloor = 0.012;
+      liveNoiseFloor = 0.015;
       liveSpeaking = false;
+      liveOnsetAt = 0;
+      liveVoicedMs = 0;
+      liveLastTickAt = Date.now();
       liveSpeechStartAt = 0;
       liveLastVoiceAt = 0;
       liveMyText.textContent = t().livePlaceholderIdle;
@@ -3887,37 +3892,55 @@ ${getHonorificRule(msgLang)}
       const dataArr = new Uint8Array(256);
       const vadTick = () => {
         if (!liveVadActive) return;
-        let peak = 0;
+        let sumSq = 0;
         if (liveAnalyser && liveAudioCtx) {
           if (liveAudioCtx.state === "suspended") {
             liveAudioCtx.resume().catch(() => {});
           }
           liveAnalyser.getByteTimeDomainData(dataArr);
           for (let i = 0; i < dataArr.length; i++) {
-            const v = Math.abs(dataArr[i] - 128) / 128;
-            if (v > peak) peak = v;
+            const v = (dataArr[i] - 128) / 128;
+            sumSq += v * v;
           }
         }
+        const rms = Math.sqrt(sumSq / dataArr.length);
 
-        const pct = Math.min(100, Math.max(4, Math.round(peak * 220)));
+        const pct = Math.min(100, Math.max(4, Math.round(rms * 420)));
         liveMiniVolBar.style.width = `${pct}%`;
 
         const now = Date.now();
-        const threshold = Math.max(0.032, liveNoiseFloor * 2.35);
+        const dt = Math.min(100, Math.max(0, now - liveLastTickAt));
+        liveLastTickAt = now;
+
+        // 비대칭 자동 주변소음 추적 (시끄러워지면 빠르게 상향, 조용해지면 천천히 하향)
+        const threshold = Math.max(0.028, liveNoiseFloor * 2.6 + 0.012);
 
         if (!liveSpeaking) {
-          // 비발화 구간에서 주변 소음 기준치 자동 적응
-          liveNoiseFloor = Math.min(0.045, Math.max(0.006, liveNoiseFloor * 0.96 + Math.min(peak, 0.08) * 0.04));
-          if (peak > threshold && !isRecording && !isMuted) {
-            liveSpeaking = true;
-            liveSpeechStartAt = now;
-            liveLastVoiceAt = now;
-            startLiveChunk();
-            refreshLiveCallBoxState();
+          if (rms > liveNoiseFloor) {
+            liveNoiseFloor = liveNoiseFloor * 0.90 + Math.min(rms, 0.12) * 0.10;
+          } else {
+            liveNoiseFloor = liveNoiseFloor * 0.98 + rms * 0.02;
+          }
+          liveNoiseFloor = Math.min(0.075, Math.max(0.008, liveNoiseFloor));
+
+          if (rms > threshold && !isRecording && !isMuted) {
+            if (!liveOnsetAt) liveOnsetAt = now;
+            if (now - liveOnsetAt >= LIVE_ONSET_MS) {
+              liveSpeaking = true;
+              liveSpeechStartAt = now;
+              liveLastVoiceAt = now;
+              liveVoicedMs = LIVE_ONSET_MS;
+              liveOnsetAt = 0;
+              startLiveChunk();
+              refreshLiveCallBoxState();
+            }
+          } else if (rms < threshold * 0.8) {
+            liveOnsetAt = 0;
           }
         } else {
-          if (peak > threshold * 0.72) {
+          if (rms > threshold * 0.65) {
             liveLastVoiceAt = now;
+            liveVoicedMs += dt;
           }
           const elapsed = now - liveSpeechStartAt;
           const silenceFor = now - liveLastVoiceAt;
@@ -3936,6 +3959,8 @@ ${getHonorificRule(msgLang)}
 
   function stopLiveTranslateEngine(clearText = false) {
     liveVadActive = false;
+    liveOnsetAt = 0;
+    liveVoicedMs = 0;
     if (liveVadRaf) { cancelAnimationFrame(liveVadRaf); liveVadRaf = null; }
     stopLiveSpeechPreview();
     stopLiveChunk(true);
@@ -5520,6 +5545,12 @@ ${getHonorificRule(myRole)}
 
     vcCamBtn.classList.toggle("off", isCamOff);
     vcCamBtn.classList.toggle("slash", isCamOff);
+
+    if (vcLiveBtn) {
+      vcLiveBtn.classList.toggle("active", isLiveTranslateEnabled);
+      vcLiveBtn.classList.toggle("off", !isLiveTranslateEnabled);
+      vcLiveBtn.classList.toggle("slash", !isLiveTranslateEnabled);
+    }
 
     vcFitBtn.classList.toggle("active", isVideoContain);
     vcRatioBtn.textContent = isVideoFull ? "💬" : "⤢";
