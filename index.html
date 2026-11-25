@@ -1143,11 +1143,11 @@
 </footer>
 
 <script>
-  const APP_VERSION = 60;
+  const APP_VERSION = 61;
   const LIVE_MAX_CHUNK_MS = 10000;
-  const LIVE_MIN_SPEECH_MS = 380;
-  const LIVE_ONSET_MS = 70;
-  const LIVE_MIN_VOICED_MS = 140;
+  const LIVE_MIN_SPEECH_MS = 450;
+  const LIVE_ONSET_MS = 140;
+  const LIVE_MIN_VOICED_MS = 220;
   const LIVE_SILENCE_MS = 900;
   const LIVE_PREROLL_MS = 550;
   const LIVE_WAV_SAMPLE_RATE = 16000;
@@ -1913,7 +1913,8 @@
   let liveResumeTimer = null;
   let liveSourceStream = null;
   let liveStopSourceOnFinish = false;
-  let liveNoiseFloor = 0.015;
+  let liveNoiseFloor = 0.010;
+  let liveRmsWindow = [];
   let liveSampleRate = 48000;
   let livePreRollChunks = [];
   let livePreRollSamples = 0;
@@ -3967,7 +3968,8 @@ ${getHonorificRule(msgLang)}
       }, 1500);
 
       liveVadActive = true;
-      liveNoiseFloor = 0.005;
+      liveNoiseFloor = 0.008;
+      liveRmsWindow = [];
       liveSpeaking = false;
       liveOnsetAt = 0;
       liveVoicedMs = 0;
@@ -3991,6 +3993,7 @@ ${getHonorificRule(msgLang)}
         if (isRecording || isMuted) {
           liveMiniVolBar.style.width = "4%";
           liveOnsetAt = 0;
+          liveRmsWindow = [];
           livePreRollChunks = [];
           livePreRollSamples = 0;
           if (liveSpeaking) finishLivePcmCapture(true);
@@ -3998,27 +4001,44 @@ ${getHonorificRule(msgLang)}
         }
 
         let sumSq = 0;
-        let peak = 0;
         for (let i = 0; i < input.length; i++) {
           const v = input[i];
-          const av = v < 0 ? -v : v;
-          if (av > peak) peak = av;
           sumSq += v * v;
         }
         const rms = Math.sqrt(sumSq / input.length);
         const now = Date.now();
         if (now - liveLastVolBarAt >= 120) {
           liveLastVolBarAt = now;
-          const pct = Math.min(100, Math.max(4, Math.round(Math.max(rms * 650, peak * 220))));
+          const pct = Math.min(100, Math.max(4, Math.round(rms * 600)));
           liveMiniVolBar.style.width = `${pct}%`;
         }
         const chunkMs = (input.length / liveSampleRate) * 1000;
         const chunkCopy = new Float32Array(input);
 
-        // v54 수준 민감도(여성·부드러운 음성 포착) + 뒤단 Whisper no_speech_prob 필터 조합
-        const rmsThreshold = Math.max(0.009, liveNoiseFloor * 1.8 + 0.003);
-        const peakThreshold = Math.max(0.032, liveNoiseFloor * 4.5 + 0.014);
-        const isVoiceNow = (rms > rmsThreshold) || (peak > peakThreshold);
+        // 최근 ~1.5초 구간의 하위 20% 바닥 소음 추적 (녹음 중에도 식당 배경소음에 맞춰 자동 상향)
+        liveRmsWindow.push(rms);
+        if (liveRmsWindow.length > 36) liveRmsWindow.shift();
+
+        if (!liveSpeaking) {
+          if (rms > liveNoiseFloor) {
+            liveNoiseFloor = liveNoiseFloor * 0.92 + Math.min(rms, 0.09) * 0.08;
+          } else {
+            liveNoiseFloor = liveNoiseFloor * 0.97 + rms * 0.03;
+          }
+        } else if (liveRmsWindow.length >= 16) {
+          const sorted = liveRmsWindow.slice().sort((a, b) => a - b);
+          const p20 = sorted[Math.floor(sorted.length * 0.2)];
+          if (p20 > liveNoiseFloor) {
+            liveNoiseFloor = liveNoiseFloor * 0.95 + Math.min(p20, 0.09) * 0.05;
+          } else {
+            liveNoiseFloor = liveNoiseFloor * 0.985 + p20 * 0.015;
+          }
+        }
+        liveNoiseFloor = Math.min(0.075, Math.max(0.004, liveNoiseFloor));
+
+        // peak 단독 트리거 제거: RMS가 주변 바닥 소음보다 확실히 클 때만 발화로 인정
+        const rmsThreshold = Math.max(0.014, liveNoiseFloor * 2.1 + 0.006);
+        const isVoiceNow = (rms > rmsThreshold);
 
         if (!liveSpeaking) {
           // 0.55초 블랙박스 프리롤 링 버퍼 유지 (말 앞부분 잘림 방지)
@@ -4027,13 +4047,6 @@ ${getHonorificRule(msgLang)}
           while (livePreRollSamples > maxPreRollSamples && livePreRollChunks.length > 1) {
             livePreRollSamples -= livePreRollChunks.shift().length;
           }
-
-          if (rms > liveNoiseFloor) {
-            liveNoiseFloor = liveNoiseFloor * 0.94 + Math.min(rms, 0.06) * 0.06;
-          } else {
-            liveNoiseFloor = liveNoiseFloor * 0.97 + rms * 0.03;
-          }
-          liveNoiseFloor = Math.min(0.045, Math.max(0.003, liveNoiseFloor));
 
           if (isVoiceNow) {
             if (!liveOnsetAt) liveOnsetAt = now;
@@ -4048,12 +4061,12 @@ ${getHonorificRule(msgLang)}
               livePreRollSamples = 0;
               refreshLiveCallBoxState();
             }
-          } else if (rms < rmsThreshold * 0.78 && peak < peakThreshold * 0.78) {
+          } else if (rms < rmsThreshold * 0.80) {
             liveOnsetAt = 0;
           }
         } else {
           liveSpeechPcmChunks.push(chunkCopy);
-          if (rms > rmsThreshold * 0.65 || peak > peakThreshold * 0.65) {
+          if (rms > rmsThreshold * 0.70) {
             liveLastVoiceAt = now;
             liveVoicedMs += chunkMs;
           }
@@ -4072,6 +4085,7 @@ ${getHonorificRule(msgLang)}
   function stopLiveTranslateEngine(clearText = false) {
     liveVadActive = false;
     liveOnsetAt = 0;
+    liveRmsWindow = [];
     livePreRollChunks = [];
     livePreRollSamples = 0;
     if (liveResumeTimer) { clearInterval(liveResumeTimer); liveResumeTimer = null; }
@@ -5834,18 +5848,37 @@ ${getHonorificRule(myRole)}
     saveModelStats();
   }
 
-  function cleanWhisperText(rawText) {
+  function cleanWhisperText(rawText, opts = {}) {
     const txt = (rawText || "").trim();
     if (!txt) return "";
     if (/^[\s.,!?~…·\-_"'()\[\]]+$/.test(txt)) return "";
-    const lower = txt.toLowerCase().replace(/[.,!?~…\s]+$/g, "");
-    const hallucinations = [
-      "mbc 뉴스", "kbs 뉴스", "sbs 뉴스", "시청해주셔서 감사합니다", "시청해 주셔서 감사합니다",
-      "구독과 좋아요", "자막 제공", "영상 편집", "고맙습니다",
-      "thank you", "thank you for watching", "thanks for watching", "subtitles by", "amara.org",
-      "hãy đăng ký kênh", "cảm ơn các bạn đã xem", "cảm ơn các bạn đã theo dõi"
+    const lower = txt.toLowerCase().replace(/[.,!?~…\s]+$/g, "").replace(/\s+/g, " ");
+
+    // 통화 중 나올 일이 없는 유튜브/방송 자막 환각 문구 무조건 차단
+    const hardSubstrings = [
+      "mbc 뉴스", "kbs 뉴스", "sbs 뉴스", "시청해주셔서", "시청해 주셔서",
+      "구독", "알림 설정", "자막 제공", "영상 편집", "좋아요와 구독",
+      "thank you for watching", "thanks for watching", "subtitles by", "amara.org",
+      "đăng ký kênh", "đăng ký", "nhấn chuông", "cảm ơn các bạn đã xem",
+      "cảm ơn các bạn đã theo dõi", "hẹn gặp lại các bạn"
     ];
-    if (hallucinations.includes(lower)) return "";
+    for (let i = 0; i < hardSubstrings.length; i++) {
+      if (lower.includes(hardSubstrings[i])) return "";
+    }
+
+    // 일상어지만 잡음 환각으로 자주 뜨는 짧은 인사말은 실시간 모드에서 확신도가 애매할 때만 조건부 차단
+    const conditionalPhrases = [
+      "감사합니다", "고맙습니다", "수고하셨습니다",
+      "cảm ơn", "cảm ơn bạn", "cảm ơn nhiều",
+      "thank you", "thanks"
+    ];
+    if (opts.strictNoSpeech && conditionalPhrases.includes(lower)) {
+      const maxNsp = typeof opts.maxNoSpeechProb === "number" ? opts.maxNoSpeechProb : 0;
+      const minLogp = typeof opts.minAvgLogProb === "number" ? opts.minAvgLogProb : 0;
+      if (opts.isJsonFallback || maxNsp > 0.25 || minLogp < -0.55) {
+        return "";
+      }
+    }
     return txt;
   }
 
@@ -5870,41 +5903,70 @@ ${getHonorificRule(myRole)}
     if (!groqKey || isGroqInCooldown()) {
       return { ok: false, skipped: true, text: "" };
     }
+    // 비정상적으로 짧거나 빈 오디오 블롭은 400 에러 방지를 위해 전송 전 차단
+    if (!audioBlob || audioBlob.size < 1024) {
+      return { ok: true, skipped: true, text: "" };
+    }
 
     const sttModel = langCode === "vi" ? GROQ_STT_MODEL_VI : GROQ_STT_MODEL;
     const sttTimeoutMs = langCode === "vi" ? 7500 : 6000;
-    const formData = new FormData();
-    formData.append("file", audioBlob, pickGroqFilename(cleanMime));
-    formData.append("model", sttModel);
-    formData.append("language", langCode);
-    formData.append("response_format", "verbose_json");
-    formData.append("temperature", "0");
+    const filename = pickGroqFilename(cleanMime);
 
-    const t0 = Date.now();
-    try {
-      const res = await fetchWithTimeout("https://api.groq.com/openai/v1/audio/transcriptions", {
+    const postGroq = async (respFmt) => {
+      const fd = new FormData();
+      fd.append("file", audioBlob, filename);
+      fd.append("model", sttModel);
+      fd.append("language", langCode);
+      fd.append("response_format", respFmt);
+      fd.append("temperature", "0");
+      return await fetchWithTimeout("https://api.groq.com/openai/v1/audio/transcriptions", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${groqKey}`
         },
-        body: formData
+        body: fd
       }, sttTimeoutMs);
+    };
+
+    const t0 = Date.now();
+    try {
+      let usedJsonFallback = false;
+      let res = await postGroq("verbose_json");
+
+      // verbose_json 요청이 400으로 거절되면 일반 json 포맷으로 1회 자동 재시도
+      if (res.status === 400) {
+        usedJsonFallback = true;
+        res = await postGroq("json");
+      }
 
       if (res.ok) {
         const json = await res.json();
         let rawText = json.text || "";
+        let maxNsp = 0;
+        let minLogp = 0;
         if (Array.isArray(json.segments) && json.segments.length > 0) {
-          const maxNoSpeech = opts.strictNoSpeech ? 0.60 : 0.80;
+          const maxNoSpeech = opts.strictNoSpeech ? 0.45 : 0.80;
           const validSegs = json.segments.filter(seg => {
             const nsp = typeof seg.no_speech_prob === "number" ? seg.no_speech_prob : 0;
             const logp = typeof seg.avg_logprob === "number" ? seg.avg_logprob : 0;
             if (nsp >= maxNoSpeech) return false;
-            if (opts.strictNoSpeech && nsp >= 0.45 && logp < -1.15) return false;
+            if (opts.strictNoSpeech && nsp >= 0.32 && logp < -0.95) return false;
             return true;
+          });
+          validSegs.forEach(seg => {
+            const nsp = typeof seg.no_speech_prob === "number" ? seg.no_speech_prob : 0;
+            const logp = typeof seg.avg_logprob === "number" ? seg.avg_logprob : 0;
+            if (nsp > maxNsp) maxNsp = nsp;
+            if (logp < minLogp) minLogp = logp;
           });
           rawText = validSegs.map(s => (s.text || "").trim()).filter(Boolean).join(" ");
         }
-        const cleaned = cleanWhisperText(rawText);
+        const cleaned = cleanWhisperText(rawText, {
+          strictNoSpeech: Boolean(opts.strictNoSpeech),
+          maxNoSpeechProb: maxNsp,
+          minAvgLogProb: minLogp,
+          isJsonFallback: usedJsonFallback
+        });
         recordGroqResult(true, Date.now() - t0);
         return { ok: true, skipped: false, text: cleaned };
       }
