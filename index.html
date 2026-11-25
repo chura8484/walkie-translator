@@ -297,8 +297,7 @@
       max-width: 90%;
       padding: 9px 15px;
       border-radius: 12px;
-      background: rgba(0, 0, 0, 0.72);
-      backdrop-filter: blur(4px);
+      background: rgba(0, 0, 0, 0.76);
       color: #fff;
       font-size: 17px;
       font-weight: bold;
@@ -359,8 +358,7 @@
       max-width: 100%;
       padding: 10px 15px;
       border-radius: 18px 18px 18px 4px;
-      background: rgba(18, 20, 26, 0.88);
-      backdrop-filter: blur(7px);
+      background: rgba(18, 20, 26, 0.9);
       border: 1.5px solid rgba(255, 152, 0, 0.78);
       color: #fff;
       text-align: left;
@@ -766,8 +764,7 @@
       min-height: 64px;
       padding: 9px 14px;
       border-radius: 14px;
-      background: rgba(10, 20, 34, 0.9);
-      backdrop-filter: blur(7px);
+      background: rgba(10, 20, 34, 0.92);
       border: 1.5px solid #42a5f5;
       color: #fff;
       display: flex;
@@ -1146,7 +1143,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 59;
+  const APP_VERSION = 60;
   const LIVE_MAX_CHUNK_MS = 10000;
   const LIVE_MIN_SPEECH_MS = 380;
   const LIVE_ONSET_MS = 70;
@@ -1930,6 +1927,7 @@
   let liveInterimText = "";
   let liveFinalBuffer = "";
   let liveInFlightCount = 0;
+  let liveLastVolBarAt = 0;
   let myLiveClearTimer = null;
   let partnerSubtitleQueue = [];
   let partnerSubtitlePruneTimer = null;
@@ -3783,7 +3781,8 @@ ${getHonorificRule(msgLang)}
   }
 
   function startLiveSpeechPreview() {
-    // iOS Safari에서는 WebRTC 통화 중 SpeechRecognition 동시 실행 시 마이크 충돌이 발생할 수 있어 생략
+    // 영상통화 중 내장 SpeechRecognition 동시 실행 시 안드로이드/모바일 <video> 멈춤 현상을 유발할 수 있어 생략
+    return;
     if (isIOSDevice()) return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
@@ -4007,10 +4006,12 @@ ${getHonorificRule(msgLang)}
           sumSq += v * v;
         }
         const rms = Math.sqrt(sumSq / input.length);
-        const pct = Math.min(100, Math.max(4, Math.round(Math.max(rms * 650, peak * 220))));
-        liveMiniVolBar.style.width = `${pct}%`;
-
         const now = Date.now();
+        if (now - liveLastVolBarAt >= 120) {
+          liveLastVolBarAt = now;
+          const pct = Math.min(100, Math.max(4, Math.round(Math.max(rms * 650, peak * 220))));
+          liveMiniVolBar.style.width = `${pct}%`;
+        }
         const chunkMs = (input.length / liveSampleRate) * 1000;
         const chunkCopy = new Float32Array(input);
 
@@ -4982,9 +4983,9 @@ ${getHonorificRule(myRole)}
         return;
       }
       localStream = stream;
-      localVideo.srcObject = localStream;
-      localVideo.classList.add("mirrored");
       localVideoWrap.classList.remove("hidden");
+      syncLocalVideoPreview();
+      startMediaWatchdog();
       remoteVideo.srcObject = localStream;
       remoteVideo.muted = true;
       remoteVideo.classList.add("mirrored");
@@ -5207,6 +5208,22 @@ ${getHonorificRule(myRole)}
     }
   }
 
+  function syncLocalVideoPreview() {
+    if (!localStream || isCamOff) return;
+    const vTracks = localStream.getVideoTracks();
+    if (!vTracks || vTracks.length === 0) return;
+    const videoOnlyStream = new MediaStream(vTracks);
+    if (localVideo.srcObject !== videoOnlyStream) {
+      localVideo.srcObject = videoOnlyStream;
+    }
+    localVideo.muted = true;
+    localVideo.classList.toggle("mirrored", currentFacingMode === "user");
+    const playPromise = localVideo.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {});
+    }
+  }
+
   function showVideoUI(keepCurrentLayout = false) {
     remoteVideo.srcObject = null;
     remoteVideo.muted = isRemoteMuted;
@@ -5222,6 +5239,7 @@ ${getHonorificRule(myRole)}
     if (!keepCurrentLayout) isVideoFull = true;
     lastOverlayMsgTs = getLatestMessageTs();
     applyVideoLayout();
+    syncLocalVideoPreview();
     requestWakeLock();
   }
 
@@ -5274,14 +5292,22 @@ ${getHonorificRule(myRole)}
     freezeStreakSec = 0;
 
     mediaWatchdogTimer = setInterval(async () => {
-      if (callState !== "active" || !pc) {
+      if (callState !== "active" && callState !== "test") {
         stopMediaWatchdog();
         return;
+      }
+
+      if (!isCamOff && localStream && !localVideoWrap.classList.contains("hidden")) {
+        if (!localVideo.srcObject || localVideo.paused) {
+          syncLocalVideoPreview();
+        }
       }
 
       if (remoteVideo.srcObject && remoteVideo.paused) {
         remoteVideo.play().catch(() => {});
       }
+
+      if (callState !== "active" || !pc) return;
 
       try {
         const stats = await pc.getStats();
@@ -5614,9 +5640,7 @@ ${getHonorificRule(myRole)}
         applyVideoBitrateLimit();
       }
 
-      localVideo.srcObject = null;
-      localVideo.srcObject = localStream;
-      localVideo.classList.toggle("mirrored", currentFacingMode === "user");
+      syncLocalVideoPreview();
       if (callState === "test" || callState === "outgoing") {
         remoteVideo.srcObject = null;
         remoteVideo.srcObject = localStream;
@@ -5652,8 +5676,15 @@ ${getHonorificRule(myRole)}
   function toggleCamera() {
     if (!localStream) return;
     isCamOff = !isCamOff;
-    localStream.getVideoTracks().forEach(tr => tr.enabled = !isCamOff);
+    localStream.getVideoTracks().forEach(tr => {
+      tr.enabled = !isCamOff;
+    });
     localCamOffMask.classList.toggle("hidden", !isCamOff);
+    if (!isCamOff) {
+      localVideoWrap.classList.remove("hidden");
+      showPipBtn.classList.add("hidden");
+      syncLocalVideoPreview();
+    }
     updateVideoControlButtons();
   }
 
