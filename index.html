@@ -1142,11 +1142,11 @@
 </footer>
 
 <script>
-  const APP_VERSION = 56;
+  const APP_VERSION = 57;
   const LIVE_MAX_CHUNK_MS = 10000;
-  const LIVE_MIN_SPEECH_MS = 500;
-  const LIVE_ONSET_MS = 200;
-  const LIVE_MIN_VOICED_MS = 350;
+  const LIVE_MIN_SPEECH_MS = 450;
+  const LIVE_ONSET_MS = 120;
+  const LIVE_MIN_VOICED_MS = 220;
   const LIVE_SILENCE_MS = 900;
   const LIVE_PREROLL_MS = 550;
   const LIVE_WAV_SAMPLE_RATE = 16000;
@@ -1909,6 +1909,7 @@
   let liveAudioCtx = null;
   let liveProcessor = null;
   let liveZeroGain = null;
+  let liveResumeTimer = null;
   let liveSourceStream = null;
   let liveStopSourceOnFinish = false;
   let liveNoiseFloor = 0.015;
@@ -3594,6 +3595,9 @@ ${getHonorificRule(msgLang)}
     doodlePointerId = null;
 
     if (doodleTotalDist < 14) {
+      if (liveAudioCtx && liveAudioCtx.state === "suspended") {
+        liveAudioCtx.resume().catch(() => {});
+      }
       if (isVideoFull) {
         isVideoMenuOpen = !isVideoMenuOpen;
         document.body.classList.toggle("video-menu-open", isVideoMenuOpen);
@@ -3730,10 +3734,43 @@ ${getHonorificRule(msgLang)}
     }, LIVE_SUBTITLE_TTL_MS);
   }
 
+  function prepareLiveAudioContext() {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      if (!liveAudioCtx || liveAudioCtx.state === "closed") {
+        liveAudioCtx = new AudioContextClass();
+      }
+      if (liveAudioCtx.state === "suspended") {
+        liveAudioCtx.resume().catch(() => {});
+      }
+    } catch {}
+  }
+
+  function abortActiveManualRecording() {
+    if (isRecording) {
+      cancelRequested = true;
+      isRecording = false;
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        try { mediaRecorder.stop(); } catch {}
+      }
+      stopMeterAndStream();
+      updateButtonUI();
+    } else if (currentStream) {
+      stopMeterAndStream();
+    }
+    if (roomPass && roomState.lockedBy === myRole) {
+      roomState.lockedBy = "";
+      roomState.lockedAt = 0;
+      patchRoom({ lockedBy: "", lockedAt: 0 });
+    }
+  }
+
   function toggleLiveTranslate() {
     if (callState !== "active" && callState !== "test") return;
     isLiveTranslateEnabled = !isLiveTranslateEnabled;
     if (isLiveTranslateEnabled) {
+      prepareLiveAudioContext();
       if (!isMuted) startLiveTranslateEngine();
     } else {
       stopLiveTranslateEngine(false);
@@ -3882,22 +3919,27 @@ ${getHonorificRule(msgLang)}
     if (!tracks || tracks.length === 0) return;
 
     try {
-      try {
-        const cloned = tracks[0].clone();
-        cloned.enabled = true;
-        liveSourceStream = new MediaStream([cloned]);
-        liveStopSourceOnFinish = true;
-      } catch {
+      // iOS Safari에서는 WebRTC 오디오 트랙을 clone()하면 무음(0)이 나오는 경우가 있어 원본 트랙 직접 연결
+      if (isIOSDevice()) {
         liveSourceStream = new MediaStream([tracks[0]]);
         liveStopSourceOnFinish = false;
+      } else {
+        try {
+          const cloned = tracks[0].clone();
+          cloned.enabled = true;
+          liveSourceStream = new MediaStream([cloned]);
+          liveStopSourceOnFinish = true;
+        } catch {
+          liveSourceStream = new MediaStream([tracks[0]]);
+          liveStopSourceOnFinish = false;
+        }
       }
 
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
-      if (liveAudioCtx && liveAudioCtx.state !== "closed") {
-        liveAudioCtx.close().catch(() => {});
+      if (!liveAudioCtx || liveAudioCtx.state === "closed") {
+        liveAudioCtx = new AudioContextClass();
       }
-      liveAudioCtx = new AudioContextClass();
       if (liveAudioCtx.state === "suspended") {
         liveAudioCtx.resume().catch(() => {});
       }
@@ -3907,14 +3949,22 @@ ${getHonorificRule(msgLang)}
       const src = liveAudioCtx.createMediaStreamSource(liveSourceStream);
       liveProcessor = liveAudioCtx.createScriptProcessor(2048, 1, 1);
       liveZeroGain = liveAudioCtx.createGain();
-      liveZeroGain.gain.value = 0;
+      // 0 대신 들리지 않는 극소값(0.0001)을 연결해 iOS WebKit의 오디오 그래프 절전 중지 방지
+      liveZeroGain.gain.value = 0.0001;
 
       src.connect(liveProcessor);
       liveProcessor.connect(liveZeroGain);
       liveZeroGain.connect(liveAudioCtx.destination);
 
+      if (liveResumeTimer) clearInterval(liveResumeTimer);
+      liveResumeTimer = setInterval(() => {
+        if (liveVadActive && liveAudioCtx && liveAudioCtx.state === "suspended") {
+          liveAudioCtx.resume().catch(() => {});
+        }
+      }, 1500);
+
       liveVadActive = true;
-      liveNoiseFloor = 0.015;
+      liveNoiseFloor = 0.008;
       liveSpeaking = false;
       liveOnsetAt = 0;
       liveVoicedMs = 0;
@@ -3950,15 +4000,15 @@ ${getHonorificRule(msgLang)}
           sumSq += v * v;
         }
         const rms = Math.sqrt(sumSq / input.length);
-        const pct = Math.min(100, Math.max(4, Math.round(rms * 420)));
+        const pct = Math.min(100, Math.max(4, Math.round(rms * 550)));
         liveMiniVolBar.style.width = `${pct}%`;
 
         const now = Date.now();
         const chunkMs = (input.length / liveSampleRate) * 1000;
         const chunkCopy = new Float32Array(input);
 
-        // 비대칭 자동 주변소음 추적 (시끄러워지면 빠르게 상향, 조용해지면 천천히 하향)
-        const threshold = Math.max(0.028, liveNoiseFloor * 2.6 + 0.012);
+        // 비대칭 자동 주변소음 추적 (v54와 v56의 중간 감도)
+        const threshold = Math.max(0.014, liveNoiseFloor * 2.0 + 0.006);
 
         if (!liveSpeaking) {
           // 0.55초 블랙박스 프리롤 링 버퍼 유지 (말 앞부분 잘림 방지)
@@ -3969,11 +4019,11 @@ ${getHonorificRule(msgLang)}
           }
 
           if (rms > liveNoiseFloor) {
-            liveNoiseFloor = liveNoiseFloor * 0.90 + Math.min(rms, 0.12) * 0.10;
+            liveNoiseFloor = liveNoiseFloor * 0.92 + Math.min(rms, 0.08) * 0.08;
           } else {
-            liveNoiseFloor = liveNoiseFloor * 0.98 + rms * 0.02;
+            liveNoiseFloor = liveNoiseFloor * 0.97 + rms * 0.03;
           }
-          liveNoiseFloor = Math.min(0.075, Math.max(0.008, liveNoiseFloor));
+          liveNoiseFloor = Math.min(0.055, Math.max(0.004, liveNoiseFloor));
 
           if (rms > threshold) {
             if (!liveOnsetAt) liveOnsetAt = now;
@@ -3988,12 +4038,12 @@ ${getHonorificRule(msgLang)}
               livePreRollSamples = 0;
               refreshLiveCallBoxState();
             }
-          } else if (rms < threshold * 0.8) {
+          } else if (rms < threshold * 0.78) {
             liveOnsetAt = 0;
           }
         } else {
           liveSpeechPcmChunks.push(chunkCopy);
-          if (rms > threshold * 0.65) {
+          if (rms > threshold * 0.6) {
             liveLastVoiceAt = now;
             liveVoicedMs += chunkMs;
           }
@@ -4014,6 +4064,7 @@ ${getHonorificRule(msgLang)}
     liveOnsetAt = 0;
     livePreRollChunks = [];
     livePreRollSamples = 0;
+    if (liveResumeTimer) { clearInterval(liveResumeTimer); liveResumeTimer = null; }
     stopLiveSpeechPreview();
     if (liveSpeaking) {
       finishLivePcmCapture(true);
@@ -4893,6 +4944,8 @@ ${getHonorificRule(myRole)}
 
   async function startSoloVideoTest() {
     closeSettingsMenu(false);
+    abortActiveManualRecording();
+    prepareLiveAudioContext();
     callState = "test";
     isStartingCall = true;
     currentFacingMode = "user";
@@ -4946,6 +4999,8 @@ ${getHonorificRule(myRole)}
   async function requestVideoCall() {
     if (callState !== "idle" || isStartingCall) return;
     closeSettingsMenu(false);
+    abortActiveManualRecording();
+    prepareLiveAudioContext();
     if (inAppName) alert(t().inAppVideoAlert);
     if (!isPartnerOnline()) {
       if (systemRole === "ko") {
@@ -5020,6 +5075,8 @@ ${getHonorificRule(myRole)}
   async function acceptVideoCall() {
     if (callState !== "incoming" || !activeCallId || isStartingCall) return;
     closeSettingsMenu(false);
+    abortActiveManualRecording();
+    prepareLiveAudioContext();
     if (inAppName) alert(t().inAppVideoAlert);
 
     const targetCallId = activeCallId;
@@ -5568,6 +5625,7 @@ ${getHonorificRule(myRole)}
       if (isMuted) {
         stopLiveTranslateEngine(false);
       } else if (isLiveTranslateEnabled) {
+        prepareLiveAudioContext();
         startLiveTranslateEngine();
       }
       updateLiveCallUI();
