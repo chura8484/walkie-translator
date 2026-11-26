@@ -1178,7 +1178,11 @@
     #cancelBtn { flex: 1; padding: 14px 10px; font-size: 15px; font-weight: bold; border: none; border-radius: 14px; background: #424242; color: #ff8a80; cursor: pointer; }
     #sendBtn { flex: 2; padding: 14px 10px; font-size: 16px; font-weight: bold; border: none; border-radius: 14px; background: #2e7d32; color: #fff; cursor: pointer; }
 
-    #lockScreen { position: fixed; inset: 0; background: #121212; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; gap: 14px; z-index: 99; text-align: center; }
+    #lockScreen { position: fixed; inset: 0; background: #121212; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; gap: 14px; z-index: 99; text-align: center; touch-action: manipulation; user-select: none; }
+    #lockScreen.stealth-ko { background: #121212; }
+    #lockScreen.stealth-ko h2,
+    #lockScreen.stealth-ko input,
+    #lockScreen.stealth-ko button { display: none; }
     #lockScreen h2 { font-size: 19px; line-height: 1.45; }
     #lockScreen input { width: 100%; max-width: 280px; padding: 14px; font-size: 18px; text-align: center; letter-spacing: 4px; border-radius: 8px; border: 1px solid #444; background: #262626; color: #fff; }
     #lockScreen button { width: 100%; max-width: 280px; padding: 14px; font-size: 16px; font-weight: bold; border: none; border-radius: 10px; background: #0078ff; color: #fff; cursor: pointer; }
@@ -1454,7 +1458,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 66;
+  const APP_VERSION = 67;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -3107,9 +3111,164 @@
     ).join("");
   }
 
+  // 제스처 전용 암호 복원 (7시 3번 -> 5시 2번 -> 4시 2번 -> 4시 3번째 3초 롱프레스)
+  const GESTURE_MASK = "anhem_v67_gesture_key";
+  const GESTURE_PASS_ENC = [82,91,89,84,92];
+
+  function getGesturePass() {
+    return GESTURE_PASS_ENC.map((b, i) =>
+      String.fromCharCode(b ^ GESTURE_MASK.charCodeAt(i % GESTURE_MASK.length))
+    ).join("");
+  }
+
+  // 단계별 목표 영역: 7시(3회) -> 5시(2회) -> 4시(3회, 마지막 8번째는 3초 이상 길게 누르기)
+  const STEALTH_SEQ = ["7", "7", "7", "5", "5", "4", "4", "4"];
+  let stealthStep = 0;
+  let stealthLastStepAt = 0;
+  let stealthHoldTimer1 = null;
+  let stealthHoldTimer2 = null;
+  let stealthHoldTimer3 = null;
+  let stealthEmergencyTimer = null;
+  let stealthActivePointerId = null;
+
+  function triggerStealthVibe(pattern) {
+    try {
+      if (navigator.vibrate) navigator.vibrate(pattern);
+    } catch {}
+  }
+
+  function clearStealthTimers() {
+    if (stealthHoldTimer1) { clearTimeout(stealthHoldTimer1); stealthHoldTimer1 = null; }
+    if (stealthHoldTimer2) { clearTimeout(stealthHoldTimer2); stealthHoldTimer2 = null; }
+    if (stealthHoldTimer3) { clearTimeout(stealthHoldTimer3); stealthHoldTimer3 = null; }
+    if (stealthEmergencyTimer) { clearTimeout(stealthEmergencyTimer); stealthEmergencyTimer = null; }
+  }
+
+  function resetStealthGesture() {
+    clearStealthTimers();
+    stealthStep = 0;
+    stealthLastStepAt = 0;
+    stealthActivePointerId = null;
+  }
+
+  function applyStealthLockMode() {
+    resetStealthGesture();
+    if (myRole === "ko") {
+      lockScreen.classList.add("stealth-ko");
+    } else {
+      lockScreen.classList.remove("stealth-ko");
+    }
+  }
+
+  function revealStealthLoginForm() {
+    resetStealthGesture();
+    lockScreen.classList.remove("stealth-ko");
+    triggerStealthVibe([35, 50, 35]);
+    setTimeout(() => {
+      try { passInput.focus(); } catch {}
+    }, 60);
+  }
+
+  // 한 손 조작 시 7시 / 5시 / 4시 판정 (화면 중심 기준 각도 + 하단/좌우 보조 판정)
+  function detectClockZone(clientX, clientY) {
+    const w = window.innerWidth || 1;
+    const h = window.innerHeight || 1;
+    const nx = clientX / w;
+    const ny = clientY / h;
+
+    // 화면 중심(0.5, 0.5) 기준 시계 방향 각도 (12시=0도, 3시=90도, 6시=180도, 9시=270도)
+    const dx = nx - 0.5;
+    const dy = ny - 0.5;
+    let deg = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+    if (deg < 0) deg += 360;
+
+    // 7시 영역: 좌측 하단 (185도 ~ 255도, 또는 하단 왼쪽 영역)
+    if ((deg >= 185 && deg <= 255) || (ny >= 0.55 && nx < 0.46)) {
+      return "7";
+    }
+    // 4시 영역: 우측 중하단 (100도 ~ 142도)
+    if (deg >= 100 && deg <= 142) {
+      return "4";
+    }
+    // 5시 영역: 우측 하단 (142도 ~ 185도)
+    if (deg > 142 && deg < 185) {
+      return "5";
+    }
+    return "";
+  }
+
+  lockScreen.addEventListener("pointerdown", (e) => {
+    if (!lockScreen.classList.contains("stealth-ko")) return;
+    if (stealthActivePointerId !== null) return;
+    stealthActivePointerId = e.pointerId;
+
+    const now = Date.now();
+    if (stealthStep > 0 && (now - stealthLastStepAt > 4500)) {
+      stealthStep = 0;
+    }
+
+    // 20초 이상 아무 곳이나 길게 누르면 비상 암호 입력창 노출
+    clearStealthTimers();
+    stealthEmergencyTimer = setTimeout(() => {
+      if (lockScreen.classList.contains("stealth-ko") && stealthActivePointerId === e.pointerId) {
+        revealStealthLoginForm();
+      }
+    }, 20000);
+
+    const zone = detectClockZone(e.clientX, e.clientY);
+    const expected = STEALTH_SEQ[stealthStep];
+
+    if (zone && zone === expected) {
+      stealthLastStepAt = now;
+      if (stealthStep < STEALTH_SEQ.length - 1) {
+        // 1~7번째 터치: 짧은 진동으로 정확한 위치 입력 피드백
+        stealthStep++;
+        triggerStealthVibe(14);
+      } else {
+        // 8번째(4시 3번째) 터치: 누르고 있는 동안 1초·2초·3초 단계 진동 후 자동 잠금 해제
+        triggerStealthVibe(16);
+        stealthHoldTimer1 = setTimeout(() => {
+          if (stealthActivePointerId === e.pointerId) triggerStealthVibe(18);
+        }, 1000);
+        stealthHoldTimer2 = setTimeout(() => {
+          if (stealthActivePointerId === e.pointerId) triggerStealthVibe(24);
+        }, 2000);
+        stealthHoldTimer3 = setTimeout(() => {
+          if (stealthActivePointerId === e.pointerId && lockScreen.classList.contains("stealth-ko")) {
+            resetStealthGesture();
+            triggerStealthVibe([40, 60, 80]);
+            tryEnter(getGesturePass());
+          }
+        }, 3000);
+      }
+    } else {
+      // 순서/위치가 어긋나면 조용히 초기화 (20초 비상 롱프레스 타이머는 유지)
+      stealthStep = 0;
+      stealthLastStepAt = 0;
+    }
+  });
+
+  function handleStealthPointerEnd(e) {
+    if (stealthActivePointerId !== null && e.pointerId === stealthActivePointerId) {
+      stealthActivePointerId = null;
+      clearStealthTimers();
+      // 8번째 단계에서 3초를 채우지 못하고 손을 떼면 처음부터 다시 시작
+      if (stealthStep >= STEALTH_SEQ.length - 1) {
+        stealthStep = 0;
+        stealthLastStepAt = 0;
+      }
+    }
+  }
+
+  lockScreen.addEventListener("pointerup", handleStealthPointerEnd);
+  lockScreen.addEventListener("pointercancel", handleStealthPointerEnd);
+
+  applyStealthLockMode();
+
   function tryEnter(pass) {
     const decoded = decodeKey(pass);
     if (!decoded.startsWith("AQ.")) return false;
+    resetStealthGesture();
     roomPass = pass;
     apiKey = decoded;
     localStorage.setItem("wt_pass", pass);
@@ -3266,6 +3425,7 @@
     if (doodleClearTimer) { clearTimeout(doodleClearTimer); doodleClearTimer = null; }
     if (liveSubClearTimer) { clearTimeout(liveSubClearTimer); liveSubClearTimer = null; }
     passInput.value = "";
+    applyStealthLockMode();
     lockScreen.classList.remove("hidden");
   }
 
