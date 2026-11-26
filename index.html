@@ -1179,14 +1179,14 @@
     #sendBtn { flex: 2; padding: 14px 10px; font-size: 16px; font-weight: bold; border: none; border-radius: 14px; background: #2e7d32; color: #fff; cursor: pointer; }
 
     #lockScreen { position: fixed; inset: 0; background: #121212; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; gap: 14px; z-index: 99; text-align: center; touch-action: manipulation; user-select: none; }
-    #lockScreen.stealth-ko { background: #0b0c0e; }
+    #lockScreen.stealth-ko { background: #0e1014; }
     #lockScreen.stealth-ko h2,
     #lockScreen.stealth-ko input,
     #lockScreen.stealth-ko button { display: none; }
     #iwcClockCanvas {
       display: none;
-      width: min(86vw, 370px);
-      height: min(86vw, 370px);
+      width: min(92vw, 400px);
+      height: min(92vw, 400px);
       touch-action: manipulation;
       user-select: none;
       -webkit-user-select: none;
@@ -1470,7 +1470,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 68;
+  const APP_VERSION = 69;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -3251,6 +3251,7 @@
   let stealthHoldTimer3 = null;
   let stealthEmergencyTimer = null;
   let stealthActivePointerId = null;
+  let stealthHoldTargetDigit = "";
 
   function clearStealthTimers() {
     if (stealthHoldTimer3) { clearTimeout(stealthHoldTimer3); stealthHoldTimer3 = null; }
@@ -3262,6 +3263,59 @@
     stealthStep = 0;
     stealthLastStepAt = 0;
     stealthActivePointerId = null;
+    stealthHoldTargetDigit = "";
+  }
+
+  function drawSubdial(ctx, scx, scy, sr, labels, majorStep, angleRad, handColor, ringColor, textColor) {
+    // 서브다이얼 외곽 링
+    ctx.beginPath();
+    ctx.arc(scx, scy, sr, 0, Math.PI * 2);
+    ctx.strokeStyle = ringColor;
+    ctx.lineWidth = Math.max(1, sr * 0.025);
+    ctx.stroke();
+
+    // 60개 눈금 (5단위 강조)
+    for (let i = 0; i < 60; i++) {
+      const a = (i * 6) * Math.PI / 180;
+      const isMajor = (i % 5 === 0);
+      const rOuter = sr * 0.94;
+      const rInner = isMajor ? sr * 0.72 : sr * 0.82;
+      ctx.beginPath();
+      ctx.moveTo(scx + Math.sin(a) * rInner, scy - Math.cos(a) * rInner);
+      ctx.lineTo(scx + Math.sin(a) * rOuter, scy - Math.cos(a) * rOuter);
+      ctx.strokeStyle = isMajor ? textColor : ringColor;
+      ctx.lineWidth = isMajor ? Math.max(1.2, sr * 0.032) : Math.max(0.8, sr * 0.018);
+      ctx.stroke();
+    }
+
+    // 서브다이얼 숫자
+    ctx.fillStyle = textColor;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `600 ${Math.max(8, Math.round(sr * 0.23))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    labels.forEach(item => {
+      const a = (item.deg) * Math.PI / 180;
+      const lx = scx + Math.sin(a) * (sr * 0.52);
+      const ly = scy - Math.cos(a) * (sr * 0.52);
+      ctx.fillText(item.text, lx, ly);
+    });
+
+    // 서브다이얼 침
+    ctx.save();
+    ctx.translate(scx, scy);
+    ctx.rotate(angleRad);
+    ctx.beginPath();
+    ctx.moveTo(0, sr * 0.14);
+    ctx.lineTo(0, -sr * 0.76);
+    ctx.strokeStyle = handColor;
+    ctx.lineWidth = Math.max(1.4, sr * 0.042);
+    ctx.lineCap = "round";
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, Math.max(2, sr * 0.06), 0, Math.PI * 2);
+    ctx.fillStyle = handColor;
+    ctx.fill();
+    ctx.restore();
   }
 
   function drawIwcAnalogClock() {
@@ -3272,7 +3326,7 @@
 
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     const rect = iwcClockCanvas.getBoundingClientRect();
-    const cssSize = Math.max(240, Math.round(rect.width || 320));
+    const cssSize = Math.max(260, Math.round(rect.width || 360));
     const pxSize = Math.round(cssSize * dpr);
     if (iwcClockCanvas.width !== pxSize || iwcClockCanvas.height !== pxSize) {
       iwcClockCanvas.width = pxSize;
@@ -3285,135 +3339,188 @@
 
     const cx = cssSize / 2;
     const cy = cssSize / 2;
-    const R = cssSize * 0.465;
+    const outerR = cssSize * 0.455;
 
     ctx.clearRect(0, 0, cssSize, cssSize);
 
-    // 1. 스틸 케이스 & 베젤 (IWC Portugieser / Pilot 스타일)
-    const caseGrad = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
-    caseGrad.addColorStop(0, "#e6e9ef");
-    caseGrad.addColorStop(0.35, "#8d95a3");
-    caseGrad.addColorStop(0.7, "#eef1f6");
-    caseGrad.addColorStop(1, "#6f7785");
+    // 1. 크로노그래프 푸셔(2시·4시) & 크라운(3시)
+    const crownX = cx + outerR * 0.98;
+    const crownW = outerR * 0.11;
+    const crownH = outerR * 0.16;
+    const crownGrad = ctx.createLinearGradient(crownX, cy - crownH / 2, crownX + crownW, cy + crownH / 2);
+    crownGrad.addColorStop(0, "#cfd5de");
+    crownGrad.addColorStop(0.5, "#f5f7fa");
+    crownGrad.addColorStop(1, "#7c8594");
+    ctx.fillStyle = crownGrad;
+    ctx.beginPath();
+    ctx.roundRect(crownX - 2, cy - crownH / 2, crownW, crownH, 3);
+    ctx.fill();
+    ctx.strokeStyle = "#5c6470";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    [-36, 36].forEach(deg => {
+      const rad = (deg * Math.PI) / 180;
+      const px = cx + Math.sin(rad) * (outerR * 0.96);
+      const py = cy - Math.cos(rad) * (outerR * 0.96);
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(rad);
+      ctx.fillStyle = crownGrad;
+      ctx.beginPath();
+      ctx.roundRect(-outerR * 0.052, -outerR * 0.095, outerR * 0.104, outerR * 0.12, 3);
+      ctx.fill();
+      ctx.strokeStyle = "#5c6470";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    // 2. 폴리싱 스틸 케이스 & 베젤
+    const caseGrad = ctx.createLinearGradient(cx - outerR, cy - outerR, cx + outerR, cy + outerR);
+    caseGrad.addColorStop(0, "#eef1f6");
+    caseGrad.addColorStop(0.28, "#9aa2b0");
+    caseGrad.addColorStop(0.55, "#f7f9fc");
+    caseGrad.addColorStop(0.82, "#7e8796");
+    caseGrad.addColorStop(1, "#d8dde6");
 
     ctx.beginPath();
-    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
     ctx.fillStyle = caseGrad;
     ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.45)";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
 
-    // 베젤 안쪽 링
+    // 베젤 단차 링
     ctx.beginPath();
-    ctx.arc(cx, cy, R * 0.935, 0, Math.PI * 2);
-    ctx.fillStyle = "#181b20";
+    ctx.arc(cx, cy, outerR * 0.935, 0, Math.PI * 2);
+    ctx.fillStyle = "#b8c0cc";
     ctx.fill();
 
-    // 2. 딥 선버스트 다크 다이얼
-    const dialR = R * 0.915;
-    const dialGrad = ctx.createRadialGradient(cx, cy - dialR * 0.25, dialR * 0.08, cx, cy, dialR);
-    dialGrad.addColorStop(0, "#232833");
-    dialGrad.addColorStop(0.65, "#13161d");
-    dialGrad.addColorStop(1, "#0b0d12");
+    // 3. 실버 화이트 선버스트 다이얼 (Portugieser Chronograph 3714/3716 스타일)
+    const dialR = outerR * 0.912;
+    const dialGrad = ctx.createRadialGradient(cx, cy - dialR * 0.2, dialR * 0.05, cx, cy, dialR);
+    dialGrad.addColorStop(0, "#ffffff");
+    dialGrad.addColorStop(0.72, "#f6f7f9");
+    dialGrad.addColorStop(1, "#e5e8ee");
 
     ctx.beginPath();
     ctx.arc(cx, cy, dialR, 0, Math.PI * 2);
     ctx.fillStyle = dialGrad;
     ctx.fill();
 
-    // 3. 외곽 레일웨이 분 눈금 (60개)
-    const trackOuter = dialR * 0.945;
-    const trackInner = dialR * 0.895;
+    // 4. 외곽 1/4초 레일웨이 트랙 (240 눈금) & 5초 단위 숫자(5, 10, 15... 60)
+    const trackR = dialR * 0.955;
     ctx.beginPath();
-    ctx.arc(cx, cy, trackOuter, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(255,255,255,0.28)";
+    ctx.arc(cx, cy, trackR, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(35, 42, 56, 0.35)";
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    for (let i = 0; i < 60; i++) {
-      const ang = (i * 6) * Math.PI / 180;
-      const isFive = (i % 5 === 0);
-      const r1 = isFive ? dialR * 0.865 : trackInner;
-      const r2 = trackOuter;
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.sin(ang) * r1, cy - Math.cos(ang) * r1);
-      ctx.lineTo(cx + Math.sin(ang) * r2, cy - Math.cos(ang) * r2);
-      ctx.strokeStyle = isFive ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.42)";
-      ctx.lineWidth = isFive ? 2.2 : 1;
-      ctx.stroke();
-    }
-
-    // 4. IWC 로고 & SCHAFFHAUSEN 각인
-    ctx.fillStyle = "#f2f4f8";
+    ctx.fillStyle = "#2c3545";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = `bold ${Math.round(dialR * 0.145)}px "Times New Roman", Georgia, serif`;
-    ctx.fillText("IWC", cx, cy - dialR * 0.34);
+    ctx.font = `600 ${Math.max(7, Math.round(dialR * 0.044))}px -apple-system, BlinkMacSystemFont, sans-serif`;
 
-    ctx.fillStyle = "rgba(230,234,242,0.78)";
-    ctx.font = `600 ${Math.round(dialR * 0.044)}px -apple-system, sans-serif`;
-    ctx.fillText("SCHAFFHAUSEN", cx, cy - dialR * 0.225);
+    for (let q = 0; q < 240; q++) {
+      const ang = (q * 1.5) * Math.PI / 180;
+      const isSecTick = (q % 4 === 0);
+      const isFiveSec = (q % 20 === 0);
+      const len = isFiveSec ? dialR * 0.068 : (isSecTick ? dialR * 0.045 : dialR * 0.025);
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.sin(ang) * (trackR - len), cy - Math.cos(ang) * (trackR - len));
+      ctx.lineTo(cx + Math.sin(ang) * trackR, cy - Math.cos(ang) * trackR);
+      ctx.strokeStyle = isFiveSec ? "#1b263b" : "rgba(35, 42, 56, 0.55)";
+      ctx.lineWidth = isFiveSec ? 1.5 : 0.85;
+      ctx.stroke();
 
-    // 5. 실시간 날짜창 (3시 방향)
+      if (isFiveSec) {
+        const secLabel = q === 0 ? "60" : String(q / 4);
+        const lr = trackR - dialR * 0.105;
+        ctx.fillText(secLabel, cx + Math.sin(ang) * lr, cy - Math.cos(ang) * lr);
+      }
+    }
+
+    // 5. 서브다이얼 2개: 12시 분 적산계 (30분) / 6시 영구 초침 (60초)
     const now = new Date();
-    const dayNum = String(now.getDate());
-    const dateBoxW = dialR * 0.14;
-    const dateBoxH = dialR * 0.105;
-    const dateBoxX = cx + dialR * 0.42 - dateBoxW / 2;
-    const dateBoxY = cy - dateBoxH / 2;
+    const ms = now.getMilliseconds();
+    const rawSec = now.getSeconds() + ms / 1000;
+    // 기계식 하이비트(4Hz = 1초당 8스텝) 느낌의 미세 계단식 초침 각도
+    const mechSec = Math.floor(rawSec * 8) / 8;
+    const min = now.getMinutes() + rawSec / 60;
+    const hr = (now.getHours() % 12) + min / 60;
 
-    ctx.fillStyle = "#f4f6fa";
-    ctx.fillRect(dateBoxX, dateBoxY, dateBoxW, dateBoxH);
-    ctx.strokeStyle = "#8a92a0";
-    ctx.lineWidth = 1.2;
-    ctx.strokeRect(dateBoxX, dateBoxY, dateBoxW, dateBoxH);
+    const topSubY = cy - dialR * 0.355;
+    const botSubY = cy + dialR * 0.355;
+    const subR = dialR * 0.215;
 
-    ctx.fillStyle = "#111318";
-    ctx.font = `bold ${Math.round(dialR * 0.072)}px -apple-system, sans-serif`;
-    ctx.fillText(dayNum, cx + dialR * 0.42, cy + 0.5);
+    const topLabels = [
+      { deg: 0, text: "30" },
+      { deg: 60, text: "5" },
+      { deg: 120, text: "10" },
+      { deg: 180, text: "15" },
+      { deg: 240, text: "20" },
+      { deg: 300, text: "25" }
+    ];
+    const botLabels = [
+      { deg: 0, text: "60" },
+      { deg: 90, text: "15" },
+      { deg: 180, text: "30" },
+      { deg: 270, text: "45" }
+    ];
 
-    // 6. 아라비아 숫자 인덱스 (1 ~ 12)
-    const numRadius = dialR * 0.725;
-    ctx.fillStyle = "#f5f7fb";
-    ctx.font = `600 ${Math.round(dialR * 0.132)}px "Times New Roman", Georgia, serif`;
+    const chronoMinAng = ((min % 30) / 30) * Math.PI * 2;
+    const subSecAng = (mechSec / 60) * Math.PI * 2;
+
+    drawSubdial(ctx, cx, topSubY, subR, topLabels, 5, chronoMinAng, "#17253d", "rgba(23,37,61,0.28)", "#1b263b");
+    drawSubdial(ctx, cx, botSubY, subR, botLabels, 15, subSecAng, "#17253d", "rgba(23,37,61,0.28)", "#1b263b");
+
+    // 6. IWC SCHAFFHAUSEN (3시 방향) & CHRONOGRAPH AUTOMATIC (9시 방향)
+    ctx.fillStyle = "#17253d";
+    ctx.font = `bold ${Math.max(11, Math.round(dialR * 0.088))}px "Times New Roman", Georgia, serif`;
+    ctx.fillText("IWC", cx + dialR * 0.34, cy - dialR * 0.045);
+
+    ctx.fillStyle = "#2b3a55";
+    ctx.font = `600 ${Math.max(6, Math.round(dialR * 0.032))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.fillText("SCHAFFHAUSEN", cx + dialR * 0.34, cy + dialR * 0.025);
+
+    ctx.fillStyle = "#2b3a55";
+    ctx.font = `600 ${Math.max(6, Math.round(dialR * 0.036))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.fillText("CHRONOGRAPH", cx - dialR * 0.33, cy - dialR * 0.035);
+    ctx.fillText("AUTOMATIC", cx - dialR * 0.33, cy + dialR * 0.02);
+
+    // 7. 아라비아 숫자 인덱스 (12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
+    const numR = dialR * 0.725;
+    ctx.fillStyle = "#17253d";
+    ctx.font = `600 ${Math.max(14, Math.round(dialR * 0.125))}px "Times New Roman", Georgia, serif`;
     for (let h = 1; h <= 12; h++) {
       const ang = (h * 30) * Math.PI / 180;
-      const nx = cx + Math.sin(ang) * numRadius;
-      const ny = cy - Math.cos(ang) * numRadius;
+      const nx = cx + Math.sin(ang) * numR;
+      const ny = cy - Math.cos(ang) * numR;
       ctx.fillText(String(h), nx, ny);
     }
 
-    // 7. 하단 스몰 세컨즈 서브다이얼 장식 (6시 위)
-    const subY = cy + dialR * 0.36;
-    const subR = dialR * 0.17;
-    ctx.beginPath();
-    ctx.arc(cx, subY, subR, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(255,255,255,0.22)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // 8. 실시간 시침 · 분침 · 초침 (부드러운 기계식 스윕)
-    const ms = now.getMilliseconds();
-    const sec = now.getSeconds() + ms / 1000;
-    const min = now.getMinutes() + sec / 60;
-    const hr = (now.getHours() % 12) + min / 60;
-
+    // 8. 블루 스틸 리프 핸즈 (시침 · 분침) + 크로노그래프 초침
+    const bluedSteel = "#1a2d52";
     const hrAng = (hr * 30) * Math.PI / 180;
     const minAng = (min * 6) * Math.PI / 180;
-    const secAng = (sec * 6) * Math.PI / 180;
+    const secAng = (mechSec * 6) * Math.PI / 180;
 
-    // 시침 (리프/파일럿 스타일)
+    // 시침
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(hrAng);
-    ctx.shadowColor = "rgba(0,0,0,0.55)";
-    ctx.shadowBlur = 5;
+    ctx.shadowColor = "rgba(0, 0, 0, 0.22)";
+    ctx.shadowBlur = 4;
     ctx.shadowOffsetY = 2;
     ctx.beginPath();
-    ctx.moveTo(0, dialR * 0.11);
-    ctx.lineTo(-dialR * 0.032, -dialR * 0.12);
-    ctx.lineTo(0, -dialR * 0.54);
-    ctx.lineTo(dialR * 0.032, -dialR * 0.12);
+    ctx.moveTo(0, dialR * 0.12);
+    ctx.lineTo(-dialR * 0.032, -dialR * 0.14);
+    ctx.lineTo(0, -dialR * 0.56);
+    ctx.lineTo(dialR * 0.032, -dialR * 0.14);
     ctx.closePath();
-    ctx.fillStyle = "#f4f6fa";
+    ctx.fillStyle = bluedSteel;
     ctx.fill();
     ctx.restore();
 
@@ -3421,46 +3528,39 @@
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(minAng);
-    ctx.shadowColor = "rgba(0,0,0,0.55)";
-    ctx.shadowBlur = 5;
+    ctx.shadowColor = "rgba(0, 0, 0, 0.22)";
+    ctx.shadowBlur = 4;
     ctx.shadowOffsetY = 2;
     ctx.beginPath();
-    ctx.moveTo(0, dialR * 0.14);
-    ctx.lineTo(-dialR * 0.024, -dialR * 0.14);
-    ctx.lineTo(0, -dialR * 0.80);
-    ctx.lineTo(dialR * 0.024, -dialR * 0.14);
+    ctx.moveTo(0, dialR * 0.15);
+    ctx.lineTo(-dialR * 0.025, -dialR * 0.16);
+    ctx.lineTo(0, -dialR * 0.82);
+    ctx.lineTo(dialR * 0.025, -dialR * 0.16);
     ctx.closePath();
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = bluedSteel;
     ctx.fill();
     ctx.restore();
 
-    // 초침 (레드 팁)
+    // 중앙 크로노그래프 초침 (12시 방향 스탠바이)
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(secAng);
     ctx.beginPath();
-    ctx.moveTo(0, dialR * 0.19);
-    ctx.lineTo(0, -dialR * 0.85);
-    ctx.strokeStyle = "#d8dee9";
-    ctx.lineWidth = 1.6;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(0, -dialR * 0.68);
-    ctx.lineTo(0, -dialR * 0.85);
-    ctx.strokeStyle = "#ff453a";
-    ctx.lineWidth = 2.2;
+    ctx.moveTo(0, dialR * 0.18);
+    ctx.lineTo(0, -dialR * 0.86);
+    ctx.strokeStyle = bluedSteel;
+    ctx.lineWidth = 1.4;
     ctx.stroke();
     ctx.restore();
 
     // 중앙 피니언 캡
     ctx.beginPath();
-    ctx.arc(cx, cy, dialR * 0.036, 0, Math.PI * 2);
-    ctx.fillStyle = "#e5e9f0";
+    ctx.arc(cx, cy, dialR * 0.038, 0, Math.PI * 2);
+    ctx.fillStyle = bluedSteel;
     ctx.fill();
     ctx.beginPath();
     ctx.arc(cx, cy, dialR * 0.015, 0, Math.PI * 2);
-    ctx.fillStyle = "#2b303b";
+    ctx.fillStyle = "#ffffff";
     ctx.fill();
 
     ctx.restore();
@@ -3502,25 +3602,36 @@
     }, 60);
   }
 
-  // 시계 다이얼 위의 숫자 7 / 5 / 4 위치 직접 터치 판정
+  // 시계 다이얼 위의 숫자 7 / 5 / 4 구역 판정 (한 손 터치 편의성 확보)
   function detectClockDigitHit(clientX, clientY) {
     if (!iwcClockCanvas) return "";
     const rect = iwcClockCanvas.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-    const R = (rect.width / 2) * 0.93;
-    const dialR = R * 0.915;
-    const numRadius = dialR * 0.725;
-    const hitRadius = Math.max(26, dialR * 0.165);
+    const dialR = (rect.width * 0.455) * 0.912;
+    const numR = dialR * 0.725;
+    const hitRadius = Math.max(38, dialR * 0.24);
 
     const targets = [7, 5, 4];
     for (const h of targets) {
       const ang = (h * 30) * Math.PI / 180;
-      const nx = cx + Math.sin(ang) * numRadius;
-      const ny = cy - Math.cos(ang) * numRadius;
+      const nx = cx + Math.sin(ang) * numR;
+      const ny = cy - Math.cos(ang) * numR;
       if (Math.hypot(clientX - nx, clientY - ny) <= hitRadius) {
         return String(h);
       }
+    }
+
+    // 화면 중심 기준 각도 보조 판정 (숫자 바깥쪽을 살짝 눌러도 인식)
+    const dx = clientX - cx;
+    const dy = clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist >= dialR * 0.25 && dist <= dialR * 1.35) {
+      let deg = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
+      if (deg < 0) deg += 360;
+      if (deg >= 190 && deg <= 245) return "7";
+      if (deg > 142 && deg <= 172) return "5";
+      if (deg >= 102 && deg <= 142) return "4";
     }
     return "";
   }
@@ -3531,7 +3642,7 @@
     stealthActivePointerId = e.pointerId;
 
     const now = Date.now();
-    if (stealthStep > 0 && (now - stealthLastStepAt > 4500)) {
+    if (stealthStep > 0 && (now - stealthLastStepAt > 8000)) {
       stealthStep = 0;
     }
 
@@ -3552,6 +3663,7 @@
         stealthStep++;
       } else {
         // 8번째(숫자 4의 3번째) 터치: 3초 이상 누르고 있으면 자동 잠금 해제 (진동 없음)
+        stealthHoldTargetDigit = "4";
         stealthHoldTimer3 = setTimeout(() => {
           if (stealthActivePointerId === e.pointerId && lockScreen.classList.contains("stealth-ko")) {
             resetStealthGesture();
@@ -3563,6 +3675,21 @@
     } else {
       stealthStep = 0;
       stealthLastStepAt = 0;
+      stealthHoldTargetDigit = "";
+    }
+  });
+
+  lockScreen.addEventListener("pointermove", (e) => {
+    if (!lockScreen.classList.contains("stealth-ko")) return;
+    if (stealthActivePointerId !== e.pointerId || !stealthHoldTimer3) return;
+    // 3초 롱프레스 중 손가락을 너무 멀리(4 구역 이탈) 빼면 취소
+    const curDigit = detectClockDigitHit(e.clientX, e.clientY);
+    if (curDigit && curDigit !== stealthHoldTargetDigit) {
+      clearTimeout(stealthHoldTimer3);
+      stealthHoldTimer3 = null;
+      stealthStep = 0;
+      stealthLastStepAt = 0;
+      stealthHoldTargetDigit = "";
     }
   });
 
@@ -3570,6 +3697,7 @@
     if (stealthActivePointerId !== null && e.pointerId === stealthActivePointerId) {
       stealthActivePointerId = null;
       clearStealthTimers();
+      stealthHoldTargetDigit = "";
       if (stealthStep >= STEALTH_SEQ.length - 1) {
         stealthStep = 0;
         stealthLastStepAt = 0;
