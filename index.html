@@ -1470,7 +1470,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 70;
+  const APP_VERSION = 72;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -3283,209 +3283,400 @@
     stealthActivePointerId = null;
   }
 
-  function drawMoonphaseWindow(ctx, mx, my, mr, nowDate) {
+  // ================= 태양 위치 + 자이로/나침반 센서 기반 3D 광원 엔진 =================
+  let sensorActive = false;
+  let sensorPermissionAsked = false;
+  let targetTiltX = -0.25;
+  let targetTiltY = -0.30;
+  let smoothTiltX = -0.25;
+  let smoothTiltY = -0.30;
+  let targetHeadingRad = 0;
+  let smoothHeadingRad = 0;
+
+  function onDeviceOrientationUpdate(e) {
+    if (e.gamma === null && e.beta === null) return;
+    sensorActive = true;
+    // 손에 쥐고 보는 기본 각도(beta 약 42도)를 중심으로 -1 ~ +1 정규화
+    const g = Math.max(-45, Math.min(45, Number(e.gamma || 0)));
+    const b = Math.max(-45, Math.min(45, Number(e.beta || 42) - 42));
+    targetTiltX = g / 45;
+    targetTiltY = b / 45;
+    if (typeof e.alpha === "number" && isFinite(e.alpha)) {
+      const compHeading = typeof e.webkitCompassHeading === "number" ? e.webkitCompassHeading : (360 - e.alpha);
+      targetHeadingRad = (compHeading * Math.PI) / 180;
+    }
+  }
+
+  function enableWatchOrientationSensor() {
+    try {
+      if (typeof DeviceOrientationEvent === "undefined") return;
+      if (typeof DeviceOrientationEvent.requestPermission === "function") {
+        if (sensorPermissionAsked) return;
+        sensorPermissionAsked = true;
+        DeviceOrientationEvent.requestPermission().then((state) => {
+          if (state === "granted") {
+            window.addEventListener("deviceorientation", onDeviceOrientationUpdate, { passive: true });
+          }
+        }).catch(() => {});
+      } else {
+        window.addEventListener("deviceorientation", onDeviceOrientationUpdate, { passive: true });
+      }
+    } catch {}
+  }
+
+  // 안드로이드 등 권한 팝업 불필요 환경에서는 즉시 센서 활성화
+  if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission !== "function") {
+    window.addEventListener("deviceorientation", onDeviceOrientationUpdate, { passive: true });
+  }
+
+  // 현재 시각 기준 태양 고도/방위각 및 광원 색온도 계산 (한국 위도 37.2N, 경도 127.1E 기준)
+  function getSolarLighting(now) {
+    const startOfYear = new Date(now.getFullYear(), 0, 0);
+    const dayOfYear = Math.floor((now - startOfYear) / 86400000);
+    const localHours = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+
+    // 태양 적위 (rad) & 시간각 (rad)
+    const latRad = (37.2 * Math.PI) / 180;
+    const declRad = (23.44 * Math.PI / 180) * Math.sin(((2 * Math.PI) / 365) * (dayOfYear - 81));
+    // 한국 표준시(135E) 대비 경도(127.1E) 보정 (~-31.6분)
+    const solarTime = localHours - 0.526;
+    const hourAngleRad = ((solarTime - 12) * 15 * Math.PI) / 180;
+
+    const sinAlt = Math.sin(latRad) * Math.sin(declRad) + Math.cos(latRad) * Math.cos(declRad) * Math.cos(hourAngleRad);
+    const altRad = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
+    const altDeg = (altRad * 180) / Math.PI;
+
+    const cosAz = (Math.sin(declRad) - Math.sin(altRad) * Math.sin(latRad)) / (Math.cos(altRad) * Math.cos(latRad) + 1e-6);
+    let azRad = Math.acos(Math.max(-1, Math.min(1, cosAz)));
+    if (hourAngleRad > 0) azRad = 2 * Math.PI - azRad;
+
+    // 시간대별 광원 색온도 및 강도
+    let r = 255, g = 253, b = 248, intensity = 1.0;
+    if (altDeg >= 15) {
+      // 맑은 주간: 선명한 은백색
+      r = 255; g = 253; b = 248;
+      intensity = 0.92 + Math.min(0.18, (altDeg - 15) / 250);
+    } else if (altDeg >= -4) {
+      // 일출 / 노을: 따뜻한 골드·앰버 톤
+      const t = (altDeg + 4) / 19; // 0(어스름) ~ 1(낮)
+      r = 255;
+      g = Math.round(212 + t * 41);
+      b = Math.round(162 + t * 86);
+      intensity = 0.72 + t * 0.20;
+    } else {
+      // 야간: 은은한 실내/달빛 쿨톤
+      r = 216; g = 230; b = 255;
+      intensity = 0.62;
+    }
+
+    return { azRad, altDeg, r, g, b, intensity };
+  }
+
+  // 오프스크린 정적 다이얼 레이어 캐시 (실버 그레인, 60초 눈금, 6시 동심원 스네일링, 각인, 날짜창)
+  let cachedDialLayerCanvas = null;
+  let cachedDialLayerKey = "";
+
+  function buildCachedDialLayer(pxSize, dpr, cssSize, dayNum) {
+    const off = document.createElement("canvas");
+    off.width = pxSize;
+    off.height = pxSize;
+    const ctx = off.getContext("2d");
+    ctx.scale(dpr, dpr);
+
+    const cx = cssSize / 2;
+    const cy = cssSize / 2;
+    const dialR = (cssSize * 0.445) * 0.912;
+
+    // 1. 실버 화이트 베이스 + 미세 모래알 그레인 질감
     ctx.save();
     ctx.beginPath();
-    ctx.arc(mx, my, mr, 0, Math.PI * 2);
+    ctx.arc(cx, cy, dialR, 0, Math.PI * 2);
     ctx.clip();
 
-    // 딥 블루 밤하늘 배경
-    const skyGrad = ctx.createRadialGradient(mx, my - mr * 0.2, mr * 0.1, mx, my, mr);
-    skyGrad.addColorStop(0, "#1c3d7a");
-    skyGrad.addColorStop(0.75, "#0e2249");
-    skyGrad.addColorStop(1, "#071229");
-    ctx.fillStyle = skyGrad;
-    ctx.fillRect(mx - mr, my - mr, mr * 2, mr * 2);
+    const dialBase = ctx.createRadialGradient(cx, cy, dialR * 0.05, cx, cy, dialR);
+    dialBase.addColorStop(0.00, "#fbfbfc");
+    dialBase.addColorStop(0.62, "#f0f1f4");
+    dialBase.addColorStop(0.90, "#e1e3e8");
+    dialBase.addColorStop(1.00, "#cfd2d9");
+    ctx.fillStyle = dialBase;
+    ctx.fillRect(cx - dialR, cy - dialR, dialR * 2, dialR * 2);
 
-    // 별빛 점들
-    const stars = [
-      [-0.55, -0.45, 1.1], [-0.25, -0.62, 0.9], [0.22, -0.58, 1.2],
-      [0.52, -0.42, 0.85], [-0.62, -0.1, 0.8], [0.58, -0.08, 1.0],
-      [-0.4, 0.25, 0.9], [0.38, 0.28, 0.8]
-    ];
-    stars.forEach(([sx, sy, sr]) => {
-      ctx.beginPath();
-      ctx.arc(mx + sx * mr, my + sy * mr, Math.max(0.7, sr * (mr / 42)), 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(235, 244, 255, 0.85)";
-      ctx.fill();
-    });
-
-    // 달 위상 (실제 음력 주기 근사)
-    const synodicDays = 29.53058867;
-    const refNewMoon = Date.UTC(2026, 0, 18, 19, 52, 0);
-    const daysSince = (nowDate.getTime() - refNewMoon) / 86400000;
-    const phase = ((daysSince % synodicDays) + synodicDays) % synodicDays / synodicDays;
-    const illum = 0.5 * (1 - Math.cos(2 * Math.PI * phase));
-    const waxing = phase < 0.5;
-
-    const moonR = mr * 0.42;
-    const moonX = mx;
-    const moonY = my + mr * 0.08;
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2);
-    ctx.fillStyle = "#f4f6fa";
-    ctx.fill();
-
-    // 그림자 오버레이로 위상 표현
-    const shadowAmount = Math.max(0, Math.min(1, 1 - illum));
-    if (shadowAmount > 0.02) {
-      ctx.beginPath();
-      ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2);
-      ctx.clip();
-      const shift = (waxing ? -1 : 1) * moonR * (1.6 - shadowAmount * 1.2);
-      ctx.beginPath();
-      ctx.arc(moonX + shift, moonY, moonR * 1.02, 0, Math.PI * 2);
-      ctx.fillStyle = "#0d2044";
-      ctx.fill();
+    // 실버 도금 다이얼 특유의 미세 매트 그레인(모래알 질감)
+    let seed = 1337;
+    const rand = () => {
+      seed = (seed * 16807) % 2147483647;
+      return (seed - 1) / 2147483646;
+    };
+    for (let i = 0; i < 3400; i++) {
+      const gx = cx + (rand() * 2 - 1) * dialR;
+      const gy = cy + (rand() * 2 - 1) * dialR;
+      const isLight = rand() > 0.48;
+      ctx.fillStyle = isLight ? "rgba(255,255,255,0.25)" : "rgba(95,104,118,0.068)";
+      ctx.fillRect(gx, gy, 1, 1);
     }
     ctx.restore();
 
-    // 위쪽 아치 프레임 테두리
-    ctx.beginPath();
-    ctx.arc(mx, my, mr, 0, Math.PI * 2);
-    ctx.strokeStyle = "#b8bec8";
-    ctx.lineWidth = Math.max(1.2, mr * 0.045);
-    ctx.stroke();
+    // 2. 외곽 60초 분 눈금 & 5초 간격 숫자 (5, 10, 15... 60)
+    const trackOuter = dialR * 0.955;
+    ctx.save();
+    ctx.fillStyle = "#202632";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `600 ${Math.max(8, Math.round(dialR * 0.044))}px -apple-system, BlinkMacSystemFont, sans-serif`;
 
+    for (let i = 0; i < 60; i++) {
+      const ang = (i * 6) * Math.PI / 180;
+      const isFive = (i % 5 === 0);
+      const tickLen = isFive ? dialR * 0.068 : dialR * 0.042;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.sin(ang) * (trackOuter - tickLen), cy - Math.cos(ang) * (trackOuter - tickLen));
+      ctx.lineTo(cx + Math.sin(ang) * trackOuter, cy - Math.cos(ang) * trackOuter);
+      ctx.strokeStyle = isFive ? "#141923" : "rgba(28, 34, 46, 0.65)";
+      ctx.lineWidth = isFive ? 1.55 : 0.9;
+      ctx.stroke();
+
+      if (isFive) {
+        const label = i === 0 ? "60" : String(i);
+        const lr = trackOuter - dialR * 0.112;
+        ctx.fillText(label, cx + Math.sin(ang) * lr, cy - Math.cos(ang) * lr);
+      }
+    }
     ctx.restore();
-  }
 
-  function drawBatterySubdial(ctx, scx, scy, sr, levelRatio) {
-    // 8시~4시 방향 배터리 잔량 아크 (좌측 8d -> 우측 0 빨간 경고 구간)
-    const pct = Math.max(0, Math.min(100, Math.round(levelRatio * 100)));
-    const startDeg = -135; // 좌측 상단(8d 위치)
-    const endDeg = 55;    // 우측 하단(0 위치)
-    const spanDeg = endDeg - startDeg;
-    const redStartDeg = endDeg - spanDeg * 0.16;
-
+    // 3. IWC SCHAFFHAUSEN & PORTOFINO & SWISS MADE 각인
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
+    ctx.fillStyle = "#161b24";
+    ctx.font = `bold ${Math.max(12, Math.round(dialR * 0.095))}px "Times New Roman", Georgia, serif`;
+    ctx.fillText("IWC", cx, cy - dialR * 0.235);
 
-    // 빨간 잔량 부족 구간 (우측 끝)
+    ctx.fillStyle = "#2b3240";
+    ctx.font = `600 ${Math.max(6, Math.round(dialR * 0.032))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.fillText("SCHAFFHAUSEN", cx, cy - dialR * 0.168);
+
+    ctx.fillStyle = "#2b3240";
+    ctx.font = `600 ${Math.max(6.5, Math.round(dialR * 0.036))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.fillText("PORTOFINO", cx + dialR * 0.29, cy - dialR * 0.015);
+
+    ctx.font = `600 ${Math.max(5.5, Math.round(dialR * 0.025))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.fillText("SWISS", cx - dialR * 0.075, cy + dialR * 0.875);
+    ctx.fillText("MADE", cx + dialR * 0.075, cy + dialR * 0.875);
+    ctx.restore();
+
+    // 4. 3시 방향 입체 날짜창 (베벨 프레임 + 내부 깊이 그림자 + 오늘 날짜)
+    const dateBoxW = dialR * 0.145;
+    const dateBoxH = dialR * 0.105;
+    const dateBoxX = cx + dialR * 0.56 - dateBoxW / 2;
+    const dateBoxY = cy - dateBoxH / 2;
+
+    ctx.save();
+    ctx.fillStyle = "#b5bcc8";
+    ctx.fillRect(dateBoxX - 1.5, dateBoxY - 1.5, dateBoxW + 3, dateBoxH + 3);
+    ctx.fillStyle = "#f5f6f8";
+    ctx.fillRect(dateBoxX, dateBoxY, dateBoxW, dateBoxH);
+
+    // 날짜창 안쪽 상단/좌측 깊이 그림자
+    const dShadow = ctx.createLinearGradient(dateBoxX, dateBoxY, dateBoxX + dateBoxW * 0.35, dateBoxY + dateBoxH * 0.45);
+    dShadow.addColorStop(0, "rgba(18, 24, 34, 0.32)");
+    dShadow.addColorStop(1, "rgba(18, 24, 34, 0)");
+    ctx.fillStyle = dShadow;
+    ctx.fillRect(dateBoxX, dateBoxY, dateBoxW, dateBoxH);
+
+    ctx.strokeStyle = "rgba(20, 26, 36, 0.42)";
+    ctx.lineWidth = 1.1;
+    ctx.strokeRect(dateBoxX, dateBoxY, dateBoxW, dateBoxH);
+
+    ctx.fillStyle = "#171c26";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `600 ${Math.max(9, Math.round(dialR * 0.072))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.fillText(String(dayNum), dateBoxX + dateBoxW / 2, cy + 0.5);
+    ctx.restore();
+
+    // 5. 하단 6시 움푹 들어간 스몰 세컨즈 판 + 동심원 아쥐라주(스네일링) 미세 홈 결
+    const subCy = cy + dialR * 0.445;
+    const subR = dialR * 0.215;
+    ctx.save();
     ctx.beginPath();
-    ctx.arc(scx, scy, sr * 0.88, ((redStartDeg - 90) * Math.PI) / 180, ((endDeg - 90) * Math.PI) / 180);
-    ctx.strokeStyle = "#d92b2b";
-    ctx.lineWidth = Math.max(2, sr * 0.11);
-    ctx.stroke();
+    ctx.arc(cx, subCy, subR, 0, Math.PI * 2);
+    ctx.clip();
 
-    // 일반 잔량 트랙
-    ctx.beginPath();
-    ctx.arc(scx, scy, sr * 0.88, ((startDeg - 90) * Math.PI) / 180, ((redStartDeg - 90) * Math.PI) / 180);
-    ctx.strokeStyle = "rgba(25, 34, 48, 0.35)";
-    ctx.lineWidth = Math.max(1.5, sr * 0.075);
-    ctx.stroke();
+    const subBase = ctx.createRadialGradient(cx, subCy + subR * 0.08, subR * 0.65, cx, subCy, subR);
+    subBase.addColorStop(0, "#eff0f3");
+    subBase.addColorStop(0.84, "#e3e5ea");
+    subBase.addColorStop(1, "#c7ccd5");
+    ctx.fillStyle = subBase;
+    ctx.fillRect(cx - subR, subCy - subR, subR * 2, subR * 2);
 
-    // 눈금 표시 (8d, 6, 4, 2, 0 위치에 대응하는 틱)
-    for (let tIdx = 0; tIdx <= 8; tIdx++) {
-      const deg = startDeg + (tIdx / 8) * spanDeg;
-      const rad = ((deg - 90) * Math.PI) / 180;
-      const isMajor = (tIdx % 2 === 0);
-      const rOuter = sr * 0.94;
-      const rInner = isMajor ? sr * 0.72 : sr * 0.82;
+    // 동심원 미세 홈 (스네일링/아쥐라주 패턴)
+    for (let rr = 3; rr < subR * 0.96; rr += 2.1) {
       ctx.beginPath();
-      ctx.moveTo(scx + Math.cos(rad) * rInner, scy + Math.sin(rad) * rInner);
-      ctx.lineTo(scx + Math.cos(rad) * rOuter, scy + Math.sin(rad) * rOuter);
-      ctx.strokeStyle = (tIdx >= 7) ? "#d92b2b" : "#1f2937";
-      ctx.lineWidth = isMajor ? Math.max(1.2, sr * 0.04) : Math.max(0.8, sr * 0.025);
+      ctx.arc(cx, subCy, rr, 0, Math.PI * 2);
+      ctx.strokeStyle = (Math.floor(rr) % 2 === 0) ? "rgba(255,255,255,0.32)" : "rgba(65,75,92,0.085)";
+      ctx.lineWidth = 0.65;
       ctx.stroke();
     }
 
-    // 배터리 잔량 라벨 (BAT / 잔량 %)
-    ctx.fillStyle = "#334155";
-    ctx.font = `700 ${Math.max(7, Math.round(sr * 0.21))}px -apple-system, BlinkMacSystemFont, sans-serif`;
-    ctx.fillText(phoneBatteryCharging ? "⚡BAT" : "BAT", scx - sr * 0.36, scy - sr * 0.32);
-
-    ctx.fillStyle = pct <= 15 ? "#d92b2b" : "#17253d";
-    ctx.font = `bold ${Math.max(8, Math.round(sr * 0.24))}px -apple-system, BlinkMacSystemFont, sans-serif`;
-    ctx.fillText(`${pct}%`, scx + sr * 0.14, scy + sr * 0.42);
-
-    // 핸드폰 배터리 잔량에 따른 바늘 각도 (100% -> 8d 방향, 0% -> 0 방향)
-    const needleDeg = startDeg + (1 - levelRatio) * spanDeg;
-    const needleRad = ((needleDeg - 90) * Math.PI) / 180;
-
-    ctx.save();
-    ctx.translate(scx, scy);
-    ctx.rotate(needleRad + Math.PI / 2);
-    ctx.beginPath();
-    ctx.moveTo(0, sr * 0.16);
-    ctx.lineTo(0, -sr * 0.84);
-    ctx.strokeStyle = "#1a2d52";
-    ctx.lineWidth = Math.max(1.5, sr * 0.055);
-    ctx.lineCap = "round";
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(0, 0, Math.max(2.2, sr * 0.085), 0, Math.PI * 2);
-    ctx.fillStyle = "#c9a24d";
-    ctx.fill();
+    // 서브다이얼 안쪽 상단 경계 깊은 단차 그림자
+    const subRimShadow = ctx.createRadialGradient(cx, subCy + subR * 0.09, subR * 0.80, cx, subCy, subR * 1.02);
+    subRimShadow.addColorStop(0, "rgba(0,0,0,0)");
+    subRimShadow.addColorStop(1, "rgba(18, 24, 34, 0.34)");
+    ctx.fillStyle = subRimShadow;
+    ctx.fillRect(cx - subR, subCy - subR, subR * 2, subR * 2);
     ctx.restore();
 
-    ctx.restore();
-  }
-
-  function drawSmallSecondsSubdial(ctx, scx, scy, sr, mechSec) {
+    // 서브다이얼 외곽 링 & 60초 눈금 & 숫자
     ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-
-    // 외곽 링
     ctx.beginPath();
-    ctx.arc(scx, scy, sr, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(25, 34, 48, 0.28)";
-    ctx.lineWidth = Math.max(1, sr * 0.025);
+    ctx.arc(cx, subCy, subR, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(30, 36, 48, 0.32)";
+    ctx.lineWidth = 1;
     ctx.stroke();
 
-    // 60초 눈금
     for (let i = 0; i < 60; i++) {
       const a = (i * 6) * Math.PI / 180;
       const isMajor = (i % 5 === 0);
-      const rOuter = sr * 0.95;
-      const rInner = isMajor ? sr * 0.78 : sr * 0.86;
+      const rOut = subR * 0.94;
+      const rIn = isMajor ? subR * 0.77 : subR * 0.85;
       ctx.beginPath();
-      ctx.moveTo(scx + Math.sin(a) * rInner, scy - Math.cos(a) * rInner);
-      ctx.lineTo(scx + Math.sin(a) * rOuter, scy - Math.cos(a) * rOuter);
-      ctx.strokeStyle = isMajor ? "#1e293b" : "rgba(30, 41, 59, 0.45)";
-      ctx.lineWidth = isMajor ? Math.max(1.1, sr * 0.03) : Math.max(0.7, sr * 0.018);
+      ctx.moveTo(cx + Math.sin(a) * rIn, subCy - Math.cos(a) * rIn);
+      ctx.lineTo(cx + Math.sin(a) * rOut, subCy - Math.cos(a) * rOut);
+      ctx.strokeStyle = isMajor ? "#1e2533" : "rgba(30, 37, 51, 0.48)";
+      ctx.lineWidth = isMajor ? 1.2 : 0.75;
       ctx.stroke();
     }
 
-    // 60, 10, 20, 30, 40, 50 숫자 (60은 포인트 레드/블루 강조)
-    const secNums = [
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `600 ${Math.max(8, Math.round(subR * 0.22))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    [
       { deg: 0, text: "60", hi: true },
       { deg: 60, text: "10", hi: false },
       { deg: 120, text: "20", hi: false },
       { deg: 180, text: "30", hi: false },
       { deg: 240, text: "40", hi: false },
       { deg: 300, text: "50", hi: false }
-    ];
-    ctx.font = `600 ${Math.max(8, Math.round(sr * 0.22))}px -apple-system, BlinkMacSystemFont, sans-serif`;
-    secNums.forEach(item => {
+    ].forEach(item => {
       const a = (item.deg) * Math.PI / 180;
-      const lx = scx + Math.sin(a) * (sr * 0.56);
-      const ly = scy - Math.cos(a) * (sr * 0.56);
-      ctx.fillStyle = item.hi ? "#b91c1c" : "#1e293b";
+      const lx = cx + Math.sin(a) * (subR * 0.56);
+      const ly = subCy - Math.cos(a) * (subR * 0.56);
+      ctx.fillStyle = item.hi ? "#c82323" : "#1e2533";
       ctx.fillText(item.text, lx, ly);
     });
+    ctx.restore();
 
-    // 초침 (1초 8스텝 기계식 느낌)
-    const secAng = (mechSec / 60) * Math.PI * 2;
+    // 6. 좌측 9시 배터리 게이지 눈금판 (100~0 아크)
+    const batCx = cx - dialR * 0.36;
+    const batCy = cy + dialR * 0.12;
+    const batR = dialR * 0.23;
+    const startDeg = -132;
+    const endDeg = 48;
+    const spanDeg = endDeg - startDeg;
+    const redStartDeg = endDeg - spanDeg * 0.18;
+
     ctx.save();
-    ctx.translate(scx, scy);
-    ctx.rotate(secAng);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
     ctx.beginPath();
-    ctx.moveTo(0, sr * 0.16);
-    ctx.lineTo(0, -sr * 0.80);
-    ctx.strokeStyle = "#1a2d52";
-    ctx.lineWidth = Math.max(1.4, sr * 0.045);
-    ctx.lineCap = "round";
+    ctx.arc(batCx, batCy, batR * 0.85, ((startDeg - 90) * Math.PI) / 180, ((redStartDeg - 90) * Math.PI) / 180);
+    ctx.strokeStyle = "#262d3a";
+    ctx.lineWidth = Math.max(1.2, batR * 0.045);
     ctx.stroke();
+
     ctx.beginPath();
-    ctx.arc(0, 0, Math.max(2.2, sr * 0.08), 0, Math.PI * 2);
-    ctx.fillStyle = "#c9a24d";
+    ctx.arc(batCx, batCy, batR * 0.85, ((redStartDeg - 90) * Math.PI) / 180, ((endDeg - 90) * Math.PI) / 180);
+    ctx.strokeStyle = "#c82323";
+    ctx.lineWidth = Math.max(2, batR * 0.095);
+    ctx.stroke();
+
+    const batLabels = { 0: "100", 2: "75", 4: "50", 6: "25", 8: "0" };
+    ctx.font = `600 ${Math.max(7, Math.round(batR * 0.19))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    for (let k = 0; k <= 8; k++) {
+      const deg = startDeg + (k / 8) * spanDeg;
+      const rad = ((deg - 90) * Math.PI) / 180;
+      const isMajor = (k % 2 === 0);
+      const rIn = batR * 0.85;
+      const rOut = isMajor ? batR * 1.03 : batR * 0.96;
+      ctx.beginPath();
+      ctx.moveTo(batCx + Math.cos(rad) * rIn, batCy + Math.sin(rad) * rIn);
+      ctx.lineTo(batCx + Math.cos(rad) * rOut, batCy + Math.sin(rad) * rOut);
+      ctx.strokeStyle = (k >= 7) ? "#c82323" : "#1f2633";
+      ctx.lineWidth = isMajor ? 1.3 : 0.85;
+      ctx.stroke();
+
+      if (batLabels[k] !== undefined) {
+        const lr = batR * 1.22;
+        ctx.fillStyle = (k === 8) ? "#c82323" : "#1f2633";
+        ctx.fillText(batLabels[k], batCx + Math.cos(rad) * lr, batCy + Math.sin(rad) * lr);
+      }
+    }
+    ctx.restore();
+
+    return off;
+  }
+
+  // 광원 각도에 따라 좌/우 패싯 명암이 반짝이며 그림자가 동적으로 이동하는 골드 리프 핸즈
+  function drawDynamicGoldLeafHand(ctx, cx, cy, angleRad, tailLen, tipLen, halfWidth, shadowX, shadowY, lightAng) {
+    // 광원 대비 바늘 각도에 따른 패싯 명암 비율 (-1 ~ +1)
+    const facet = Math.sin(angleRad - lightAng);
+    const leftBright = facet >= 0;
+
+    // 1. 광원 반대쪽 동적 그림자
+    ctx.save();
+    ctx.translate(cx + shadowX, cy + shadowY);
+    ctx.rotate(angleRad);
+    ctx.beginPath();
+    ctx.moveTo(0, tailLen);
+    ctx.quadraticCurveTo(-halfWidth * 1.15, -tipLen * 0.25, 0, -tipLen);
+    ctx.quadraticCurveTo(halfWidth * 1.15, -tipLen * 0.25, 0, tailLen);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(0, 0, 0, 0.24)";
+    ctx.filter = "blur(2.2px)";
     ctx.fill();
     ctx.restore();
+
+    // 2. 본체 골드 리프 핸즈 (좌/우 패싯 실시간 반짝임)
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angleRad);
+
+    const gLeft = ctx.createLinearGradient(-halfWidth, -tipLen, 0, tailLen);
+    if (leftBright) {
+      gLeft.addColorStop(0, "#fff8d8");
+      gLeft.addColorStop(0.45, "#e6c373");
+      gLeft.addColorStop(1, "#a47f32");
+    } else {
+      gLeft.addColorStop(0, "#c89e48");
+      gLeft.addColorStop(0.5, "#7d5c1d");
+      gLeft.addColorStop(1, "#dfbe72");
+    }
+    ctx.beginPath();
+    ctx.moveTo(0, tailLen);
+    ctx.quadraticCurveTo(-halfWidth * 1.15, -tipLen * 0.25, 0, -tipLen);
+    ctx.lineTo(0, tailLen);
+    ctx.closePath();
+    ctx.fillStyle = gLeft;
+    ctx.fill();
+
+    const gRight = ctx.createLinearGradient(0, -tipLen, halfWidth, tailLen);
+    if (!leftBright) {
+      gRight.addColorStop(0, "#fff8d8");
+      gRight.addColorStop(0.45, "#e6c373");
+      gRight.addColorStop(1, "#a47f32");
+    } else {
+      gRight.addColorStop(0, "#c89e48");
+      gRight.addColorStop(0.5, "#7d5c1d");
+      gRight.addColorStop(1, "#dfbe72");
+    }
+    ctx.beginPath();
+    ctx.moveTo(0, tailLen);
+    ctx.lineTo(0, -tipLen);
+    ctx.quadraticCurveTo(halfWidth * 1.15, -tipLen * 0.25, 0, tailLen);
+    ctx.closePath();
+    ctx.fillStyle = gRight;
+    ctx.fill();
 
     ctx.restore();
   }
@@ -3505,187 +3696,443 @@
       iwcClockCanvas.height = pxSize;
     }
 
+    const now = new Date();
+    const tSec = now.getTime() / 1000;
+
+    // 센서 미지원/데스크톱 환경에서는 아주 느리고 미세한 자연 호흡 움직임 폴백
+    if (!sensorActive) {
+      targetTiltX = Math.sin(tSec * 0.45) * 0.22 - 0.12;
+      targetTiltY = Math.cos(tSec * 0.35) * 0.18 - 0.16;
+    }
+
+    // 부드러운 관성 스무딩
+    smoothTiltX += (targetTiltX - smoothTiltX) * 0.14;
+    smoothTiltY += (targetTiltY - smoothTiltY) * 0.14;
+    const hDiff = Math.atan2(Math.sin(targetHeadingRad - smoothHeadingRad), Math.cos(targetHeadingRad - smoothHeadingRad));
+    smoothHeadingRad += hDiff * 0.12;
+
+    // 태양 위치 + 기기 방향·기울기를 결합한 최종 광원 벡터
+    const solar = getSolarLighting(now);
+    const relSolarAz = solar.azRad - smoothHeadingRad;
+    const solarWeight = solar.altDeg > -4 ? 0.55 : 0.28;
+    const lightX = Math.sin(relSolarAz) * solarWeight - smoothTiltX * 0.75;
+    const lightY = -Math.cos(relSolarAz) * solarWeight - smoothTiltY * 0.75;
+    const lightAng = Math.atan2(lightY, lightX);
+
+    // 3D 시차(Parallax) 기준 변위 (px)
+    const pX = smoothTiltX * 5.2;
+    const pY = smoothTiltY * 5.2;
+
+    const dialKey = `${pxSize}|${now.getDate()}`;
+    if (!cachedDialLayerCanvas || cachedDialLayerKey !== dialKey) {
+      cachedDialLayerCanvas = buildCachedDialLayer(pxSize, dpr, cssSize, now.getDate());
+      cachedDialLayerKey = dialKey;
+    }
+
     const ctx = iwcClockCanvas.getContext("2d");
+    ctx.clearRect(0, 0, pxSize, pxSize);
     ctx.save();
     ctx.scale(dpr, dpr);
 
     const cx = cssSize / 2;
     const cy = cssSize / 2;
-    const outerR = cssSize * 0.455;
+    const outerR = cssSize * 0.445;
+    const dialR = outerR * 0.912;
 
-    ctx.clearRect(0, 0, cssSize, cssSize);
-
-    // 1. 3시 방향 플루티드 크라운
-    const crownX = cx + outerR * 0.97;
-    const crownW = outerR * 0.105;
-    const crownH = outerR * 0.18;
-    const crownGrad = ctx.createLinearGradient(crownX, cy - crownH / 2, crownX + crownW, cy + crownH / 2);
-    crownGrad.addColorStop(0, "#c8cfd8");
-    crownGrad.addColorStop(0.5, "#f7f9fc");
-    crownGrad.addColorStop(1, "#78808e");
-    ctx.fillStyle = crownGrad;
+    // ===== [레이어 0] 케이스 하부 그림자 + 러그 4개 + 3시 크라운 + 동적 회전 스틸 베젤 =====
+    ctx.save();
     ctx.beginPath();
-    ctx.roundRect(crownX - 2, cy - crownH / 2, crownW, crownH, 3);
+    ctx.arc(cx - lightX * 4, cy + outerR * 0.03 - lightY * 4, outerR * 0.99, 0, Math.PI * 2);
+    ctx.shadowColor = "rgba(0, 0, 0, 0.80)";
+    ctx.shadowBlur = outerR * 0.15;
+    ctx.shadowOffsetY = outerR * 0.04;
+    ctx.fillStyle = "#101216";
     ctx.fill();
-    ctx.strokeStyle = "#5a6270";
-    ctx.lineWidth = 1;
+    ctx.restore();
+
+    // 폴리싱 스테인리스 러그 (스트랩 없음)
+    const lugW = outerR * 0.115;
+    const lugH = outerR * 0.19;
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sy]) => {
+      ctx.save();
+      const lx = cx + sx * (outerR * 0.56);
+      const ly = cy + sy * (outerR * 0.86);
+      ctx.translate(lx, ly);
+      ctx.rotate(sx * sy * 0.14);
+      const lg = ctx.createLinearGradient(-lugW / 2, 0, lugW / 2, 0);
+      lg.addColorStop(0, "#666d79");
+      lg.addColorStop(0.28 + smoothTiltX * 0.12, "#f5f7fa");
+      lg.addColorStop(0.55, "#aeb6c3");
+      lg.addColorStop(0.84, "#ffffff");
+      lg.addColorStop(1, "#555c68");
+      ctx.fillStyle = lg;
+      ctx.beginPath();
+      ctx.roundRect(-lugW / 2, -lugH / 2, lugW, lugH, 5);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // 3시 플루티드 크라운
+    const crownX = cx + outerR * 0.975;
+    const crownW = outerR * 0.105;
+    const crownH = outerR * 0.19;
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(crownX - 3, cy - crownH / 2, crownW, crownH, 4);
+    const cg = ctx.createLinearGradient(crownX, cy - crownH / 2, crownX, cy + crownH / 2);
+    cg.addColorStop(0, "#5c6370");
+    cg.addColorStop(0.22, "#f0f3f7");
+    cg.addColorStop(0.50, "#8d95a3");
+    cg.addColorStop(0.80, "#f8fafc");
+    cg.addColorStop(1, "#4b515d");
+    ctx.fillStyle = cg;
+    ctx.fill();
+    ctx.strokeStyle = "#484e5a";
+    ctx.lineWidth = 0.9;
     ctx.stroke();
+    for (let g = -3; g <= 3; g++) {
+      const gy = cy + g * (crownH * 0.115);
+      ctx.beginPath();
+      ctx.moveTo(crownX, gy);
+      ctx.lineTo(crownX + crownW - 4, gy);
+      ctx.strokeStyle = "rgba(35, 40, 48, 0.45)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    ctx.restore();
 
-    // 2. 폴리싱 스틸 베젤 & 실버 화이트 다이얼
-    const bezelGrad = ctx.createLinearGradient(cx - outerR, cy - outerR, cx + outerR, cy + outerR);
-    bezelGrad.addColorStop(0, "#f1f3f7");
-    bezelGrad.addColorStop(0.3, "#9aa2b0");
-    bezelGrad.addColorStop(0.65, "#f8fafc");
-    bezelGrad.addColorStop(1, "#7b8493");
-
+    // 멀티 레이어 폴리싱 베젤 (광원 각도에 따라 금속 하이라이트 실시간 회전)
+    ctx.save();
+    const bx1 = cx + Math.cos(lightAng) * outerR;
+    const by1 = cy + Math.sin(lightAng) * outerR;
+    const bx2 = cx - Math.cos(lightAng) * outerR;
+    const by2 = cy - Math.sin(lightAng) * outerR;
+    const bezelBase = ctx.createLinearGradient(bx1, by1, bx2, by2);
+    bezelBase.addColorStop(0.00, "#ffffff");
+    bezelBase.addColorStop(0.18, "#9aa3b2");
+    bezelBase.addColorStop(0.38, "#f8fafe");
+    bezelBase.addColorStop(0.58, "#67707e");
+    bezelBase.addColorStop(0.80, "#e5e9f0");
+    bezelBase.addColorStop(1.00, "#545c69");
     ctx.beginPath();
     ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
-    ctx.fillStyle = bezelGrad;
+    ctx.fillStyle = bezelBase;
     ctx.fill();
 
-    const dialR = outerR * 0.915;
-    const dialGrad = ctx.createRadialGradient(cx, cy - dialR * 0.2, dialR * 0.05, cx, cy, dialR);
-    dialGrad.addColorStop(0, "#ffffff");
-    dialGrad.addColorStop(0.75, "#f5f6f8");
-    dialGrad.addColorStop(1, "#e4e7ed");
+    const innerBezelR = outerR * 0.938;
+    const bezelChamfer = ctx.createLinearGradient(bx2, by2, bx1, by1);
+    bezelChamfer.addColorStop(0.0, "#f7f9fc");
+    bezelChamfer.addColorStop(0.36, "#78808f");
+    bezelChamfer.addColorStop(0.70, "#edf0f5");
+    bezelChamfer.addColorStop(1.0, "#626a78");
+    ctx.beginPath();
+    ctx.arc(cx, cy, innerBezelR, 0, Math.PI * 2);
+    ctx.fillStyle = bezelChamfer;
+    ctx.fill();
+    ctx.restore();
+
+    // ===== [다이얼 클리핑 내부: 3D 시차 레이어] =====
+    ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, dialR, 0, Math.PI * 2);
-    ctx.fillStyle = dialGrad;
+    ctx.clip();
+
+    // [레이어 2] 메인 다이얼 (깊이 -0.35 시차)
+    const dOffX = -pX * 0.35;
+    const dOffY = -pY * 0.35;
+    ctx.drawImage(cachedDialLayerCanvas, dOffX, dOffY, cssSize, cssSize);
+
+    // 기울기 & 태양 방향에 맞춰 실시간 회전하는 실버 선버스트 원뿔 광택
+    if (typeof ctx.createConicGradient === "function") {
+      const conic = ctx.createConicGradient(lightAng * 0.9 + smoothTiltX * 0.8, cx + dOffX, cy + dOffY);
+      const sCol = `${solar.r},${solar.g},${solar.b}`;
+      conic.addColorStop(0.00, `rgba(${sCol},${(0.24 * solar.intensity).toFixed(3)})`);
+      conic.addColorStop(0.16, "rgba(155,163,176,0.11)");
+      conic.addColorStop(0.32, `rgba(${sCol},${(0.30 * solar.intensity).toFixed(3)})`);
+      conic.addColorStop(0.50, "rgba(145,153,166,0.13)");
+      conic.addColorStop(0.68, `rgba(${sCol},${(0.22 * solar.intensity).toFixed(3)})`);
+      conic.addColorStop(0.84, "rgba(150,158,172,0.12)");
+      conic.addColorStop(1.00, `rgba(${sCol},${(0.24 * solar.intensity).toFixed(3)})`);
+      ctx.fillStyle = conic;
+      ctx.fillRect(cx - dialR, cy - dialR, dialR * 2, dialR * 2);
+    }
+
+    // 6시 서브다이얼 내부 동심원 스네일링 회전 광택 (깊이 -0.65 시차)
+    const subCx = cx + dOffX;
+    const subCy = cy + dialR * 0.445 + dOffY;
+    const subR = dialR * 0.215;
+    if (typeof ctx.createConicGradient === "function") {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(subCx, subCy, subR * 0.96, 0, Math.PI * 2);
+      ctx.clip();
+      const subConic = ctx.createConicGradient(-lightAng * 1.15, subCx, subCy);
+      subConic.addColorStop(0.0, "rgba(255,255,255,0.22)");
+      subConic.addColorStop(0.25, "rgba(80,90,108,0.08)");
+      subConic.addColorStop(0.5, "rgba(255,255,255,0.20)");
+      subConic.addColorStop(0.75, "rgba(80,90,108,0.08)");
+      subConic.addColorStop(1.0, "rgba(255,255,255,0.22)");
+      ctx.fillStyle = subConic;
+      ctx.fillRect(subCx - subR, subCy - subR, subR * 2, subR * 2);
+      ctx.restore();
+    }
+
+    // [레이어 1] 12시 문페이즈 (깊이 -0.75 시차로 창 안쪽이 움푹 파여 보이는 입체감)
+    const moonR = dialR * 0.165;
+    const mx = cx + dOffX;
+    const my = cy - dialR * 0.375 + dOffY;
+    const deepX = -pX * 0.55;
+    const deepY = -pY * 0.55;
+
+    ctx.save();
+    // 문페이즈 부채꼴 창 클리핑
+    ctx.beginPath();
+    ctx.arc(mx, my, moonR, Math.PI * 1.05, Math.PI * 1.95);
+    ctx.quadraticCurveTo(mx + moonR * 0.42, my - moonR * 0.22, mx, my - moonR * 0.05);
+    ctx.quadraticCurveTo(mx - moonR * 0.42, my - moonR * 0.22, mx - moonR * Math.cos(Math.PI * 0.05), my - moonR * Math.sin(Math.PI * 0.05));
+    ctx.closePath();
+    ctx.clip();
+
+    const skyGrad = ctx.createRadialGradient(mx + deepX, my - moonR * 0.45 + deepY, moonR * 0.08, mx, my, moonR);
+    skyGrad.addColorStop(0, "#1c4288");
+    skyGrad.addColorStop(0.65, "#0d224c");
+    skyGrad.addColorStop(1, "#050e22");
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(mx - moonR, my - moonR, moonR * 2, moonR * 2);
+
+    // 반짝이는 금빛 별 (깊이 시차 적용)
+    [[-0.52, -0.46, 1.2], [-0.24, -0.68, 1.0], [0.22, -0.66, 1.3], [0.54, -0.44, 1.0], [-0.36, -0.32, 0.85], [0.38, -0.30, 0.9]].forEach(([sx, sy, sr]) => {
+      ctx.beginPath();
+      ctx.arc(mx + sx * moonR + deepX, my + sy * moonR + deepY, Math.max(0.8, sr * (moonR / 44)), 0, Math.PI * 2);
+      ctx.fillStyle = "#f9ebc0";
+      ctx.fill();
+    });
+
+    // 골드 미러 피니시 달 디스크 (깊이 시차 + 광원 반사)
+    const synodicDays = 29.53058867;
+    const refNewMoon = Date.UTC(2026, 0, 18, 19, 52, 0);
+    const phase = (((now.getTime() - refNewMoon) / 86400000) % synodicDays + synodicDays) % synodicDays / synodicDays;
+    const moonShiftX = Math.sin((phase - 0.5) * Math.PI) * (moonR * 0.45);
+    const discR = moonR * 0.40;
+    const discX = mx + moonShiftX + deepX;
+    const discY = my - moonR * 0.44 + deepY;
+
+    const goldMoon = ctx.createRadialGradient(
+      discX + lightX * discR * 0.35,
+      discY + lightY * discR * 0.35,
+      discR * 0.06,
+      discX,
+      discY,
+      discR
+    );
+    goldMoon.addColorStop(0, "#fff8d6");
+    goldMoon.addColorStop(0.55, "#e0c072");
+    goldMoon.addColorStop(1, "#94712a");
+    ctx.beginPath();
+    ctx.arc(discX, discY, discR, 0, Math.PI * 2);
+    ctx.fillStyle = goldMoon;
     ctx.fill();
 
-    // 3. 외곽 60초 레일웨이 분 눈금 & 5초 간격 숫자(5, 10... 60)
-    const trackR = dialR * 0.955;
-    ctx.beginPath();
-    ctx.arc(cx, cy, trackR, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(35, 42, 56, 0.32)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    // 문페이즈 창 안쪽 가장자리 깊은 단차 그림자
+    const moonInnerShadow = ctx.createRadialGradient(mx + lightX * 3, my + lightY * 3, moonR * 0.72, mx, my, moonR * 1.02);
+    moonInnerShadow.addColorStop(0, "rgba(0,0,0,0)");
+    moonInnerShadow.addColorStop(1, "rgba(0, 4, 14, 0.62)");
+    ctx.fillStyle = moonInnerShadow;
+    ctx.fillRect(mx - moonR, my - moonR, moonR * 2, moonR * 2);
+    ctx.restore();
 
-    ctx.fillStyle = "#2b3546";
+    // 문페이즈 창 바깥 입체 금속 베벨 테두리
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(mx, my, moonR + 1.8, Math.PI * 1.06, Math.PI * 1.94);
+    ctx.strokeStyle = "rgba(128, 136, 150, 0.85)";
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+    ctx.restore();
+
+    // [9시 방향 배터리 라벨 & 골드 바늘]
+    const batCx = cx - dialR * 0.36 + dOffX;
+    const batCy = cy + dialR * 0.12 + dOffY;
+    const batR = dialR * 0.23;
+    const startDeg = -132;
+    const spanDeg = 180;
+    const batNeedleDeg = startDeg + (1 - phoneBatteryLevel) * spanDeg;
+    const batNeedleRad = ((batNeedleDeg - 90) * Math.PI) / 180 + Math.PI / 2;
+
+    ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = `600 ${Math.max(8, Math.round(dialR * 0.048))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.fillStyle = "#333c4d";
+    ctx.font = `700 ${Math.max(6, Math.round(batR * 0.165))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.fillText(phoneBatteryCharging ? "⚡BAT" : "BAT%", batCx - batR * 0.42, batCy - batR * 0.36);
+    ctx.restore();
 
-    for (let i = 0; i < 60; i++) {
-      const ang = (i * 6) * Math.PI / 180;
-      const isFive = (i % 5 === 0);
-      const tickLen = isFive ? dialR * 0.065 : dialR * 0.038;
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.sin(ang) * (trackR - tickLen), cy - Math.cos(ang) * (trackR - tickLen));
-      ctx.lineTo(cx + Math.sin(ang) * trackR, cy - Math.cos(ang) * trackR);
-      ctx.strokeStyle = isFive ? "#1e293b" : "rgba(35, 42, 56, 0.52)";
-      ctx.lineWidth = isFive ? 1.5 : 0.9;
-      ctx.stroke();
+    drawDynamicGoldLeafHand(ctx, batCx, batCy, batNeedleRad, batR * 0.18, batR * 0.86, Math.max(1.5, batR * 0.042), -lightX * 1.8, -lightY * 1.8 + 1.0, lightAng);
+    ctx.beginPath();
+    ctx.arc(batCx, batCy, Math.max(2.5, batR * 0.095), 0, Math.PI * 2);
+    ctx.fillStyle = "#d9b45b";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(batCx, batCy, Math.max(1.1, batR * 0.04), 0, Math.PI * 2);
+    ctx.fillStyle = "#5c4514";
+    ctx.fill();
 
-      if (isFive) {
-        const label = i === 0 ? "60" : String(i);
-        const lr = trackR - dialR * 0.11;
-        ctx.fillText(label, cx + Math.sin(ang) * lr, cy - Math.cos(ang) * lr);
+    // ===== [레이어 3] 입체 골드 바톤 인덱스 (시차 +0.15 + 광원 각도별 실시간 패싯 반짝임) =====
+    const bOffX = pX * 0.12;
+    const bOffY = pY * 0.12;
+    for (let h = 1; h <= 12; h++) {
+      const ang = (h * 30) * Math.PI / 180;
+      const rOut = dialR * 0.815;
+      const rIn = (h === 3) ? dialR * 0.725 : dialR * 0.655;
+      const barLen = rOut - rIn;
+      const barW = Math.max(2.5, dialR * 0.0175);
+      const bFacet = Math.sin(ang - lightAng);
+      const bLeftBright = bFacet >= 0;
+
+      const drawBaton = (offsetLat) => {
+        ctx.save();
+        ctx.translate(cx + bOffX, cy + bOffY);
+        ctx.rotate(ang);
+        ctx.translate(offsetLat, -(rIn + rOut) / 2);
+
+        ctx.shadowColor = "rgba(0, 0, 0, 0.28)";
+        ctx.shadowBlur = 2.6;
+        ctx.shadowOffsetX = -lightX * 2.2;
+        ctx.shadowOffsetY = -lightY * 2.2 + 1.2;
+
+        const gL = ctx.createLinearGradient(-barW / 2, -barLen / 2, 0, barLen / 2);
+        if (bLeftBright) {
+          gL.addColorStop(0, "#fff6ce");
+          gL.addColorStop(0.45, "#e0bc6c");
+          gL.addColorStop(1, "#96732b");
+        } else {
+          gL.addColorStop(0, "#c89e49");
+          gL.addColorStop(0.5, "#7c5b1d");
+          gL.addColorStop(1, "#e5c67d");
+        }
+        ctx.fillStyle = gL;
+        ctx.fillRect(-barW / 2, -barLen / 2, barW / 2, barLen);
+
+        ctx.shadowColor = "transparent";
+        const gR = ctx.createLinearGradient(0, -barLen / 2, barW / 2, barLen / 2);
+        if (!bLeftBright) {
+          gR.addColorStop(0, "#fff6ce");
+          gR.addColorStop(0.45, "#e0bc6c");
+          gR.addColorStop(1, "#96732b");
+        } else {
+          gR.addColorStop(0, "#c89e49");
+          gR.addColorStop(0.5, "#7c5b1d");
+          gR.addColorStop(1, "#e5c67d");
+        }
+        ctx.fillStyle = gR;
+        ctx.fillRect(0, -barLen / 2, barW / 2, barLen);
+
+        ctx.restore();
+      };
+
+      if (h === 12) {
+        drawBaton(-barW * 0.85);
+        drawBaton(barW * 0.85);
+      } else {
+        drawBaton(0);
       }
     }
 
-    // 4. 12시 문페이즈 & IWC SCHAFFHAUSEN
-    const now = new Date();
-    const moonR = dialR * 0.175;
-    drawMoonphaseWindow(ctx, cx, cy - dialR * 0.44, moonR, now);
-
-    ctx.fillStyle = "#17253d";
-    ctx.font = `bold ${Math.max(12, Math.round(dialR * 0.095))}px "Times New Roman", Georgia, serif`;
-    ctx.fillText("IWC", cx, cy - dialR * 0.175);
-
-    ctx.fillStyle = "#2b3a55";
-    ctx.font = `600 ${Math.max(6, Math.round(dialR * 0.033))}px -apple-system, BlinkMacSystemFont, sans-serif`;
-    ctx.fillText("SCHAFFHAUSEN", cx, cy - dialR * 0.105);
-
-    // 5. 3시 방향 날짜창 & PORTOFINO 각인
-    const dateBoxW = dialR * 0.155;
-    const dateBoxH = dialR * 0.115;
-    const dateBoxX = cx + dialR * 0.56 - dateBoxW / 2;
-    const dateBoxY = cy - dateBoxH / 2;
-    ctx.fillStyle = "#f2f4f8";
-    ctx.fillRect(dateBoxX, dateBoxY, dateBoxW, dateBoxH);
-    ctx.strokeStyle = "#8a92a0";
-    ctx.lineWidth = 1.1;
-    ctx.strokeRect(dateBoxX, dateBoxY, dateBoxW, dateBoxH);
-
-    ctx.fillStyle = "#1e293b";
-    ctx.font = `600 ${Math.max(9, Math.round(dialR * 0.072))}px -apple-system, BlinkMacSystemFont, sans-serif`;
-    ctx.fillText(String(now.getDate()), dateBoxX + dateBoxW / 2, cy + 0.5);
-
-    ctx.fillStyle = "#2b3a55";
-    ctx.font = `600 ${Math.max(7, Math.round(dialR * 0.044))}px -apple-system, BlinkMacSystemFont, sans-serif`;
-    ctx.fillText("PORTOFINO", cx + dialR * 0.27, cy + dialR * 0.03);
-
-    // 6. 좌측 배터리 잔량 서브다이얼 & 하단 스몰 세컨즈 서브다이얼
+    // ===== [레이어 4] 6시 초침 & 메인 시침·분침 (높이별 3D 시차 + 동적 그림자) =====
     const rawSec = now.getSeconds() + now.getMilliseconds() / 1000;
-    const mechSec = Math.floor(rawSec * 8) / 8;
+    const mechSec = Math.floor(rawSec * 8) / 8; // 4Hz(초당 8스텝) 기계식 무브먼트
     const min = now.getMinutes() + rawSec / 60;
     const hr = (now.getHours() % 12) + min / 60;
 
-    drawBatterySubdial(ctx, cx - dialR * 0.31, cy + dialR * 0.16, dialR * 0.22, phoneBatteryLevel);
-    drawSmallSecondsSubdial(ctx, cx, cy + dialR * 0.43, dialR * 0.225, mechSec);
+    // 6시 서브다이얼 골드 초침
+    const secAng = (mechSec / 60) * Math.PI * 2;
+    drawDynamicGoldLeafHand(ctx, subCx, subCy, secAng, subR * 0.18, subR * 0.80, Math.max(1.5, subR * 0.045), -lightX * 2.0, -lightY * 2.0 + 1.0, lightAng);
+    ctx.beginPath();
+    ctx.arc(subCx, subCy, Math.max(2.4, subR * 0.095), 0, Math.PI * 2);
+    ctx.fillStyle = "#d9b45b";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(subCx, subCy, Math.max(1.0, subR * 0.04), 0, Math.PI * 2);
+    ctx.fillStyle = "#5c4514";
+    ctx.fill();
 
-    // 7. 아라비아 숫자 인덱스 (12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11) + 바톤 인덱스
-    const numR = dialR * 0.71;
-    ctx.fillStyle = "#17253d";
-    ctx.font = `600 ${Math.max(14, Math.round(dialR * 0.118))}px "Times New Roman", Georgia, serif`;
-    for (let h = 1; h <= 12; h++) {
-      const ang = (h * 30) * Math.PI / 180;
-      const nx = cx + Math.sin(ang) * numR;
-      const ny = cy - Math.cos(ang) * numR;
-      ctx.fillText(String(h), nx, ny);
-    }
-
-    // 8. 블루 스틸 리프 핸즈 (시침 · 분침)
-    const bluedSteel = "#1a2d52";
+    // 메인 시침 (높이 시차 +0.35)
     const hrAng = (hr * 30) * Math.PI / 180;
+    const hrCx = cx + pX * 0.35;
+    const hrCy = cy + pY * 0.35;
+    drawDynamicGoldLeafHand(ctx, hrCx, hrCy, hrAng, dialR * 0.11, dialR * 0.56, dialR * 0.033, -lightX * 4.2, -lightY * 4.2 + 1.8, lightAng);
+
+    // 메인 분침 (높이 시차 +0.58)
     const minAng = (min * 6) * Math.PI / 180;
+    const minCx = cx + pX * 0.58;
+    const minCy = cy + pY * 0.58;
+    drawDynamicGoldLeafHand(ctx, minCx, minCy, minAng, dialR * 0.14, dialR * 0.82, dialR * 0.025, -lightX * 5.6, -lightY * 5.6 + 2.4, lightAng);
 
-    // 시침
+    // 중앙 입체 골드 피니언 캡 (하이라이트 광원 방향 추적)
+    const capGrad = ctx.createRadialGradient(
+      minCx + lightX * dialR * 0.022,
+      minCy + lightY * dialR * 0.022,
+      1,
+      minCx,
+      minCy,
+      dialR * 0.048
+    );
+    capGrad.addColorStop(0, "#fff8d8");
+    capGrad.addColorStop(0.55, "#d8b467");
+    capGrad.addColorStop(1, "#79591c");
+    ctx.beginPath();
+    ctx.arc(minCx, minCy, dialR * 0.048, 0, Math.PI * 2);
+    ctx.fillStyle = capGrad;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(minCx, minCy, dialR * 0.018, 0, Math.PI * 2);
+    ctx.fillStyle = "#5c4514";
+    ctx.fill();
+
+    // 베젤이 다이얼 가장자리에 드리우는 깊은 인셋 그림자 (유리 아래)
+    const rimShadow = ctx.createRadialGradient(cx + lightX * 3, cy + lightY * 3, dialR * 0.87, cx, cy, dialR);
+    rimShadow.addColorStop(0, "rgba(0,0,0,0)");
+    rimShadow.addColorStop(0.72, "rgba(20,26,34,0.09)");
+    rimShadow.addColorStop(1, "rgba(10,14,22,0.38)");
+    ctx.fillStyle = rimShadow;
+    ctx.fillRect(cx - dialR, cy - dialR, dialR * 2, dialR * 2);
+
+    // ===== [레이어 5] 돔형 사파이어 글래스: IWC 블루 AR 코팅 광택 + 이동하는 태양/기울기 정반사 =====
+    // 5-1. IWC 특유의 블루/바이올렛 무반사(AR) 코팅 틴트
+    const arX = cx - lightX * dialR * 0.65;
+    const arY = cy - lightY * dialR * 0.65;
+    const arGrad = ctx.createRadialGradient(arX, arY, dialR * 0.05, arX, arY, dialR * 1.18);
+    arGrad.addColorStop(0.00, "rgba(74, 128, 255, 0.16)");
+    arGrad.addColorStop(0.38, "rgba(102, 118, 245, 0.08)");
+    arGrad.addColorStop(0.75, "rgba(60, 110, 230, 0.02)");
+    arGrad.addColorStop(1.00, "rgba(60, 110, 230, 0.0)");
+    ctx.fillStyle = arGrad;
+    ctx.fillRect(cx - dialR, cy - dialR, dialR * 2, dialR * 2);
+
+    // 5-2. 돔형 유리를 타고 미끄러지는 태양·조명 스페큘러 반사광 (색온도 연동)
+    const specX = cx + lightX * dialR * 0.56;
+    const specY = cy + lightY * dialR * 0.56;
+    const specGrad = ctx.createRadialGradient(specX, specY, dialR * 0.02, specX, specY, dialR * 0.85);
+    specGrad.addColorStop(0.00, `rgba(${solar.r},${solar.g},${solar.b},${(0.34 * solar.intensity).toFixed(3)})`);
+    specGrad.addColorStop(0.28, `rgba(${solar.r},${solar.g},${solar.b},${(0.11 * solar.intensity).toFixed(3)})`);
+    specGrad.addColorStop(0.60, "rgba(255,255,255,0.0)");
+    specGrad.addColorStop(1.00, "rgba(255,255,255,0.0)");
+    ctx.fillStyle = specGrad;
+    ctx.fillRect(cx - dialR, cy - dialR, dialR * 2, dialR * 2);
+
+    // 5-3. 사파이어 돔 유리 가장자리 얇은 곡면 반사 호(Arc)
     ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(hrAng);
-    ctx.shadowColor = "rgba(0, 0, 0, 0.22)";
-    ctx.shadowBlur = 4;
-    ctx.shadowOffsetY = 2;
     ctx.beginPath();
-    ctx.moveTo(0, dialR * 0.11);
-    ctx.lineTo(-dialR * 0.03, -dialR * 0.13);
-    ctx.lineTo(0, -dialR * 0.55);
-    ctx.lineTo(dialR * 0.03, -dialR * 0.13);
-    ctx.closePath();
-    ctx.fillStyle = bluedSteel;
-    ctx.fill();
+    ctx.arc(cx, cy, dialR * 0.965, lightAng - 0.65, lightAng + 0.65);
+    ctx.strokeStyle = `rgba(${solar.r},${solar.g},${solar.b},${(0.36 * solar.intensity).toFixed(3)})`;
+    ctx.lineWidth = Math.max(2, dialR * 0.018);
+    ctx.lineCap = "round";
+    ctx.stroke();
     ctx.restore();
 
-    // 분침
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(minAng);
-    ctx.shadowColor = "rgba(0, 0, 0, 0.22)";
-    ctx.shadowBlur = 4;
-    ctx.shadowOffsetY = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, dialR * 0.14);
-    ctx.lineTo(-dialR * 0.023, -dialR * 0.15);
-    ctx.lineTo(0, -dialR * 0.80);
-    ctx.lineTo(dialR * 0.023, -dialR * 0.15);
-    ctx.closePath();
-    ctx.fillStyle = bluedSteel;
-    ctx.fill();
-    ctx.restore();
-
-    // 중앙 피니언 캡
-    ctx.beginPath();
-    ctx.arc(cx, cy, dialR * 0.042, 0, Math.PI * 2);
-    ctx.fillStyle = "#c9a24d";
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx, cy, dialR * 0.024, 0, Math.PI * 2);
-    ctx.fillStyle = bluedSteel;
-    ctx.fill();
-
-    ctx.restore();
+    ctx.restore(); // dial clip end
+    ctx.restore(); // dpr scale end
     iwcClockRaf = requestAnimationFrame(drawIwcAnalogClock);
   }
 
@@ -3724,30 +4171,20 @@
     }, 60);
   }
 
-  // 시계 다이얼 위의 숫자(1~12) 중 터치한 숫자 판정
+  // 시계 다이얼의 1~12시 위치(골드 바톤 인덱스 및 외곽 눈금 구역) 터치 판정
   function detectClockDigitHit(clientX, clientY) {
     if (!iwcClockCanvas) return "";
     const rect = iwcClockCanvas.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-    const dialR = (rect.width * 0.455) * 0.915;
-    const numR = dialR * 0.71;
-    const hitRadius = Math.max(36, dialR * 0.22);
+    const dialR = (rect.width * 0.445) * 0.912;
 
-    for (let h = 1; h <= 12; h++) {
-      const ang = (h * 30) * Math.PI / 180;
-      const nx = cx + Math.sin(ang) * numR;
-      const ny = cy - Math.cos(ang) * numR;
-      if (Math.hypot(clientX - nx, clientY - ny) <= hitRadius) {
-        return String(h);
-      }
-    }
-
-    // 숫자 링 주변 각도 섹터 보조 판정
     const dx = clientX - cx;
     const dy = clientY - cy;
     const dist = Math.hypot(dx, dy);
-    if (dist >= dialR * 0.45 && dist <= dialR * 1.25) {
+
+    // 시계 중심부(핸즈 피벗) 제외, 바톤 인덱스~베젤 외곽 전체 구역을 12등분 각도로 판정
+    if (dist >= dialR * 0.22 && dist <= dialR * 1.28) {
       let deg = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
       if (deg < 0) deg += 360;
       const sector = Math.round(deg / 30) % 12;
@@ -3759,6 +4196,7 @@
 
   lockScreen.addEventListener("pointerdown", (e) => {
     if (!lockScreen.classList.contains("stealth-ko")) return;
+    enableWatchOrientationSensor();
     if (stealthActivePointerId !== null) return;
     stealthActivePointerId = e.pointerId;
 
