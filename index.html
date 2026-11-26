@@ -627,6 +627,25 @@
       cursor: pointer;
     }
     .play-btn.playing { background: #4caf50; color: #fff; }
+    .play-btn.uploading {
+      background: rgba(66, 165, 245, 0.16);
+      border: 1px solid rgba(66, 165, 245, 0.45);
+      color: var(--text-sub);
+      cursor: wait;
+      opacity: 0.9;
+    }
+    .play-btn:disabled { cursor: wait; }
+    .upload-ring {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      border: 2px solid rgba(144, 202, 249, 0.32);
+      border-top-color: #42a5f5;
+      display: inline-block;
+      animation: spinUpload 0.75s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spinUpload { to { transform: rotate(360deg); } }
     .audio-dur { font-size: 11px; opacity: 0.92; }
     .eq-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 13px; }
     .eq-bars span { width: 3px; background: #fff; border-radius: 2px; animation: eqBounce 0.5s ease-in-out infinite alternate; }
@@ -1143,7 +1162,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 61;
+  const APP_VERSION = 62;
   const LIVE_MAX_CHUNK_MS = 10000;
   const LIVE_MIN_SPEECH_MS = 450;
   const LIVE_ONSET_MS = 140;
@@ -1750,13 +1769,40 @@
 
   let pendingCallAudios = [];
 
-  function uploadAudioToFirebase(ts, data, mime) {
-    if (!roomPass || !ts || !data) return Promise.resolve();
-    return fetch(`${getAudioBaseUrl()}/${ts}.json`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data, mime })
-    }).catch(() => {});
+  async function markAudioReady(msgTs) {
+    const idx = (roomState.messages || []).findIndex(m => m.ts === msgTs);
+    if (idx === -1) return;
+    if (roomState.messages[idx].audioReady === true) return;
+    const updated = roomState.messages.map((m, i) =>
+      i === idx ? { ...m, audioReady: true } : m
+    );
+    roomState.messages = updated;
+    lastRenderSig = "";
+    renderMessages(true);
+
+    const syncTs = Date.now();
+    loadedMsgSyncTs = syncTs;
+    await saveMessagesToDb(updated, syncTs, { upsertMsg: updated[idx] });
+  }
+
+  async function uploadAudioToFirebase(ts, data, mime) {
+    if (!roomPass || !ts || !data) return false;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetchWithTimeout(`${getAudioBaseUrl()}/${ts}.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data, mime })
+        }, 12000);
+        if (res.ok) {
+          await markAudioReady(ts);
+          return true;
+        }
+      } catch {}
+      if (attempt === 0) await sleepMs(800);
+    }
+    await markAudioUnavailable(ts);
+    return false;
   }
 
   function flushPendingCallAudios() {
@@ -2085,8 +2131,11 @@
     return `${mm}:${ss}`;
   }
 
-  function buildPlayBtnHTML(isPlaying, durationSec) {
+  function buildPlayBtnHTML(isPlaying, durationSec, isUploading = false) {
     const durHtml = durationSec ? `<span class="audio-dur">${formatDuration(durationSec, false)}</span>` : "";
+    if (isUploading) {
+      return `<span class="upload-ring"></span>${durHtml}`;
+    }
     if (isPlaying) {
       return `<span class="eq-bars"><span></span><span></span><span></span></span>${durHtml}`;
     }
@@ -2792,7 +2841,7 @@ ${getHonorificRule(msgLang)}
     const startIdx = Math.max(0, total - visibleMsgCount);
     const visibleSlice = msgs.slice(startIdx);
     return `${startIdx}|${myRole}|${currentPlayingTs}|` + visibleSlice.map(m =>
-      `${m.ts}:${m.type || ""}:${(m.hasAudio || m.audioData) ? 1 : 0}:${m.audioDuration || audioDurationCache[m.ts] || 0}:${m.hasPhoto ? 1 : 0}:${m.liked ? 1 : 0}:${m.untranslated ? 1 : 0}:${translatingIncomingSet.has(m.ts) ? 1 : 0}:${(m.translated || "").length}`
+      `${m.ts}:${m.type || ""}:${(m.hasAudio || m.audioData) ? 1 : 0}:${m.audioReady === false ? 0 : 1}:${m.audioDuration || audioDurationCache[m.ts] || 0}:${m.hasPhoto ? 1 : 0}:${m.liked ? 1 : 0}:${m.untranslated ? 1 : 0}:${translatingIncomingSet.has(m.ts) ? 1 : 0}:${(m.original || "").length}:${(m.translated || "").length}`
     ).join("|");
   }
 
@@ -2866,58 +2915,131 @@ ${getHonorificRule(msgLang)}
 
   /* ================= 어색한 번역 다시 번역하기 ================= */
 
+  async function loadAudioPayloadForMsg(msg) {
+    if (!msg) return null;
+    const ts = msg.ts;
+    if (audioCache[ts] && audioCache[ts].data) return audioCache[ts];
+    if (msg.audioData && msg.audioMime) {
+      const payload = { data: msg.audioData, mime: msg.audioMime };
+      audioCache[ts] = payload;
+      return payload;
+    }
+    const fromIdb = await idbGet("audios", ts);
+    if (fromIdb && fromIdb.data) {
+      const payload = { data: fromIdb.data, mime: fromIdb.mime };
+      audioCache[ts] = payload;
+      return payload;
+    }
+    try {
+      const res = await fetchWithTimeout(`${getAudioBaseUrl()}/${ts}.json`, { method: "GET" }, 7000);
+      if (res.ok) {
+        const obj = await res.json();
+        if (obj && obj.data) {
+          audioCache[ts] = obj;
+          idbPut("audios", { ts, data: obj.data, mime: obj.mime });
+          return obj;
+        }
+      }
+    } catch {}
+    return null;
+  }
+
+  function buildContextBeforeTs(msgTs) {
+    const prevMsgs = (roomState.messages || [])
+      .filter(m => m.ts < msgTs && !m.hasPhoto && m.type !== "call_log" && m.original)
+      .slice(-MAX_CONTEXT_MSGS);
+    if (prevMsgs.length === 0) return "";
+    const lines = prevMsgs.map(m => `- (${m.lang === "ko" ? "한→베" : "베→한"}) ${m.original} / ${m.translated}`);
+    return `[이전 대화 문맥 참고]\n${lines.join("\n")}\n\n`;
+  }
+
   async function retranslateMessage(msgTs, btnEl) {
     if (isProcessing || !apiKey) return;
     const idx = roomState.messages.findIndex(m => m.ts === msgTs);
     if (idx === -1) return;
     const target = roomState.messages[idx];
-    if (!target.original) return;
+    if (!target.original || target.lang !== myRole) return;
 
     const origBtnText = btnEl.textContent;
     btnEl.textContent = "⏳";
     btnEl.disabled = true;
 
     try {
-      const msgLang = target.lang || "ko";
+      const msgLang = target.lang || myRole;
       const sourceLang = msgLang === "ko" ? "한국어" : "베트남어";
       const targetLang = msgLang === "ko" ? "베트남어" : "한국어";
+      const contextText = buildContextBeforeTs(msgTs);
 
-      const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
+      let newOrig = target.original;
+      let newTrans = "";
+
+      // 음성 메시지인 경우: 저장된 원본 오디오를 꺼내 Gemini 직접 청취로 처음부터 다시 인식 및 번역
+      const audioPayload = (target.hasAudio || target.audioData) ? await loadAudioPayloadForMsg(target) : null;
+      if (audioPayload && audioPayload.data) {
+        const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
 [규칙]
 ${getHonorificRule(msgLang)}
-- 사용자가 이전 번역이 어색해서 재번역을 요청했어.
-- 원문의 의미는 유지하되, 이전 번역문과는 다른 더 자연스러운 구어체 ${targetLang} 표현 1가지만 출력해. (설명 금지)`;
+- 이전 음성인식에 오류가 있어서 원본 오디오를 처음부터 다시 듣고 정확히 통역해야 해.
+- 배경 잡음은 무시하고 화자의 ${sourceLang} 목소리만 정확하게 받아쓴 뒤, 의미를 왜곡하지 말고 자연스러운 구어체 ${targetLang}로 번역해.
+- 반드시 JSON으로만 응답: {"original": "${sourceLang} 원문", "translated": "자연스러운 구어체 ${targetLang} 번역문"}`;
 
-      const contents = [
-        {
-          role: "user",
-          parts: [
-            { text: `[원문 (${sourceLang})]\n${target.original}\n\n[이전 번역 (${targetLang})]\n${target.translated || ""}\n\n[요청: 이전 번역과 다른 더 자연스러운 ${targetLang} 번역문 1가지만 출력]` }
-          ]
+        const data = await callGeminiWithFallback({
+          system_instruction: { parts: [{ text: systemInstruction }] },
+          contents: [{
+            role: "user",
+            parts: [
+              { text: `${contextText}[오디오 재인식 및 재번역: 화자의 ${sourceLang} 음성을 처음부터 다시 정확히 받아쓰고 ${targetLang}로 번역하세요]` },
+              { inline_data: { mime_type: normalizeGeminiAudioMime(audioPayload.mime), data: audioPayload.data } }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 350,
+            responseMimeType: "application/json"
+          }
+        }, { baseTimeoutMs: 7000, fallbackTimeoutMs: 9000 });
+
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        let rawJson = "{}";
+        for (const p of parts) {
+          if (p.thought) continue;
+          if (p.text) { rawJson = p.text.trim(); break; }
         }
-      ];
+        rawJson = rawJson.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+        const parsed = JSON.parse(rawJson);
+        if (parsed.original && parsed.original.trim()) newOrig = parsed.original.trim();
+        if (parsed.translated && parsed.translated.trim()) newTrans = parsed.translated.trim();
+      } else {
+        // 텍스트 메시지인 경우: 원문 의미를 벗어나지 않고 문맥에 맞게 정확히 재번역
+        const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
+[규칙]
+${getHonorificRule(msgLang)}
+- 원문의 뜻을 절대 바꾸거나 없는 말을 지어내지 말고, 문맥에 가장 자연스러운 구어체 ${targetLang} 번역문 1가지만 출력해. (설명 금지)`;
 
-      const data = await callGeminiWithFallback({
-        system_instruction: { parts: [{ text: systemInstruction }] },
-        contents,
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 280
+        const data = await callGeminiWithFallback({
+          system_instruction: { parts: [{ text: systemInstruction }] },
+          contents: [{
+            role: "user",
+            parts: [{ text: `${contextText}[${sourceLang} → ${targetLang} 재번역]\n${target.original}` }]
+          }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 280
+          }
+        }, { baseTimeoutMs: 5500, fallbackTimeoutMs: 7500 });
+
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        for (const p of parts) {
+          if (p.thought) continue;
+          if (p.text) { newTrans = p.text.trim(); break; }
         }
-      }, { baseTimeoutMs: 4500, fallbackTimeoutMs: 6500 });
-
-      const parts = data.candidates?.[0]?.content?.parts || [];
-      let newTrans = "";
-      for (const p of parts) {
-        if (p.thought) continue;
-        if (p.text) { newTrans = p.text.trim(); break; }
       }
 
       if (newTrans) {
         const curIdx = roomState.messages.findIndex(m => m.ts === msgTs);
         if (curIdx !== -1) {
           const updated = roomState.messages.map((m, i) =>
-            i === curIdx ? { ...m, translated: newTrans } : m
+            i === curIdx ? { ...m, original: newOrig, translated: newTrans } : m
           );
           roomState.messages = updated;
           lastRenderSig = "";
@@ -4415,12 +4537,14 @@ ${getHonorificRule(myRole)}
 
         if (m.hasAudio || (m.audioData && m.audioMime)) {
           const durSec = m.audioDuration || audioDurationCache[m.ts] || 0;
+          const isUploading = Boolean(m.hasAudio && m.audioReady === false);
           const playBtn = document.createElement("button");
-          playBtn.className = "play-btn" + (isPlayingThis ? " playing" : "");
+          playBtn.className = "play-btn" + (isPlayingThis ? " playing" : "") + (isUploading ? " uploading" : "");
+          playBtn.disabled = isUploading;
           playBtn.dataset.ts = String(m.ts);
           playBtn.dataset.dur = String(durSec);
-          playBtn.innerHTML = buildPlayBtnHTML(isPlayingThis, durSec);
-          playBtn.onclick = () => toggleAudio(m);
+          playBtn.innerHTML = buildPlayBtnHTML(isPlayingThis, durSec, isUploading);
+          playBtn.onclick = () => { if (!isUploading) toggleAudio(m); };
           topDiv.appendChild(playBtn);
         }
 
@@ -4525,6 +4649,7 @@ ${getHonorificRule(myRole)}
   }
 
   async function toggleAudio(msg) {
+    if (msg.hasAudio && msg.audioReady === false) return;
     if (currentPlayingTs === msg.ts) {
       stopCurrentAudio();
       return;
@@ -6978,6 +7103,7 @@ ${getHonorificRule(myRole)}
         translated: isUntranslated ? "" : (trans || orig),
         untranslated: isUntranslated,
         hasAudio: true,
+        audioReady: false,
         audioDuration: durationSec,
         hasPhoto: false,
         liked: false,
