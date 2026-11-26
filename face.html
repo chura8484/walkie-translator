@@ -69,51 +69,9 @@
 
     .hidden { display: none !important; }
 
-    /* ===== Lock Screen ===== */
-    #lockScreen {
-      position: fixed;
-      inset: 0;
-      background: #121212;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 24px;
-      gap: 14px;
-      z-index: 200;
-      text-align: center;
-    }
-    #lockScreen h2 { font-size: 20px; }
-    #lockScreen p { font-size: 13px; color: #aaa; max-width: 280px; line-height: 1.5; }
-    #lockScreen input {
-      width: 100%;
-      max-width: 280px;
-      padding: 14px;
-      font-size: 18px;
-      text-align: center;
-      letter-spacing: 4px;
-      border-radius: 10px;
-      border: 1px solid #444;
-      background: #24262c;
-      color: #fff;
-    }
-    #lockScreen button {
-      width: 100%;
-      max-width: 280px;
-      padding: 14px;
-      font-size: 16px;
-      font-weight: bold;
-      border: none;
-      border-radius: 10px;
-      background: #0078ff;
-      color: #fff;
-      cursor: pointer;
-    }
-
     /* ===== Top Header ===== */
     header {
-      padding: 7px 10px;
+      padding: 6px 10px;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
       display: flex;
@@ -182,9 +140,8 @@
     #splitContainer.layout-top-flip { flex-direction: column; }
     #splitContainer.layout-top-normal { flex-direction: column; }
     #splitContainer.layout-side-right { flex-direction: row; }
-    #splitContainer.layout-side-left { flex-direction: row-reverse; }
+    #splitContainer.layout-side-left { flex-direction: row; }
 
-    /* In horizontal modes, Me is first in DOM order? Let's control order explicitly */
     #splitContainer.layout-top-flip #partnerPane { order: 1; }
     #splitContainer.layout-top-flip #splitDivider { order: 2; }
     #splitContainer.layout-top-flip #myPane { order: 3; }
@@ -193,13 +150,10 @@
     #splitContainer.layout-top-normal #splitDivider { order: 2; }
     #splitContainer.layout-top-normal #myPane { order: 3; }
 
-    /* side-right: Me on Left, Partner on Right */
     #splitContainer.layout-side-right #myPane { order: 1; }
     #splitContainer.layout-side-right #splitDivider { order: 2; }
     #splitContainer.layout-side-right #partnerPane { order: 3; }
 
-    /* side-left: Partner on Left, Me on Right */
-    #splitContainer.layout-side-left { flex-direction: row; }
     #splitContainer.layout-side-left #partnerPane { order: 1; }
     #splitContainer.layout-side-left #splitDivider { order: 2; }
     #splitContainer.layout-side-left #myPane { order: 3; }
@@ -222,8 +176,8 @@
       min-width: 0;
       display: flex;
       flex-direction: column;
-      padding: 10px 12px 10px;
-      gap: 8px;
+      padding: 9px 12px 9px;
+      gap: 7px;
       position: relative;
       overflow: hidden;
     }
@@ -257,11 +211,6 @@
       color: var(--partner-accent);
       border: 1px solid rgba(255, 152, 0, 0.35);
     }
-    #myPane .pane-tag {
-      background: var(--accent-soft);
-      color: var(--accent);
-      border: 1px solid rgba(59, 130, 246, 0.35);
-    }
 
     .pane-tools {
       display: flex;
@@ -270,7 +219,7 @@
       flex-wrap: wrap;
     }
     .mini-pill-btn {
-      padding: 4px 9px;
+      padding: 4px 8px;
       border-radius: 12px;
       border: 1px solid var(--border);
       background: var(--surface-2);
@@ -281,7 +230,7 @@
       white-space: nowrap;
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
     }
     .mini-pill-btn:active { transform: scale(0.95); }
     .mini-pill-btn.active {
@@ -289,9 +238,14 @@
       border-color: var(--accent);
       color: var(--accent);
     }
+    .mini-pill-btn.warn {
+      background: var(--partner-soft);
+      border-color: rgba(255, 152, 0, 0.5);
+      color: var(--partner-accent);
+    }
 
     .status-badge {
-      padding: 4px 9px;
+      padding: 4px 8px;
       border-radius: 12px;
       border: 1px solid var(--border);
       background: var(--surface-2);
@@ -361,13 +315,13 @@
       padding-bottom: env(safe-area-inset-bottom, 0px);
     }
     .circle-btn {
-      width: 56px;
-      height: 56px;
+      width: 54px;
+      height: 54px;
       border-radius: 50%;
       border: 1.5px solid var(--border);
       background: var(--surface);
       color: var(--text);
-      font-size: 22px;
+      font-size: 21px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -378,9 +332,9 @@
     }
     .circle-btn:active { transform: scale(0.92); }
     .circle-btn.mic-btn {
-      width: 64px;
-      height: 64px;
-      font-size: 25px;
+      width: 62px;
+      height: 62px;
+      font-size: 24px;
       border-width: 2px;
     }
     #myMicBtn { border-color: rgba(59, 130, 246, 0.55); }
@@ -388,6 +342,15 @@
     .circle-btn.ai-btn {
       border-color: rgba(144, 202, 249, 0.6);
       background: var(--accent-soft);
+    }
+    .circle-btn.cancel-btn {
+      border-color: #e53935;
+      background: rgba(229, 57, 53, 0.18);
+      color: #ff8a80;
+    }
+    body.light-theme .circle-btn.cancel-btn {
+      background: #ffebee;
+      color: #c62828;
     }
     .circle-btn.listening {
       background: #2e7d32 !important;
@@ -410,38 +373,34 @@
       50% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
     }
 
-    /* Compact controls when side-by-side on narrow portrait screen */
+    /* Compact controls when side-by-side */
     #splitContainer.layout-side-right .pane,
     #splitContainer.layout-side-left .pane {
-      padding: 8px 8px 8px;
+      padding: 8px 10px 8px;
     }
     #splitContainer.layout-side-right .pane-bottom,
     #splitContainer.layout-side-left .pane-bottom {
-      gap: 8px;
+      gap: 10px;
     }
     #splitContainer.layout-side-right .circle-btn,
     #splitContainer.layout-side-left .circle-btn {
-      width: 46px;
-      height: 46px;
+      width: 48px;
+      height: 48px;
       font-size: 19px;
     }
     #splitContainer.layout-side-right .circle-btn.mic-btn,
     #splitContainer.layout-side-left .circle-btn.mic-btn {
-      width: 54px;
-      height: 54px;
+      width: 56px;
+      height: 56px;
       font-size: 22px;
-    }
-    #splitContainer.layout-side-right .pane-text,
-    #splitContainer.layout-side-left .pane-text {
-      font-size: calc(var(--font-size) - 2px);
     }
 
     /* ===== Popovers & Modals ===== */
     .popover {
       position: fixed;
-      top: 48px;
+      top: 46px;
       right: 10px;
-      width: 248px;
+      width: 264px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 14px;
@@ -480,7 +439,7 @@
     }
     .modal-card {
       width: 100%;
-      max-width: 390px;
+      max-width: 400px;
       max-height: 85dvh;
       overflow-y: auto;
       background: var(--surface);
@@ -579,14 +538,6 @@
 </head>
 <body>
 
-<!-- Lock Screen (API Key XOR 보호) -->
-<div id="lockScreen">
-  <h2>🔒 AI 대면 통역 입장</h2>
-  <p>방 암호를 입력하면 API 키가 복호화되어 바로 사용할 수 있습니다.</p>
-  <input id="passInput" type="password" inputmode="numeric" placeholder="Password" />
-  <button onclick="unlockApp()">입장하기</button>
-</div>
-
 <!-- Header -->
 <header>
   <div class="header-left">
@@ -604,11 +555,11 @@
 
 <!-- Layout Popover -->
 <div id="layoutPopover" class="popover hidden">
-  <div class="pop-title">🪑 상대방 자리 배치 선택</div>
-  <button id="layOptTopFlip" class="pop-btn full" onclick="setSeatingLayout('top-flip')"><span>↕️🔄 마주보기 (상대 앞 · 180° 반전)</span></button>
-  <button id="layOptTopNorm" class="pop-btn full" onclick="setSeatingLayout('top-normal')"><span>↕️ 상하 분할 (상대 앞 · 정방향)</span></button>
-  <button id="layOptSideRight" class="pop-btn full" onclick="setSeatingLayout('side-right')"><span>◧ 좌우 분할 (나 왼쪽 · 상대 오른쪽)</span></button>
-  <button id="layOptSideLeft" class="pop-btn full" onclick="setSeatingLayout('side-left')"><span>◨ 좌우 분할 (상대 왼쪽 · 나 오른쪽)</span></button>
+  <div class="pop-title">🪑 상대방 자리 배치 (좌우 시 자동 가로 회전)</div>
+  <button id="layOptTopFlip" class="pop-btn full" onclick="setSeatingLayout('top-flip', true)"><span>↕️🔄 마주보기 (상대 앞 · 180° 반전)</span></button>
+  <button id="layOptTopNorm" class="pop-btn full" onclick="setSeatingLayout('top-normal', true)"><span>↕️ 상하 분할 (상대 앞 · 정방향)</span></button>
+  <button id="layOptSideRight" class="pop-btn full" onclick="setSeatingLayout('side-right', true)"><span>◧ 좌우 분할 (나 왼쪽 · 상대 오른쪽)</span></button>
+  <button id="layOptSideLeft" class="pop-btn full" onclick="setSeatingLayout('side-left', true)"><span>◨ 좌우 분할 (상대 왼쪽 · 나 오른쪽)</span></button>
 </div>
 
 <!-- Settings Popover -->
@@ -620,9 +571,9 @@
       <button class="pop-btn" onclick="changeFontSize(2)">가+</button>
     </div>
   </div>
+  <button id="autoTtsBtn" class="pop-btn full" onclick="toggleAutoTts()"><span>🔊 자동 음성 읽기</span><span id="autoTtsVal">OFF</span></button>
   <button id="themeBtn" class="pop-btn full" onclick="toggleTheme()">☀️ 라이트 모드</button>
   <button id="installPwaBtn" class="pop-btn full hidden" onclick="triggerInstallPwa()">📲 홈 화면에 추가</button>
-  <button class="pop-btn full" onclick="lockApp()">🚪 잠그기 (암호 재입력)</button>
 </div>
 
 <!-- Split Screen -->
@@ -632,6 +583,7 @@
     <div class="pane-top">
       <span id="partnerLangTag" class="pane-tag">🇻🇳 베트남어 (상대방)</span>
       <div class="pane-tools">
+        <button id="partnerReRecBtn" class="mini-pill-btn warn hidden" onclick="reRecognizeLastPartnerAudio()" title="방금 녹음한 음성을 Gemini로 다시 듣기">🔄 재인식</button>
         <button class="mini-pill-btn" onclick="copyPartnerText()" id="copyPartnerBtn">📋 복사</button>
         <button class="mini-pill-btn" onclick="pastePartnerText()">📥 붙여넣기</button>
       </div>
@@ -648,6 +600,7 @@
     <div class="pane-bottom">
       <button class="circle-btn" onclick="speakPartnerText()" title="상대 언어 듣기">🔊</button>
       <button id="partnerMicBtn" class="circle-btn mic-btn" onclick="togglePartnerMic()" title="상대방 마이크">🎙️</button>
+      <button id="partnerCancelBtn" class="circle-btn cancel-btn hidden" onclick="cancelPartnerMic()" title="녹음 취소">❌</button>
     </div>
   </section>
 
@@ -656,7 +609,10 @@
   <!-- My Pane -->
   <section id="myPane" class="pane">
     <div class="pane-top">
-      <button id="richModeBtn" class="mini-pill-btn" onclick="openRichModeModal()">✨ 풍부한 번역 OFF</button>
+      <div class="pane-tools">
+        <button id="richModeBtn" class="mini-pill-btn" onclick="openRichModeModal()">✨ 풍부한 번역 OFF</button>
+        <button id="undoTurnBtn" class="mini-pill-btn" onclick="undoLastTurn()" title="방금 대화 문맥에서 되돌리기">↩ 되돌리기</button>
+      </div>
       <button id="serverStatusBadge" class="status-badge" onclick="openModelModal()">🟡 확인 중...</button>
     </div>
 
@@ -664,14 +620,11 @@
       <div id="myText" class="pane-text placeholder">마이크 버튼을 눌러 대화를 시작하세요.</div>
     </div>
 
-    <div id="myVolWrap" class="vol-meter-wrap hidden">
-      <div id="myVolBar" class="vol-meter-fill"></div>
-    </div>
-
     <div class="pane-bottom">
       <button class="circle-btn" onclick="speakMyText()" title="한국어 듣기">🔊</button>
       <button id="myMicBtn" class="circle-btn mic-btn" onclick="toggleMyMic()" title="내 마이크 (한국어)">🎙️</button>
-      <button class="circle-btn ai-btn" onclick="openAiCoachModal()" title="AI 문장 정리·질문">🤖</button>
+      <button id="myCancelBtn" class="circle-btn cancel-btn hidden" onclick="cancelMyMic()" title="음성인식 취소">❌</button>
+      <button id="myAiBtn" class="circle-btn ai-btn" onclick="openAiCoachModal()" title="AI 문장 정리·질문">🤖</button>
     </div>
   </section>
 </main>
@@ -684,63 +637,119 @@
 <div id="toast"></div>
 
 <script>
-  /* ================= 상수 & 키 설정 ================= */
-  const APP_VERSION = 1;
+  /* ================= 상수 & 내부 난독화 키 ================= */
+  const APP_VERSION = 2;
   const DEFAULT_SYNC_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
-  const ENC_KEY_BYTES = [
-    121,103,28,116,81,12,106,120,4,127,82,124,79,80,69,102,106,80,
-    103,70,115,82,1,112,79,81,72,121,6,1,93,103,80,120,1,121,85,91,
-    127,6,93,118,115,96,1,102,89,7,21,126,90,123,68
+
+  const GEMINI_MASK = "ft_v2_gemini_internal_mask_2026";
+  const GEMINI_ENC_BYTES = [
+    39,37,113,55,80,103,53,43,91,35,15,33,40,15,25,39,60,22,49,17,45,56,95,37,4,12,37,126,
+    5,7,83,55,22,18,68,127,50,10,40,94,7,44,34,9,90,61,30,86,95,38,9,34,40
   ];
+
+  const GROQ_MASK = "anhem_stt_v47_mask";
+  const GROQ_ENC_BYTES = [
+    6,29,3,58,93,106,3,25,64,25,38,80,109,16,56,42,69,26,13,91,90,93,93,13,36,51,16,38,
+    20,7,113,6,88,86,71,46,87,59,50,36,0,53,23,68,53,109,71,85,126,28,3,25,43,63,83,39
+  ];
+
   const ENC_V1_HEADER = "AITRANS_ENC_V1:";
   const ENC_V2_HEADER = "AITRANS_ENC_V2:";
-  const MAX_TURN_MESSAGES = 18; // 최근 9왕복 문맥 유지
+  const MAX_TURN_MESSAGES = 10; // 직전 10개 메시지 (5왕복) 유지
 
-  const MODEL_POOL = [
+  const GEMINI_MODELS = [
     { id: "gemini-3.5-flash-lite", short: "3.5-Lite" },
-    { id: "gemini-3.1-flash-lite", short: "3.1-Lite" },
-    { id: "gemini-3.6-flash", short: "3.6-Flash" }
+    { id: "gemini-3.1-flash-lite", short: "3.1-Lite" }
   ];
+  const GEMINI_PRIMARY_TIMEOUT_MS = 6000;
+  const GEMINI_FALLBACK_TIMEOUT_MS = 8000;
+  const GROQ_STT_MODEL = "whisper-large-v3";
+  const GROQ_TRANSLATE_MODEL = "openai/gpt-oss-20b";
+  const GROQ_TRANSLATE_TIMEOUT_MS = 4000;
+  const GROQ_COOLDOWN_MS = 10 * 60 * 1000;
+  const MODEL_STATS_KEY = "ft_v2_model_stats";
 
   const LANG_META = {
     "베트남어": {
-      flag: "🇻🇳", srCode: "vi-VN", ttsCode: "vi",
+      flag: "🇻🇳", whisperCode: "vi", ttsCode: "vi",
       defaultPrompt: "Chạm phím micro để bắt đầu hội thoại.",
       translating: "Đang dịch... (번역 중)",
+      recognizing: "🎙️ Đang nhận diện... (인식 중)",
       listening: "🟢 [Đang nghe... (Nói xong hãy chạm lại nút micro)]",
       preparing: "⏳ Đang chuẩn bị micro..."
     },
     "영어": {
-      flag: "🇺🇸", srCode: "en-US", ttsCode: "en",
+      flag: "🇺🇸", whisperCode: "en", ttsCode: "en",
       defaultPrompt: "Tap the mic to start.",
       translating: "Translating...",
+      recognizing: "🎙️ Recognizing...",
       listening: "🟢 [Listening... (Tap the mic again when finished)]",
       preparing: "⏳ Preparing mic..."
     },
     "스페인어": {
-      flag: "🇪🇸", srCode: "es-ES", ttsCode: "es",
+      flag: "🇪🇸", whisperCode: "es", ttsCode: "es",
       defaultPrompt: "Toca el micrófono para empezar.",
       translating: "Traduciendo... (번역 중)",
+      recognizing: "🎙️ Reconociendo...",
       listening: "🟢 [Escuchando... (Toca el micrófono al terminar)]",
       preparing: "⏳ Preparando micrófono..."
     }
   };
 
+  function decodeMaskedBytes(bytes, mask) {
+    return bytes.map((b, i) => String.fromCharCode(b ^ mask.charCodeAt(i % mask.length))).join("");
+  }
+
+  const apiKey = decodeMaskedBytes(GEMINI_ENC_BYTES, GEMINI_MASK);
+  const groqApiKey = decodeMaskedBytes(GROQ_ENC_BYTES, GROQ_MASK);
+
   /* ================= 앱 상태 ================= */
-  let apiKey = "";
   let sessions = [];
   let currentSession = null;
   let richTranslationLevel = 0; // 0~5
   let lastRawKoreanInput = "";
   let seatingLayout = localStorage.getItem("ft_layout") || "top-flip";
   let isLightTheme = localStorage.getItem("ft_theme") === "light";
+  let autoTtsEnabled = localStorage.getItem("ft_auto_tts") === "1";
   let fontSizePx = Math.min(30, Math.max(15, Number(localStorage.getItem("ft_font_px")) || 21));
 
-  // Model Pool State
-  let preferredModelIndex = Number(localStorage.getItem("ft_pref_model") ?? -1);
-  if (Number.isNaN(preferredModelIndex)) preferredModelIndex = -1;
-  const modelBlockedUntil = [0, 0, 0];
-  const modelTempCongestion = [false, false, false];
+  // Model Selection & Auto-Rank Stats
+  let preferredModelIndex = Number(localStorage.getItem("ft_v2_pref_model") ?? -1); // -1: 자동, 0: 3.5-Lite, 1: 3.1-Lite
+  if (Number.isNaN(preferredModelIndex) || preferredModelIndex >= GEMINI_MODELS.length) preferredModelIndex = -1;
+
+  function createEmptyModelStats() {
+    const models = {};
+    GEMINI_MODELS.forEach(m => {
+      models[m.id] = { ok: 0, fail: 0, streakFail: 0, avgMs: 0, lastFailAt: 0, lastTriedAt: 0 };
+    });
+    return {
+      totalCalls: 0,
+      groqStt: { ok: 0, fail: 0, streakFail: 0, avgMs: 0, cooldownUntil: 0 },
+      groqTrans: { ok: 0, fail: 0, streakFail: 0, avgMs: 0, cooldownUntil: 0 },
+      models
+    };
+  }
+
+  function loadModelStats() {
+    const base = createEmptyModelStats();
+    try {
+      const raw = JSON.parse(localStorage.getItem(MODEL_STATS_KEY) || "null");
+      if (raw && typeof raw === "object") {
+        base.totalCalls = Number(raw.totalCalls || 0);
+        if (raw.groqStt) base.groqStt = { ...base.groqStt, ...raw.groqStt };
+        if (raw.groqTrans) base.groqTrans = { ...base.groqTrans, ...raw.groqTrans };
+        GEMINI_MODELS.forEach(m => {
+          if (raw.models && raw.models[m.id]) base.models[m.id] = { ...base.models[m.id], ...raw.models[m.id] };
+        });
+      }
+    } catch {}
+    return base;
+  }
+
+  let modelStats = loadModelStats();
+  function saveModelStats() {
+    try { localStorage.setItem(MODEL_STATS_KEY, JSON.stringify(modelStats)); } catch {}
+  }
 
   // Sync State (MAUI 호환)
   const syncDeviceId = (() => {
@@ -755,15 +764,18 @@
   let lastSyncVersion = Number(localStorage.getItem("ft_sync_ver") || 0);
   let lastResumeSyncCheckAt = 0;
 
-  // Mic / Audio State
+  // My Mic (Chrome SpeechRecognition)
   let myListening = false;
   let myStopping = false;
+  let myCancelRequested = false;
   let mySpeechRec = null;
   let myAccumulatedSpeech = "";
   let myPartialSpeech = "";
   let myFinalResolve = null;
 
+  // Partner Mic (MediaRecorder + Groq Whisper / Gemini Direct Audio)
   let partnerRecording = false;
+  let partnerCancelRequested = false;
   let partnerRecorder = null;
   let partnerStream = null;
   let partnerChunks = [];
@@ -771,38 +783,44 @@
   let partnerAnalyser = null;
   let partnerMeterRaf = null;
   let partnerRecStartAt = 0;
+  let partnerMaxPeak = 0;
+  let lastPartnerAudio = null; // { blob, mime, targetLang }
 
   let isBusy = false;
+  let wakeLockSentinel = null;
   let deferredInstallPrompt = null;
 
   /* ================= DOM 참조 ================= */
-  const lockScreen = document.getElementById("lockScreen");
-  const passInput = document.getElementById("passInput");
   const relBadgeText = document.getElementById("relBadgeText");
   const layoutBtn = document.getElementById("layoutBtn");
   const langBtn = document.getElementById("langBtn");
   const layoutPopover = document.getElementById("layoutPopover");
   const settingsPopover = document.getElementById("settingsPopover");
+  const autoTtsBtn = document.getElementById("autoTtsBtn");
+  const autoTtsVal = document.getElementById("autoTtsVal");
   const themeBtn = document.getElementById("themeBtn");
   const installPwaBtn = document.getElementById("installPwaBtn");
   const splitContainer = document.getElementById("splitContainer");
   const partnerLangTag = document.getElementById("partnerLangTag");
+  const partnerReRecBtn = document.getElementById("partnerReRecBtn");
   const partnerTextEl = document.getElementById("partnerText");
   const partnerVolWrap = document.getElementById("partnerVolWrap");
   const partnerVolBar = document.getElementById("partnerVolBar");
   const partnerMicBtn = document.getElementById("partnerMicBtn");
+  const partnerCancelBtn = document.getElementById("partnerCancelBtn");
   const copyPartnerBtn = document.getElementById("copyPartnerBtn");
   const richModeBtn = document.getElementById("richModeBtn");
+  const undoTurnBtn = document.getElementById("undoTurnBtn");
   const serverStatusBadge = document.getElementById("serverStatusBadge");
   const myTextEl = document.getElementById("myText");
-  const myVolWrap = document.getElementById("myVolWrap");
-  const myVolBar = document.getElementById("myVolBar");
   const myMicBtn = document.getElementById("myMicBtn");
+  const myCancelBtn = document.getElementById("myCancelBtn");
+  const myAiBtn = document.getElementById("myAiBtn");
   const modalBackdrop = document.getElementById("modalBackdrop");
   const modalCard = document.getElementById("modalCard");
   const toastEl = document.getElementById("toast");
 
-  /* ================= 화면 높이 & PWA ================= */
+  /* ================= 화면 높이 · Wake Lock · PWA ================= */
   function syncAppHeight() {
     try {
       const vv = window.visualViewport;
@@ -813,8 +831,22 @@
   }
   syncAppHeight();
   window.addEventListener("resize", syncAppHeight);
-  window.addEventListener("orientationchange", () => setTimeout(syncAppHeight, 120));
+  window.addEventListener("orientationchange", () => setTimeout(syncAppHeight, 140));
   if (window.visualViewport) window.visualViewport.addEventListener("resize", syncAppHeight);
+
+  async function requestWakeLock() {
+    try {
+      if ("wakeLock" in navigator && document.visibilityState === "visible") {
+        if (wakeLockSentinel) return;
+        wakeLockSentinel = await navigator.wakeLock.request("screen");
+        wakeLockSentinel.addEventListener("release", () => { wakeLockSentinel = null; });
+      }
+    } catch {}
+  }
+
+  document.addEventListener("pointerdown", () => {
+    if (!wakeLockSentinel) requestWakeLock();
+  }, { passive: true });
 
   function setupPwaManifest() {
     try {
@@ -877,6 +909,8 @@
     toastTimer = setTimeout(() => toastEl.classList.remove("show"), ms);
   }
 
+  function sleepMs(ms) { return new Promise(r => setTimeout(r, ms)); }
+
   function formatNowMMDDHHmm() {
     const d = new Date();
     const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -925,6 +959,14 @@
     return clean;
   }
 
+  function pickGroqFilename(cleanMime) {
+    const m = (cleanMime || "").toLowerCase();
+    if (m.includes("webm")) return "audio.webm";
+    if (m.includes("ogg")) return "audio.ogg";
+    if (m.includes("wav")) return "audio.wav";
+    return "audio.m4a";
+  }
+
   function blobToBase64(blob) {
     return new Promise((resolve, reject) => {
       const r = new FileReader();
@@ -934,7 +976,7 @@
     });
   }
 
-  async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+  async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
@@ -944,48 +986,13 @@
     }
   }
 
-  /* ================= 암호 해금 (API 키 보호) ================= */
-  function decodeKey(pass) {
-    if (!pass) return "";
-    return ENC_KEY_BYTES.map((b, i) => String.fromCharCode(b ^ pass.charCodeAt(i % pass.length))).join("");
-  }
-
-  function tryUnlock(pass) {
-    const decoded = decodeKey(pass);
-    if (!decoded.startsWith("AQ.")) return false;
-    apiKey = decoded;
-    localStorage.setItem("ft_pass", pass);
-    lockScreen.classList.add("hidden");
-    onAppReady();
-    return true;
-  }
-
-  function unlockApp() {
-    const val = passInput.value.trim();
-    if (!tryUnlock(val)) {
-      alert("암호가 올바르지 않습니다.");
-      passInput.value = "";
-      passInput.focus();
-    }
-  }
-
-  function lockApp() {
-    closePopovers();
-    localStorage.removeItem("ft_pass");
-    apiKey = "";
-    passInput.value = "";
-    lockScreen.classList.remove("hidden");
-  }
-
-  passInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") unlockApp();
-  });
-
-  /* ================= 테마 · 글자 크기 · 4가지 자리 배치 ================= */
+  /* ================= 테마 · 글자 크기 · 자동 TTS · 4가지 자리 배치 & 자동 회전 ================= */
   function applyThemeAndFont() {
     document.body.classList.toggle("light-theme", isLightTheme);
     themeBtn.textContent = isLightTheme ? "🌙 다크 모드" : "☀️ 라이트 모드";
     document.documentElement.style.setProperty("--font-size", `${fontSizePx}px`);
+    autoTtsVal.textContent = autoTtsEnabled ? "ON" : "OFF";
+    autoTtsBtn.classList.toggle("active", autoTtsEnabled);
   }
 
   function toggleTheme() {
@@ -994,13 +1001,47 @@
     applyThemeAndFont();
   }
 
+  function toggleAutoTts() {
+    autoTtsEnabled = !autoTtsEnabled;
+    localStorage.setItem("ft_auto_tts", autoTtsEnabled ? "1" : "0");
+    applyThemeAndFont();
+    showToast(autoTtsEnabled ? "🔊 번역 후 자동 음성 읽기를 켰습니다." : "🔇 자동 음성 읽기를 껐습니다.");
+  }
+
   function changeFontSize(delta) {
     fontSizePx = Math.min(30, Math.max(15, fontSizePx + delta));
     localStorage.setItem("ft_font_px", String(fontSizePx));
     applyThemeAndFont();
   }
 
-  function setSeatingLayout(mode) {
+  async function applyOrientationForLayout(mode, fromUserGesture = false) {
+    const isSide = (mode === "side-right" || mode === "side-left");
+    const targetOrient = isSide ? "landscape" : "portrait";
+    try {
+      if (screen.orientation && typeof screen.orientation.lock === "function") {
+        try {
+          await screen.orientation.lock(targetOrient);
+          return;
+        } catch {
+          // 일반 Chrome 탭에서는 전체화면 전환 후 lock이 허용되는 경우가 많음
+          if (fromUserGesture && isSide && !document.fullscreenElement && document.documentElement.requestFullscreen) {
+            try {
+              await document.documentElement.requestFullscreen();
+              await screen.orientation.lock(targetOrient);
+              return;
+            } catch {}
+          } else if (fromUserGesture && !isSide && document.fullscreenElement && document.exitFullscreen) {
+            try {
+              await screen.orientation.lock("portrait").catch(() => {});
+              await document.exitFullscreen().catch(() => {});
+            } catch {}
+          }
+        }
+      }
+    } catch {}
+  }
+
+  function setSeatingLayout(mode, fromUserGesture = false) {
     seatingLayout = mode;
     localStorage.setItem("ft_layout", mode);
     splitContainer.className = `layout-${mode}`;
@@ -1018,6 +1059,7 @@
     document.getElementById("layOptSideRight").classList.toggle("active", mode === "side-right");
     document.getElementById("layOptSideLeft").classList.toggle("active", mode === "side-left");
     closePopovers();
+    applyOrientationForLayout(mode, fromUserGesture);
   }
 
   function closePopovers() {
@@ -1131,6 +1173,11 @@
     return LANG_META[lang] || LANG_META["베트남어"];
   }
 
+  function updateReRecButtonVisibility() {
+    const canReRec = Boolean(lastPartnerAudio && lastPartnerAudio.blob && !partnerRecording && !isBusy);
+    partnerReRecBtn.classList.toggle("hidden", !canReRec);
+  }
+
   function applySessionToUI() {
     if (!currentSession) return;
     const lang = currentSession.TargetLanguage || "베트남어";
@@ -1150,6 +1197,7 @@
     partnerTextEl.className = "pane-text" + (pTxt === meta.defaultPrompt ? " placeholder" : "");
 
     updateRichModeButtonUI();
+    updateReRecButtonVisibility();
   }
 
   function updateRichModeButtonUI() {
@@ -1188,95 +1236,158 @@
     }
   }
 
-  /* ================= Gemini 모델 풀 & 상태 배지 ================= */
+  function removeLastTurnPair() {
+    if (Array.isArray(currentSession.ChatTurns) && currentSession.ChatTurns.length >= 2) {
+      currentSession.ChatTurns.splice(currentSession.ChatTurns.length - 2, 2);
+    }
+    if (Array.isArray(currentSession.History) && currentSession.History.length > 0) {
+      currentSession.History.pop();
+    }
+  }
+
+  function undoLastTurn() {
+    if (isBusy || myListening || partnerRecording) return;
+    const hasTurns = (currentSession.ChatTurns && currentSession.ChatTurns.length >= 2) ||
+                     (currentSession.History && currentSession.History.length > 0);
+    if (!hasTurns) {
+      showToast("되돌릴 대화 내역이 없습니다.");
+      return;
+    }
+
+    removeLastTurnPair();
+    lastRawKoreanInput = "";
+    lastPartnerAudio = null;
+
+    const meta = getLangMeta();
+    const hist = currentSession.History || [];
+    if (hist.length > 0) {
+      const prev = hist[hist.length - 1];
+      const arrowIdx = prev.indexOf(" -> ");
+      if (arrowIdx > 0) {
+        const isMineRec = prev.startsWith("[나(");
+        const left = prev.slice(0, arrowIdx).replace(/^\[[^\]]+\]\s*/, "").trim();
+        const right = prev.slice(arrowIdx + 4).replace(/^\[[^\]]+\]\s*/, "").trim();
+        if (isMineRec) {
+          currentSession.LastMyText = left;
+          currentSession.LastPartnerText = right;
+          lastRawKoreanInput = left;
+        } else {
+          currentSession.LastPartnerText = left;
+          currentSession.LastMyText = right;
+        }
+      }
+    } else {
+      currentSession.LastMyText = "마이크 버튼을 눌러 대화를 시작하세요.";
+      currentSession.LastPartnerText = meta.defaultPrompt;
+    }
+
+    applySessionToUI();
+    saveSessionsToDisk();
+    showToast("↩ 방금 대화를 문맥에서 되돌렸습니다.");
+  }
+
+  /* ================= Gemini 자동 순위 (6초/8초) & Groq 백업 (4초) ================= */
   function updateServerStatusBadge(text, stateClass = "") {
     serverStatusBadge.textContent = text;
     serverStatusBadge.className = "status-badge" + (stateClass ? ` ${stateClass}` : "");
   }
 
-  function getBestAvailableModelIndex(attemptOffset = 0) {
+  function computeModelScore(modelId, defaultIdx) {
+    const st = modelStats.models[modelId] || {};
+    const ok = Number(st.ok || 0);
+    const fail = Number(st.fail || 0);
+    const streakFail = Number(st.streakFail || 0);
+    const avgMs = Number(st.avgMs || 0);
+    const total = ok + fail;
+
+    let score = 60 - defaultIdx * 2;
+    if (total > 0) {
+      const smoothRate = (ok + 1) / (total + 2);
+      score = smoothRate * 100 - defaultIdx * 1.5;
+      if (avgMs > 0) score -= Math.min(35, avgMs / 250);
+    }
+    if (streakFail > 0) {
+      const minsSinceFail = st.lastFailAt ? (Date.now() - st.lastFailAt) / 60000 : 0;
+      const decay = Math.max(0.15, 1 - minsSinceFail / 10);
+      score -= streakFail * 35 * decay;
+    }
+    return score;
+  }
+
+  function getOrderedGeminiModels() {
+    if (preferredModelIndex >= 0 && preferredModelIndex < GEMINI_MODELS.length) {
+      const picked = GEMINI_MODELS[preferredModelIndex];
+      const others = GEMINI_MODELS.filter((_, i) => i !== preferredModelIndex);
+      return [picked, ...others];
+    }
+    const scored = GEMINI_MODELS.map((m, idx) => ({ m, score: computeModelScore(m.id, idx) }));
+    scored.sort((a, b) => b.score - a.score);
+    return scored.map(x => x.m);
+  }
+
+  function recordGeminiResult(modelId, success, latencyMs) {
+    if (!modelStats.models[modelId]) return;
+    const st = modelStats.models[modelId];
     const now = Date.now();
-    const startIdx = (preferredModelIndex >= 0 && preferredModelIndex < MODEL_POOL.length) ? preferredModelIndex : 0;
-    for (let i = 0; i < MODEL_POOL.length; i++) {
-      const idx = (startIdx + i + attemptOffset) % MODEL_POOL.length;
-      if (now >= modelBlockedUntil[idx]) {
-        modelTempCongestion[idx] = false;
-        return idx;
-      }
-    }
-    let earliest = 0;
-    for (let i = 1; i < MODEL_POOL.length; i++) {
-      if (modelBlockedUntil[i] < modelBlockedUntil[earliest]) earliest = i;
-    }
-    return earliest;
-  }
-
-  function markModelCongested(idx) {
-    modelBlockedUntil[idx] = Date.now() + 30_000;
-    modelTempCongestion[idx] = true;
-    return MODEL_POOL[getBestAvailableModelIndex()].short;
-  }
-
-  function markModelQuotaExceeded(idx, errBody) {
-    const isDaily = /perday|per day|daily/i.test(errBody || "");
-    if (isDaily) {
-      const midnight = new Date();
-      midnight.setHours(24, 0, 0, 0);
-      modelBlockedUntil[idx] = midnight.getTime();
-      modelTempCongestion[idx] = false;
+    st.lastTriedAt = now;
+    if (success) {
+      st.ok = (st.ok || 0) + 1;
+      st.streakFail = 0;
+      st.avgMs = st.avgMs > 0 ? Math.round(st.avgMs * 0.7 + latencyMs * 0.3) : Math.round(latencyMs);
     } else {
-      modelBlockedUntil[idx] = Date.now() + 60_000;
-      modelTempCongestion[idx] = true;
+      st.fail = (st.fail || 0) + 1;
+      st.streakFail = (st.streakFail || 0) + 1;
+      st.lastFailAt = now;
     }
-    return MODEL_POOL[getBestAvailableModelIndex()].short;
+    saveModelStats();
   }
 
-  function clearTempCongestion() {
-    for (let i = 0; i < MODEL_POOL.length; i++) {
-      if (modelTempCongestion[i]) {
-        modelBlockedUntil[i] = 0;
-        modelTempCongestion[i] = false;
+  function recordGroqBucket(bucketName, success, latencyMs, forceCooldown = false) {
+    const st = modelStats[bucketName];
+    if (!st) return;
+    if (success) {
+      st.ok = (st.ok || 0) + 1;
+      st.streakFail = 0;
+      st.cooldownUntil = 0;
+      st.avgMs = st.avgMs > 0 ? Math.round(st.avgMs * 0.7 + latencyMs * 0.3) : Math.round(latencyMs);
+    } else {
+      st.fail = (st.fail || 0) + 1;
+      st.streakFail = (st.streakFail || 0) + 1;
+      if (forceCooldown || st.streakFail >= 3) {
+        st.cooldownUntil = Date.now() + GROQ_COOLDOWN_MS;
       }
     }
+    saveModelStats();
   }
 
   async function checkServerInitStatus() {
-    if (!apiKey) return;
-    updateServerStatusBadge("🟡 서버 확인 중...", "warn");
-    clearTempCongestion();
+    updateServerStatusBadge("🟡 확인 중...", "warn");
+    const ordered = getOrderedGeminiModels();
     const body = JSON.stringify({
       contents: [{ parts: [{ text: "ok" }] }],
       generationConfig: { maxOutputTokens: 5, thinkingConfig: { thinkingLevel: "MINIMAL" } }
     });
-    for (let attempt = 0; attempt < MODEL_POOL.length; attempt++) {
-      const idx = getBestAvailableModelIndex(0);
-      const m = MODEL_POOL[idx];
+
+    for (let i = 0; i < ordered.length; i++) {
+      const m = ordered[i];
       const t0 = performance.now();
       try {
         const res = await fetchWithTimeout(
           `https://generativelanguage.googleapis.com/v1beta/models/${m.id}:generateContent?key=${encodeURIComponent(apiKey)}`,
           { method: "POST", headers: { "Content-Type": "application/json" }, body },
-          8000
+          6000
         );
         if (res.ok) {
           const sec = ((performance.now() - t0) / 1000).toFixed(1);
           updateServerStatusBadge(`🟢 ${m.short} (${sec}초)`, "ok");
           return;
         }
-        const errText = await res.text();
-        if (res.status === 503) { markModelCongested(idx); continue; }
-        if (res.status === 429 || res.status === 404) { markModelQuotaExceeded(idx, errText); continue; }
-        updateServerStatusBadge(`🔴 오류 (${res.status})`, "err");
-        return;
-      } catch {
-        updateServerStatusBadge("🔴 네트워크 확인", "err");
-        return;
-      }
+      } catch {}
     }
-    updateServerStatusBadge("🔴 응답 불가", "err");
+    updateServerStatusBadge("🟠 백업 대기", "warn");
   }
 
-  /* ================= 시스템 프롬프트 & 화자 구분 멀티턴 페이로드 ================= */
+  /* ================= 시스템 프롬프트 & 직전 10개(5왕복) 화자 구분 문맥 ================= */
   function buildSystemInstruction(richLevel, isPartnerTurn, inputLength = 20, isPartnerAudio = false) {
     const targetLang = currentSession.TargetLanguage || "베트남어";
     const rel = currentSession.Relationship || "일상 대화";
@@ -1332,32 +1443,86 @@
     );
   }
 
-  function buildMultiTurnContents(latestUserParts) {
+  function getRecentTaggedTurns() {
     const targetLang = currentSession.TargetLanguage || "베트남어";
     const turns = Array.isArray(currentSession.ChatTurns) ? currentSession.ChatTurns : [];
-    const recent = turns.slice(-MAX_TURN_MESSAGES);
-
-    const contents = recent.map(t => {
+    return turns.slice(-MAX_TURN_MESSAGES).map(t => {
       if (t.Role === "user") {
         const isMine = Boolean(t.RawKoreanInput) || containsKoreanChar(t.Text);
         const speakerTag = isMine ? "[나(한국어)]" : `[상대(${targetLang})]`;
-        return { role: "user", parts: [{ text: `${speakerTag} ${t.Text}` }] };
+        return { role: "user", text: `${speakerTag} ${t.Text}` };
       }
-      return { role: "model", parts: [{ text: t.Text }] };
+      return { role: "model", text: t.Text };
     });
+  }
 
+  function buildGeminiMultiTurnContents(latestUserParts) {
+    const recent = getRecentTaggedTurns();
+    const contents = recent.map(t => ({
+      role: t.role,
+      parts: [{ text: t.text }]
+    }));
     contents.push({ role: "user", parts: latestUserParts });
     return contents;
   }
 
-  async function callGeminiMultiTurn(systemPrompt, latestUserParts, opts = {}) {
-    const initIdx = getBestAvailableModelIndex(0);
-    updateServerStatusBadge(`🟡 ${MODEL_POOL[initIdx].short} 통신 중...`, "warn");
+  async function callGroqTextBackup(systemPrompt, latestUserText) {
+    if (!groqApiKey || Number(modelStats.groqTrans?.cooldownUntil || 0) > Date.now()) {
+      throw new Error("Groq 백업 대기 중");
+    }
+    const recent = getRecentTaggedTurns();
+    const messages = [{ role: "system", content: systemPrompt }];
+    recent.forEach(t => {
+      messages.push({ role: t.role === "model" ? "assistant" : "user", content: t.text });
+    });
+    messages.push({ role: "user", content: latestUserText });
+
+    updateServerStatusBadge("🟠 Groq 백업 전환...", "warn");
     const t0 = performance.now();
+    try {
+      const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${groqApiKey}`
+        },
+        body: JSON.stringify({
+          model: GROQ_TRANSLATE_MODEL,
+          temperature: 0.25,
+          max_tokens: 350,
+          messages
+        })
+      }, GROQ_TRANSLATE_TIMEOUT_MS);
+
+      if (res.ok) {
+        const json = await res.json();
+        let out = (json.choices?.[0]?.message?.content || "").trim();
+        out = out.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+        if (!out) throw new Error("empty");
+        const ms = performance.now() - t0;
+        recordGroqBucket("groqTrans", true, ms);
+        updateServerStatusBadge(`🟢 Groq (${(ms / 1000).toFixed(1)}초)`, "ok");
+        return out;
+      }
+      const isHard = (res.status === 429 || res.status === 401 || res.status === 403);
+      recordGroqBucket("groqTrans", false, performance.now() - t0, isHard);
+      throw new Error(`Groq HTTP ${res.status}`);
+    } catch (err) {
+      if (!(err && String(err.message || "").startsWith("Groq HTTP"))) {
+        recordGroqBucket("groqTrans", false, performance.now() - t0, false);
+      }
+      throw err;
+    }
+  }
+
+  async function callTranslationWithAutoFallback(systemPrompt, latestUserParts, opts = {}) {
+    modelStats.totalCalls = (modelStats.totalCalls || 0) + 1;
+    const ordered = getOrderedGeminiModels();
+    const tTotalStart = performance.now();
 
     const bodyObj = {
       system_instruction: { parts: [{ text: systemPrompt }] },
-      contents: buildMultiTurnContents(latestUserParts),
+      contents: buildGeminiMultiTurnContents(latestUserParts),
       generationConfig: {
         temperature: opts.temperature ?? 0.25,
         maxOutputTokens: opts.maxOutputTokens ?? 380,
@@ -1369,63 +1534,122 @@
     }
     const payload = JSON.stringify(bodyObj);
 
-    const maxAttempts = MODEL_POOL.length * 2;
     let lastErr = null;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const idx = getBestAvailableModelIndex(0);
-      const m = MODEL_POOL[idx];
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m.id}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    for (let i = 0; i < ordered.length; i++) {
+      const m = ordered[i];
+      const timeoutMs = i === 0
+        ? (opts.primaryTimeoutMs ?? GEMINI_PRIMARY_TIMEOUT_MS)
+        : (opts.fallbackTimeoutMs ?? GEMINI_FALLBACK_TIMEOUT_MS);
+      updateServerStatusBadge(i === 0 ? `🟡 ${m.short} 통신 중...` : `🟠 ${m.short} 우회 중...`, "warn");
 
+      const t0 = performance.now();
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m.id}:generateContent?key=${encodeURIComponent(apiKey)}`;
       try {
         const res = await fetchWithTimeout(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: payload
-        }, opts.timeoutMs ?? 10000);
+        }, timeoutMs);
 
         if (res.ok) {
           const data = await res.json();
-          const sec = (performance.now() - t0) / 1000;
-          updateServerStatusBadge(
-            `${sec <= 2.0 ? "🟢" : "🟠"} ${m.short} (${sec.toFixed(1)}초)`,
-            sec <= 2.0 ? "ok" : "warn"
-          );
+          const ms = performance.now() - t0;
+          recordGeminiResult(m.id, true, ms);
+          const sec = (performance.now() - tTotalStart) / 1000;
+          updateServerStatusBadge(`${sec <= 2.2 ? "🟢" : "🟠"} ${m.short} (${sec.toFixed(1)}초)`, sec <= 2.2 ? "ok" : "warn");
           const parts = data.candidates?.[0]?.content?.parts || [];
           for (const p of parts) {
             if (p.thought) continue;
             if (p.text && p.text.trim()) return p.text.trim();
           }
-          throw new Error("빈 응답이 반환되었습니다.");
+          throw new Error("빈 응답");
         }
-
-        const errBody = await res.text();
-        if (res.status === 503 && attempt < maxAttempts - 1) {
-          const nextShort = markModelCongested(idx);
-          updateServerStatusBadge(`🟠 ${m.short} 혼잡 → ${nextShort}`, "warn");
-          await new Promise(r => setTimeout(r, 350));
-          continue;
-        }
-        if ((res.status === 429 || res.status === 404) && attempt < maxAttempts - 1) {
-          const nextShort = markModelQuotaExceeded(idx, errBody);
-          updateServerStatusBadge(`🟠 ${m.short} 우회 → ${nextShort}`, "warn");
-          continue;
-        }
-        updateServerStatusBadge(`🔴 ${m.short} 오류 (${res.status})`, "err");
-        lastErr = new Error(`API 오류 (${res.status}): ${m.short}`);
-        break;
+        recordGeminiResult(m.id, false, performance.now() - t0);
+        lastErr = new Error(`API 오류 (${res.status})`);
       } catch (err) {
+        recordGeminiResult(m.id, false, performance.now() - t0);
         lastErr = err;
-        if (attempt < maxAttempts - 1) {
-          markModelCongested(idx);
-          continue;
-        }
+      }
+      if (i < ordered.length - 1) await sleepMs(150);
+    }
+
+    // 텍스트 번역인 경우 Groq 초고속 백업(4초) 시도
+    if (!opts.isAudio && opts.plainUserText) {
+      try {
+        return await callGroqTextBackup(systemPrompt, opts.plainUserText);
+      } catch (groqErr) {
+        lastErr = groqErr;
       }
     }
-    updateServerStatusBadge("🔴 모델 응답 실패", "err");
-    throw lastErr || new Error("번역 요청에 실패했습니다.");
+
+    updateServerStatusBadge("🔴 응답 실패", "err");
+    throw lastErr || new Error("번역에 실패했습니다.");
   }
 
-  /* ================= 출력 정제 (MAUI 동일) ================= */
+  /* ================= Groq Whisper STT (상대방 음성 1순위) ================= */
+  function cleanWhisperText(rawText) {
+    const txt = (rawText || "").trim();
+    if (!txt) return "";
+    if (/^[\s.,!?~…·\-_"'()\[\]]+$/.test(txt)) return "";
+    const lower = txt.toLowerCase().replace(/[.,!?~…\s]+$/g, "").replace(/\s+/g, " ");
+    const blocked = [
+      "mbc 뉴스", "kbs 뉴스", "sbs 뉴스", "시청해주셔서", "구독", "알림 설정",
+      "thank you for watching", "thanks for watching", "subtitles by", "amara.org",
+      "đăng ký kênh", "nhấn chuông", "cảm ơn các bạn đã xem", "cảm ơn các bạn đã theo dõi", "hẹn gặp lại các bạn"
+    ];
+    for (const b of blocked) {
+      if (lower.includes(b)) return "";
+    }
+    return txt;
+  }
+
+  async function transcribePartnerWithGroq(audioBlob, cleanMime, whisperLang) {
+    if (!groqApiKey || Number(modelStats.groqStt?.cooldownUntil || 0) > Date.now()) {
+      return { ok: false, text: "" };
+    }
+    if (!audioBlob || audioBlob.size < 1024) {
+      return { ok: true, text: "" };
+    }
+    const filename = pickGroqFilename(cleanMime);
+    const postWhisper = async (fmt) => {
+      const fd = new FormData();
+      fd.append("file", audioBlob, filename);
+      fd.append("model", GROQ_STT_MODEL);
+      fd.append("language", whisperLang);
+      fd.append("response_format", fmt);
+      fd.append("temperature", "0");
+      return await fetchWithTimeout("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${groqApiKey}` },
+        body: fd
+      }, 7500);
+    };
+
+    const t0 = performance.now();
+    try {
+      let res = await postWhisper("verbose_json");
+      if (res.status === 400) res = await postWhisper("json");
+      if (res.ok) {
+        const json = await res.json();
+        let rawText = json.text || "";
+        if (Array.isArray(json.segments) && json.segments.length > 0) {
+          const validSegs = json.segments.filter(seg => (typeof seg.no_speech_prob === "number" ? seg.no_speech_prob : 0) < 0.80);
+          rawText = validSegs.map(s => (s.text || "").trim()).filter(Boolean).join(" ");
+        }
+        const cleaned = cleanWhisperText(rawText);
+        recordGroqBucket("groqStt", true, performance.now() - t0);
+        return { ok: true, text: cleaned };
+      }
+      const isHard = (res.status === 429 || res.status === 401 || res.status === 403);
+      recordGroqBucket("groqStt", false, performance.now() - t0, isHard);
+      return { ok: false, text: "" };
+    } catch {
+      recordGroqBucket("groqStt", false, performance.now() - t0, false);
+      return { ok: false, text: "" };
+    }
+  }
+
+  /* ================= 출력 정제 ================= */
   function extractPureForeignText(rawText, targetLang) {
     if (!rawText) return "";
     const lines = [];
@@ -1460,11 +1684,12 @@
     return lines.length > 0 ? lines.join("\n").trim() : rawText.trim();
   }
 
-  /* ================= 번역 실행 (나 / 상대 텍스트 / 상대 음성 / AI 코칭) ================= */
+  /* ================= 번역 실행 (나 / 상대 텍스트 / 상대 음성 / 재인식 / AI 코칭) ================= */
   async function translateMyKoreanInput(input) {
     const clean = (input || "").trim();
     if (!clean || isBusy) return;
     isBusy = true;
+    updateReRecButtonVisibility();
 
     const targetLang = currentSession.TargetLanguage || "베트남어";
     const meta = getLangMeta();
@@ -1483,16 +1708,21 @@
         ? `[나(한국어)] ${clean}`
         : `[나(한국어)] [${richTranslationLevel}단계] ${clean}`;
 
-      const rawResult = await callGeminiMultiTurn(sysPrompt, [{ text: userText }]);
+      const rawResult = await callTranslationWithAutoFallback(
+        sysPrompt,
+        [{ text: userText }],
+        { plainUserText: userText }
+      );
 
+      let finalForeign = "";
       if (richTranslationLevel === 0) {
-        const pureForeign = extractPureForeignText(rawResult, targetLang);
-        partnerTextEl.textContent = pureForeign;
+        finalForeign = extractPureForeignText(rawResult, targetLang);
+        partnerTextEl.textContent = finalForeign;
         partnerTextEl.className = "pane-text";
         currentSession.LastMyText = clean;
-        currentSession.LastPartnerText = pureForeign;
-        appendChatTurn(clean, pureForeign, clean);
-        addHistoryRecord(`[나(한국어)] ${clean} -> [번역(${targetLang})] ${pureForeign}`);
+        currentSession.LastPartnerText = finalForeign;
+        appendChatTurn(clean, finalForeign, clean);
+        addHistoryRecord(`[나(한국어)] ${clean} -> [번역(${targetLang})] ${finalForeign}`);
       } else {
         let translatedForeign = "";
         let koreanMeaning = "";
@@ -1502,43 +1732,59 @@
           else if (tr.startsWith("한국어뜻:")) koreanMeaning = tr.slice(5).trim();
         }
         if (!translatedForeign) translatedForeign = extractPureForeignText(rawResult, targetLang);
+        finalForeign = translatedForeign;
 
-        partnerTextEl.textContent = translatedForeign;
+        partnerTextEl.textContent = finalForeign;
         partnerTextEl.className = "pane-text";
         const displayMy = koreanMeaning ? `${clean}\n(${koreanMeaning})` : clean;
         myTextEl.textContent = displayMy;
         myTextEl.className = "pane-text";
 
         currentSession.LastMyText = displayMy;
-        currentSession.LastPartnerText = translatedForeign;
-        appendChatTurn(clean, translatedForeign, clean);
-        addHistoryRecord(`[나(한국어)] ${clean} -> [번역(${targetLang})] ${translatedForeign}`);
+        currentSession.LastPartnerText = finalForeign;
+        appendChatTurn(clean, finalForeign, clean);
+        addHistoryRecord(`[나(한국어)] ${clean} -> [번역(${targetLang})] ${finalForeign}`);
       }
+
+      lastPartnerAudio = null;
       saveSessionsToDisk();
+      if (autoTtsEnabled && finalForeign) {
+        speakText(finalForeign, meta.ttsCode);
+      }
     } catch (err) {
       partnerTextEl.textContent = `오류: ${err.message}`;
       partnerTextEl.className = "pane-text";
       showToast("번역에 실패했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
       isBusy = false;
+      updateReRecButtonVisibility();
     }
   }
 
-  async function translatePartnerTextInput(input) {
+  async function translatePartnerTextInput(input, opts = {}) {
     const clean = (input || "").trim();
-    if (!clean || isBusy) return;
-    isBusy = true;
+    if (!clean || (isBusy && !opts.fromAudioPipeline)) return;
+    const manageBusy = !opts.fromAudioPipeline;
+    if (manageBusy) {
+      isBusy = true;
+      updateReRecButtonVisibility();
+    }
     lastRawKoreanInput = "";
 
     const targetLang = currentSession.TargetLanguage || "베트남어";
     partnerTextEl.textContent = clean;
     partnerTextEl.className = "pane-text";
-    myTextEl.textContent = "번역 중...";
+    myTextEl.textContent = "🌐 번역 중...";
     myTextEl.className = "pane-text translating";
 
     try {
       const sysPrompt = buildSystemInstruction(0, true, clean.length, false);
-      const rawResult = await callGeminiMultiTurn(sysPrompt, [{ text: `[상대(${targetLang})] ${clean}` }]);
+      const userText = `[상대(${targetLang})] ${clean}`;
+      const rawResult = await callTranslationWithAutoFallback(
+        sysPrompt,
+        [{ text: userText }],
+        { plainUserText: userText }
+      );
       const finalKorean = extractPureKoreanText(rawResult, targetLang);
 
       myTextEl.textContent = finalKorean;
@@ -1552,69 +1798,130 @@
       myTextEl.textContent = `오류: ${err.message}`;
       myTextEl.className = "pane-text";
     } finally {
-      isBusy = false;
+      if (manageBusy) {
+        isBusy = false;
+        updateReRecButtonVisibility();
+      }
     }
   }
 
-  async function translatePartnerAudioDirect(audioBlob, mimeType) {
-    if (!audioBlob || isBusy) return;
-    isBusy = true;
-    lastRawKoreanInput = "";
-
+  async function runGeminiPartnerAudioDirect(audioBlob, mimeType, replaceLast = false) {
     const targetLang = currentSession.TargetLanguage || "베트남어";
     const meta = getLangMeta();
     partnerTextEl.textContent = meta.translating;
     partnerTextEl.className = "pane-text translating";
-    myTextEl.textContent = "🎙️ 상대방 음성을 문맥에 맞춰 듣고 번역 중...";
+    myTextEl.textContent = replaceLast
+      ? "🔄 Gemini가 원본 음성을 다시 듣고 번역 중..."
+      : "🎙️ Gemini가 상대방 음성을 직접 듣고 번역 중...";
+    myTextEl.className = "pane-text translating";
+
+    if (replaceLast) {
+      removeLastTurnPair();
+    }
+
+    const base64Audio = await blobToBase64(audioBlob);
+    const sysPrompt = buildSystemInstruction(0, true, 20, true);
+    const parts = [
+      { text: `[상대(${targetLang}) 음성 입력: 직전 대화 문맥을 반영해 정확히 받아쓰고 자연스러운 한국어로 번역하세요]` },
+      { inline_data: { mime_type: normalizeGeminiAudioMime(mimeType), data: base64Audio } }
+    ];
+
+    const rawJson = await callTranslationWithAutoFallback(sysPrompt, parts, {
+      isAudio: true,
+      jsonMode: true,
+      primaryTimeoutMs: 7000,
+      fallbackTimeoutMs: 9000
+    });
+    const cleanedJson = rawJson.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    const parsed = JSON.parse(cleanedJson);
+    const orig = (parsed.original || "").trim();
+    const trans = (parsed.translated || "").trim();
+
+    if (!orig && !trans) {
+      showToast("목소리가 들리지 않아 취소되었습니다.");
+      applySessionToUI();
+      return;
+    }
+
+    const finalOrig = orig || "(음성)";
+    const finalTrans = trans || orig;
+
+    partnerTextEl.textContent = finalOrig;
+    partnerTextEl.className = "pane-text";
+    myTextEl.textContent = finalTrans;
+    myTextEl.className = "pane-text";
+
+    currentSession.LastPartnerText = finalOrig;
+    currentSession.LastMyText = finalTrans;
+    appendChatTurn(finalOrig, finalTrans, "");
+    addHistoryRecord(`[상대(${targetLang})] ${finalOrig} -> [번역(한국어)] ${finalTrans}`);
+    saveSessionsToDisk();
+  }
+
+  async function handlePartnerAudioPipeline(audioBlob, mimeType) {
+    if (!audioBlob || isBusy) return;
+    isBusy = true;
+    lastRawKoreanInput = "";
+    const targetLang = currentSession.TargetLanguage || "베트남어";
+    const meta = getLangMeta();
+    lastPartnerAudio = { blob: audioBlob, mime: mimeType, targetLang };
+    updateReRecButtonVisibility();
+
+    partnerTextEl.textContent = meta.recognizing;
+    partnerTextEl.className = "pane-text translating";
+    myTextEl.textContent = "🎙️ 상대방 음성 인식 중...";
     myTextEl.className = "pane-text translating";
 
     try {
-      const base64Audio = await blobToBase64(audioBlob);
-      const sysPrompt = buildSystemInstruction(0, true, 20, true);
-      const parts = [
-        { text: `[상대(${targetLang}) 음성 입력: 직전 대화 문맥을 반영해 정확히 받아쓰고 자연스러운 한국어로 번역하세요]` },
-        { inline_data: { mime_type: normalizeGeminiAudioMime(mimeType), data: base64Audio } }
-      ];
-
-      const rawJson = await callGeminiMultiTurn(sysPrompt, parts, { jsonMode: true, timeoutMs: 12000 });
-      const cleanedJson = rawJson.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-      const parsed = JSON.parse(cleanedJson);
-      const orig = (parsed.original || "").trim();
-      const trans = (parsed.translated || "").trim();
-
-      if (!orig && !trans) {
-        showToast("목소리가 들리지 않아 취소되었습니다.");
-        applySessionToUI();
+      // 1순위: Groq Whisper (large-v3) 초고속 받아쓰기 -> 문맥 번역 (6초/8초 + Groq 백업 4초)
+      const groqStt = await transcribePartnerWithGroq(audioBlob, mimeType, meta.whisperCode);
+      if (groqStt.ok && groqStt.text) {
+        await translatePartnerTextInput(groqStt.text, { fromAudioPipeline: true });
         return;
       }
 
-      const finalOrig = orig || "(음성)";
-      const finalTrans = trans || orig;
+      // 2순위 백업: Groq 실패 또는 소리 있었는데 빈 텍스트면 Gemini 오디오 직접 청취
+      if (!groqStt.ok || partnerMaxPeak > 0.02) {
+        await runGeminiPartnerAudioDirect(audioBlob, mimeType, false);
+        return;
+      }
 
-      partnerTextEl.textContent = finalOrig;
-      partnerTextEl.className = "pane-text";
-      myTextEl.textContent = finalTrans;
-      myTextEl.className = "pane-text";
-
-      currentSession.LastPartnerText = finalOrig;
-      currentSession.LastMyText = finalTrans;
-      appendChatTurn(finalOrig, finalTrans, "");
-      addHistoryRecord(`[상대(${targetLang})] ${finalOrig} -> [번역(한국어)] ${finalTrans}`);
-      saveSessionsToDisk();
-    } catch (err) {
-      showToast("음성 인식/번역에 실패했습니다.");
+      showToast("목소리가 들리지 않아 취소되었습니다.");
+      lastPartnerAudio = null;
+      applySessionToUI();
+    } catch {
+      showToast("음성 인식/번역에 실패했습니다. 🔄 재인식을 눌러보세요.");
       applySessionToUI();
     } finally {
       isBusy = false;
+      updateReRecButtonVisibility();
+    }
+  }
+
+  async function reRecognizeLastPartnerAudio() {
+    if (!lastPartnerAudio || !lastPartnerAudio.blob || isBusy || myListening || partnerRecording) return;
+    isBusy = true;
+    updateReRecButtonVisibility();
+    try {
+      await runGeminiPartnerAudioDirect(lastPartnerAudio.blob, lastPartnerAudio.mime, true);
+      showToast("✅ 원본 음성을 Gemini로 다시 인식했습니다.");
+    } catch {
+      showToast("재인식에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      applySessionToUI();
+    } finally {
+      isBusy = false;
+      updateReRecButtonVisibility();
     }
   }
 
   async function askAiCoaching(userRequest) {
     if (!userRequest || isBusy) return;
     isBusy = true;
+    updateReRecButtonVisibility();
 
     const targetLang = currentSession.TargetLanguage || "베트남어";
     const rel = currentSession.Relationship || "일상 대화";
+    const meta = getLangMeta();
     myTextEl.textContent = `🤖 AI가 표현을 정리하고 있습니다...\n("${userRequest}")`;
     myTextEl.className = "pane-text translating";
 
@@ -1636,7 +1943,11 @@
         `한국어뜻: (위 ${targetLang} 번역문의 한국어 직역)`;
 
       const sysPrompt = buildSystemInstruction(0, false, userRequest.length, false);
-      const rawResponse = await callGeminiMultiTurn(sysPrompt, [{ text: coachingPrompt }], { maxOutputTokens: 420 });
+      const rawResponse = await callTranslationWithAutoFallback(
+        sysPrompt,
+        [{ text: coachingPrompt }],
+        { plainUserText: coachingPrompt, maxOutputTokens: 420 }
+      );
 
       let draftedKorean = "", translatedForeign = "", koreanMeaning = "";
       for (const line of rawResponse.split("\n")) {
@@ -1655,6 +1966,7 @@
       if (!draftedKorean) draftedKorean = koreanMeaning || userRequest;
 
       lastRawKoreanInput = draftedKorean;
+      lastPartnerAudio = null;
       partnerTextEl.textContent = translatedForeign;
       partnerTextEl.className = "pane-text";
 
@@ -1669,21 +1981,30 @@
       appendChatTurn(draftedKorean, translatedForeign, draftedKorean);
       addHistoryRecord(`[나(한국어)] ${draftedKorean} -> [번역(${targetLang})] ${translatedForeign}`);
       saveSessionsToDisk();
+
+      if (autoTtsEnabled && translatedForeign) {
+        speakText(translatedForeign, meta.ttsCode);
+      }
     } catch (err) {
       myTextEl.textContent = `오류: ${err.message}`;
       myTextEl.className = "pane-text";
     } finally {
       isBusy = false;
+      updateReRecButtonVisibility();
     }
   }
 
-  /* ================= 내 마이크 (안드로이드 Chrome 연속 SpeechRecognition) ================= */
+  /* ================= 내 마이크 (안드로이드 Chrome 연속 SpeechRecognition + 취소 버튼) ================= */
   function getCombinedMySpeech() {
     return `${myAccumulatedSpeech} ${myPartialSpeech}`.trim();
   }
 
   function setMyMicUI(state) {
     myMicBtn.classList.remove("preparing", "listening", "finishing");
+    const active = (state === "preparing" || state === "listening");
+    myCancelBtn.classList.toggle("hidden", !active);
+    myAiBtn.classList.toggle("hidden", active);
+
     if (state === "idle") {
       myMicBtn.textContent = "🎙️";
     } else if (state === "preparing") {
@@ -1715,12 +2036,12 @@
         setMyMicUI("listening");
         const txt = getCombinedMySpeech();
         myTextEl.textContent = txt
-          ? `🟢 [음성 인식 중... 다 말씀하시면 버튼을 다시 누르세요]\n${txt}`
-          : "🟢 [지금 말씀하세요!]\n말씀이 끝나면 마이크(🟢)를 다시 눌러주세요.";
+          ? `🟢 [음성 인식 중... 끝나면 🟢, 취소는 ❌]\n${txt}`
+          : "🟢 [지금 말씀하세요!]\n끝나면 🟢, 취소하려면 ❌을 누르세요.";
         myTextEl.className = "pane-text listening";
       };
       rec.onresult = (event) => {
-        if (!myListening) return;
+        if (!myListening || myCancelRequested) return;
         let fin = "", part = "";
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const r = event.results[i];
@@ -1732,7 +2053,7 @@
         myPartialSpeech = part.trim();
         const combined = getCombinedMySpeech();
         if (combined) {
-          myTextEl.textContent = `🟢 [음성 인식 중... 다 말씀하시면 버튼을 다시 누르세요]\n${combined}`;
+          myTextEl.textContent = `🟢 [음성 인식 중... 끝나면 🟢, 취소는 ❌]\n${combined}`;
           myTextEl.className = "pane-text listening";
         }
       };
@@ -1741,12 +2062,12 @@
       };
       rec.onend = () => {
         if (mySpeechRec === rec) mySpeechRec = null;
-        if (myStopping) {
+        if (myStopping || myCancelRequested) {
           if (myFinalResolve) { myFinalResolve(); myFinalResolve = null; }
           return;
         }
         if (myListening) {
-          setTimeout(() => { if (myListening && !myStopping) startMySpeechPass(); }, 180);
+          setTimeout(() => { if (myListening && !myStopping && !myCancelRequested) startMySpeechPass(); }, 180);
         }
       };
       mySpeechRec = rec;
@@ -1757,11 +2078,30 @@
     }
   }
 
+  function cancelMyMic() {
+    if (!myListening) return;
+    myCancelRequested = true;
+    myStopping = true;
+    myListening = false;
+    if (mySpeechRec) {
+      try { mySpeechRec.onend = null; mySpeechRec.abort(); } catch {}
+      mySpeechRec = null;
+    }
+    myAccumulatedSpeech = "";
+    myPartialSpeech = "";
+    myStopping = false;
+    myCancelRequested = false;
+    setMyMicUI("idle");
+    applySessionToUI();
+    showToast("❌ 음성 인식을 취소했습니다.");
+  }
+
   async function toggleMyMic() {
     if (isBusy || partnerRecording) return;
     if (myListening) {
       if (myStopping) return;
       myStopping = true;
+      myCancelRequested = false;
       setMyMicUI("finishing");
       if (mySpeechRec) {
         const waitEnd = new Promise(res => { myFinalResolve = res; });
@@ -1795,6 +2135,7 @@
     stopSpeaking();
     myListening = true;
     myStopping = false;
+    myCancelRequested = false;
     myAccumulatedSpeech = "";
     myPartialSpeech = "";
     setMyMicUI("preparing");
@@ -1804,7 +2145,7 @@
     startMySpeechPass();
   }
 
-  /* ================= 상대방 마이크 (Gemini 멀티턴 오디오 직접 청취) ================= */
+  /* ================= 상대방 마이크 (Groq Whisper large-v3 우선 + Gemini 백업 + 취소) ================= */
   function pickAudioMimeType() {
     if (typeof MediaRecorder === "undefined") return "";
     for (const c of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mp4;codecs=mp4a.40.2"]) {
@@ -1844,6 +2185,7 @@
           const v = Math.abs(dataArr[i] - 128) / 128;
           if (v > peak) peak = v;
         }
+        if (peak > partnerMaxPeak) partnerMaxPeak = peak;
         const pct = Math.min(100, Math.max(4, Math.round(peak * 240)));
         partnerVolBar.style.width = `${pct}%`;
         partnerMeterRaf = requestAnimationFrame(loop);
@@ -1852,11 +2194,29 @@
     } catch {}
   }
 
+  function cancelPartnerMic() {
+    if (!partnerRecording) return;
+    partnerCancelRequested = true;
+    partnerRecording = false;
+    partnerCancelBtn.classList.add("hidden");
+    if (partnerRecorder && partnerRecorder.state !== "inactive") {
+      try { partnerRecorder.stop(); } catch {}
+    } else {
+      stopPartnerMeterAndStream();
+      partnerMicBtn.classList.remove("preparing", "listening", "finishing");
+      partnerMicBtn.textContent = "🎙️";
+      applySessionToUI();
+    }
+    showToast("❌ 상대방 녹음을 취소했습니다.");
+  }
+
   async function togglePartnerMic() {
     if (isBusy || myListening) return;
 
     if (partnerRecording) {
+      partnerCancelRequested = false;
       partnerRecording = false;
+      partnerCancelBtn.classList.add("hidden");
       partnerMicBtn.classList.remove("listening");
       partnerMicBtn.classList.add("finishing");
       partnerMicBtn.textContent = "🔄";
@@ -1873,10 +2233,13 @@
 
     stopSpeaking();
     const meta = getLangMeta();
+    partnerCancelRequested = false;
+    partnerMaxPeak = 0;
     partnerMicBtn.classList.add("preparing");
     partnerMicBtn.textContent = "⏳";
     partnerTextEl.textContent = meta.preparing;
     partnerTextEl.className = "pane-text listening";
+    updateReRecButtonVisibility();
 
     try {
       partnerStream = await navigator.mediaDevices.getUserMedia({
@@ -1897,8 +2260,16 @@
       };
       partnerRecorder.onstop = async () => {
         stopPartnerMeterAndStream();
+        partnerCancelBtn.classList.add("hidden");
         partnerMicBtn.classList.remove("preparing", "listening", "finishing");
         partnerMicBtn.textContent = "🎙️";
+
+        if (partnerCancelRequested) {
+          partnerCancelRequested = false;
+          applySessionToUI();
+          return;
+        }
+
         const dur = Date.now() - partnerRecStartAt;
         if (dur < 350 || partnerChunks.length === 0) {
           showToast("녹음이 너무 짧아 취소되었습니다.");
@@ -1906,20 +2277,22 @@
           return;
         }
         const blob = new Blob(partnerChunks, { type: actualMime });
-        await translatePartnerAudioDirect(blob, actualMime);
+        await handlePartnerAudioPipeline(blob, actualMime);
       };
 
       partnerRecording = true;
       partnerMicBtn.classList.remove("preparing");
       partnerMicBtn.classList.add("listening");
       partnerMicBtn.textContent = "🟢";
+      partnerCancelBtn.classList.remove("hidden");
       partnerTextEl.textContent = meta.listening;
       partnerTextEl.className = "pane-text listening";
       if (navigator.vibrate) navigator.vibrate(40);
       startPartnerVolumeMeter(partnerStream);
       partnerRecorder.start(250);
-    } catch (err) {
+    } catch {
       stopPartnerMeterAndStream();
+      partnerCancelBtn.classList.add("hidden");
       partnerMicBtn.classList.remove("preparing", "listening", "finishing");
       partnerMicBtn.textContent = "🎙️";
       applySessionToUI();
@@ -2129,6 +2502,7 @@
         restoreChatTurnsFromHistoryIfNeeded(currentSession);
       }
       lastRawKoreanInput = "";
+      lastPartnerAudio = null;
       localStorage.setItem("ft_sessions_v1", JSON.stringify(sessions));
       if (!myListening && !partnerRecording) applySessionToUI();
     } finally {
@@ -2158,7 +2532,8 @@
   }
 
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && apiKey) {
+    if (document.visibilityState === "visible") {
+      requestWakeLock();
       syncOnAppearOrResume(false);
     }
   });
@@ -2178,7 +2553,6 @@
   function openTextEditModal(isMine) {
     if (myListening || partnerRecording || isBusy) return;
     const lang = currentSession.TargetLanguage || "베트남어";
-    const meta = getLangMeta();
     let initial = "";
     if (isMine) {
       initial = lastRawKoreanInput || (myTextEl.classList.contains("placeholder") ? "" : myTextEl.textContent.split("\n(")[0].replace(/^💡\s*/, ""));
@@ -2194,8 +2568,7 @@
         <button class="primary" onclick="submitTextEditModal(${isMine})">번역하기</button>
       </div>
     `);
-    const area = document.getElementById("editModalArea");
-    area.focus();
+    document.getElementById("editModalArea").focus();
   }
 
   async function submitTextEditModal(isMine) {
@@ -2206,6 +2579,7 @@
       lastRawKoreanInput = val;
       await translateMyKoreanInput(val);
     } else {
+      lastPartnerAudio = null;
       await translatePartnerTextInput(val);
     }
   }
@@ -2278,6 +2652,7 @@
     closeModal();
     if (currentSession.TargetLanguage === lang) return;
     currentSession.TargetLanguage = lang;
+    lastPartnerAudio = null;
     applySessionToUI();
     saveSessionsToDisk();
     if (lastRawKoreanInput) {
@@ -2333,6 +2708,7 @@
     closeModal();
     if (!rel) return;
     lastRawKoreanInput = "";
+    lastPartnerAudio = null;
     const lang = (currentSession && currentSession.TargetLanguage) || "베트남어";
     currentSession = createDefaultSession(rel, lang);
     sessions.unshift(currentSession);
@@ -2370,7 +2746,7 @@
   async function openModelModal() {
     openModal(`
       <h3>⚡ AI 모델 속도 측정 중...</h3>
-      <div class="modal-sub">3개 모델의 실시간 응답 시간을 병렬로 측정하고 있습니다.</div>
+      <div class="modal-sub">Gemini 모델 응답 시간 측정 중 (자동 순위: 1순위 6초 / 2순위 8초 + Groq 백업 4초)</div>
       <div class="modal-actions"><button onclick="closeModal()">닫기</button></div>
     `);
 
@@ -2379,13 +2755,13 @@
       generationConfig: { maxOutputTokens: 5, thinkingConfig: { thinkingLevel: "MINIMAL" } }
     });
 
-    const results = await Promise.all(MODEL_POOL.map(async (m) => {
+    const results = await Promise.all(GEMINI_MODELS.map(async (m) => {
       const t0 = performance.now();
       try {
         const res = await fetchWithTimeout(
           `https://generativelanguage.googleapis.com/v1beta/models/${m.id}:generateContent?key=${encodeURIComponent(apiKey)}`,
           { method: "POST", headers: { "Content-Type": "application/json" }, body },
-          9000
+          7000
         );
         const sec = (performance.now() - t0) / 1000;
         if (res.ok) return { ok: true, sec, text: `${sec.toFixed(1)}초` };
@@ -2395,39 +2771,58 @@
       }
     }));
 
-    const rows = MODEL_POOL.map((m, idx) => {
+    const rows = GEMINI_MODELS.map((m, idx) => {
       const r = results[idx];
+      const st = modelStats.models[m.id] || {};
       const icon = r.ok ? (r.sec <= 2.0 ? "⚡" : "🟢") : "🔴";
       const active = preferredModelIndex === idx;
+      const statHint = (st.ok + st.fail) > 0 ? ` · 성공 ${st.ok}/${st.ok + st.fail}` : "";
       return `<button class="modal-item-btn ${active ? "active" : ""}" onclick="selectPreferredModel(${idx}, ${r.ok}, '${r.text}')">
-        <span>${icon} ${m.short} <small style="opacity:0.75">(${m.id})</small></span>
+        <span>${icon} ${m.short} <small style="opacity:0.75">${statHint}</small></span>
         <span>${r.text}${active ? " ✔" : ""}</span>
       </button>`;
     }).join("");
 
     const autoActive = preferredModelIndex === -1;
+    const gst = modelStats.groqStt || {};
+    const gtr = modelStats.groqTrans || {};
     openModal(`
       <h3>⚡ AI 모델 선택 · 속도 측정</h3>
       <div class="modal-list">
         ${rows}
         <button class="modal-item-btn ${autoActive ? "active" : ""}" onclick="selectPreferredModel(-1, true, '')">
-          <span>🔄 자동 선택 (3.5 → 3.1 → 3.6)</span>
+          <span>🔄 자동 순위 (6초 → 8초 → Groq 4초)</span>
           <span>${autoActive ? "✔" : ""}</span>
         </button>
       </div>
-      <div class="modal-actions"><button onclick="closeModal()">닫기</button></div>
+      <div class="modal-sub">
+        • 상대 음성 STT: <b>${GROQ_STT_MODEL}</b> (성공 ${gst.ok || 0} / 실패 ${gst.fail || 0})<br>
+        • 번역 백업: <b>${GROQ_TRANSLATE_MODEL}</b> (성공 ${gtr.ok || 0} / 실패 ${gtr.fail || 0})<br>
+        • 문맥 유지: 직전 <b>${MAX_TURN_MESSAGES}개 메시지(5왕복)</b>
+      </div>
+      <div class="modal-actions">
+        <button onclick="resetModelStatsAndClose()">순위 초기화</button>
+        <button class="primary" onclick="closeModal()">닫기</button>
+      </div>
     `);
+  }
+
+  function resetModelStatsAndClose() {
+    modelStats = createEmptyModelStats();
+    saveModelStats();
+    closeModal();
+    showToast("모델 통계 및 순위를 초기화했습니다.");
+    checkServerInitStatus();
   }
 
   function selectPreferredModel(idx, ok, statusText) {
     preferredModelIndex = idx;
-    localStorage.setItem("ft_pref_model", String(idx));
-    clearTempCongestion();
+    localStorage.setItem("ft_v2_pref_model", String(idx));
     closeModal();
     if (idx === -1) {
       checkServerInitStatus();
     } else {
-      const m = MODEL_POOL[idx];
+      const m = GEMINI_MODELS[idx];
       updateServerStatusBadge(`${ok ? "🟢" : "🟠"} ${m.short} (${statusText})`, ok ? "ok" : "warn");
     }
   }
@@ -2514,7 +2909,7 @@
 
   function openMenuModal() {
     const syncTag = isRealtimeSyncConfigured() ? (isRealtimeSyncEnabled() ? "🟢" : "⏸️") : "미설정";
-    const prefLabel = preferredModelIndex >= 0 ? MODEL_POOL[preferredModelIndex].short : "자동";
+    const prefLabel = preferredModelIndex >= 0 ? GEMINI_MODELS[preferredModelIndex].short : "자동";
 
     const sessBtns = sessions.map((s, idx) => {
       const isCur = currentSession && s.Id === currentSession.Id;
@@ -2545,6 +2940,7 @@
     currentSession = sessions[idx];
     restoreChatTurnsFromHistoryIfNeeded(currentSession);
     lastRawKoreanInput = "";
+    lastPartnerAudio = null;
     applySessionToUI();
     saveSessionsToDisk();
     closeModal();
@@ -2561,27 +2957,20 @@
     currentSession = sessions.length > 0 ? sessions[0] : createDefaultSession();
     restoreChatTurnsFromHistoryIfNeeded(currentSession);
     lastRawKoreanInput = "";
+    lastPartnerAudio = null;
     applySessionToUI();
     saveSessionsToDisk();
     closeModal();
     showToast("대화방을 삭제했습니다.");
   }
 
-  /* ================= 초기화 ================= */
-  function onAppReady() {
-    applyThemeAndFont();
-    setSeatingLayout(seatingLayout);
-    loadSessionsFromDisk();
-    syncOnAppearOrResume(true);
-    checkServerInitStatus();
-  }
-
+  /* ================= 초기화 (암호 없이 즉시 시작) ================= */
   applyThemeAndFont();
-  setSeatingLayout(seatingLayout);
-  const savedPass = localStorage.getItem("ft_pass") || "";
-  if (savedPass) {
-    if (!tryUnlock(savedPass)) localStorage.removeItem("ft_pass");
-  }
+  setSeatingLayout(seatingLayout, false);
+  loadSessionsFromDisk();
+  requestWakeLock();
+  syncOnAppearOrResume(true);
+  checkServerInitStatus();
 </script>
 </body>
 </html>
