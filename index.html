@@ -615,18 +615,26 @@
     }
     #videoModal .video-modal-actions {
       position: fixed;
-      bottom: 18px;
+      top: calc(14px + env(safe-area-inset-top, 0px));
+      bottom: auto;
       left: 50%;
       transform: translateX(-50%);
       display: flex;
       gap: 7px;
       padding: 6px 10px;
       border-radius: 24px;
-      background: rgba(0, 0, 0, 0.65);
+      background: rgba(0, 0, 0, 0.68);
       backdrop-filter: blur(6px);
       z-index: 98;
       margin-top: 0;
       max-width: 96vw;
+    }
+    #videoModal.force-landscape .video-modal-actions {
+      top: 50%;
+      bottom: auto;
+      left: calc(100vw - 28px);
+      transform: translate(-50%, -50%) rotate(90deg);
+      max-width: 92dvh;
     }
     #videoModal .video-modal-actions button {
       padding: 8px 12px;
@@ -1419,7 +1427,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 64;
+  const APP_VERSION = 65;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -1582,6 +1590,7 @@
       videoFullscreen: "⛶ 전체화면",
       videoExitFullscreen: "⛶ 축소",
       videoRotate: "🔄 회전",
+      videoDownload: "💾 저장",
       videoRecHint: "480p · 최대 30초 촬영",
       videoRecRecording: "🔴 녹화 중... 누르면 종료 및 전송",
       infoVideos: "저장된 동영상",
@@ -1703,6 +1712,7 @@
       videoFullscreen: "⛶ Toàn màn hình",
       videoExitFullscreen: "⛶ Thu nhỏ",
       videoRotate: "🔄 Xoay",
+      videoDownload: "💾 Lưu",
       videoRecHint: "480p · Quay tối đa 30 giây",
       videoRecRecording: "🔴 Đang quay... Bấm để dừng & gửi",
       infoVideos: "Video đã lưu",
