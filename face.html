@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -23,10 +23,10 @@
       --text: #f5f7fa;
       --text-sub: #b5bcc9;
       --text-muted: #848c9c;
-      --accent: #3b82f6;
-      --accent-soft: rgba(59, 130, 246, 0.16);
+      --accent: #0078ff;
+      --accent-soft: rgba(0, 120, 255, 0.16);
       --partner-accent: #ff9800;
-      --partner-soft: rgba(255, 152, 0, 0.14);
+      --partner-soft: rgba(255, 152, 0, 0.15);
       --btn-bg: #2e323c;
       --btn-text: #eef2f7;
       --divider: #2e323d;
@@ -69,65 +69,6 @@
 
     .hidden { display: none !important; }
 
-    /* ===== Top Header ===== */
-    header {
-      padding: 6px 10px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 6px;
-      flex-shrink: 0;
-      z-index: 40;
-    }
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-width: 0;
-      flex: 1;
-    }
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      flex-shrink: 0;
-    }
-    .hdr-btn {
-      height: 34px;
-      padding: 0 9px;
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      background: var(--btn-bg);
-      color: var(--btn-text);
-      font-size: 13px;
-      font-weight: bold;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      white-space: nowrap;
-    }
-    .hdr-btn:active { transform: scale(0.95); }
-    .hdr-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-    #relBadgeBtn {
-      flex: 1;
-      min-width: 0;
-      justify-content: flex-start;
-      padding: 0 10px;
-      background: var(--surface-2);
-      overflow: hidden;
-    }
-    #relBadgeText {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 12.5px;
-    }
-
     /* ===== Split Container & 4 Seating Layouts ===== */
     #splitContainer {
       flex: 1;
@@ -158,11 +99,14 @@
     #splitContainer.layout-side-left #splitDivider { order: 2; }
     #splitContainer.layout-side-left #myPane { order: 3; }
 
+    /* ===== Center Divider & Layout Cycle Button ===== */
     #splitDivider {
       background: var(--divider);
       flex-shrink: 0;
       height: 2px;
       width: 100%;
+      position: relative;
+      z-index: 30;
     }
     #splitContainer.layout-side-right #splitDivider,
     #splitContainer.layout-side-left #splitDivider {
@@ -170,13 +114,45 @@
       height: 100%;
     }
 
+    #layoutCycleBtn {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      height: 32px;
+      min-width: 44px;
+      padding: 0 10px;
+      border-radius: 16px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: bold;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+      z-index: 35;
+      white-space: nowrap;
+    }
+    #layoutCycleBtn:active { transform: translate(-50%, -50%) scale(0.92); }
+    #splitContainer.layout-side-right #layoutCycleBtn,
+    #splitContainer.layout-side-left #layoutCycleBtn {
+      width: 34px;
+      min-width: 34px;
+      height: 44px;
+      padding: 0;
+    }
+
+    /* ===== Panes ===== */
     .pane {
       flex: 1;
       min-height: 0;
       min-width: 0;
       display: flex;
       flex-direction: column;
-      padding: 9px 12px 9px;
+      padding: 10px 12px 10px;
       gap: 7px;
       position: relative;
       overflow: hidden;
@@ -184,43 +160,73 @@
     #partnerPane { background: var(--pane-partner); }
     #myPane { background: var(--pane-mine); }
 
+    /* Safe-area padding depending on orientation/rotation */
+    #splitContainer.layout-top-normal #partnerPane {
+      padding-top: calc(10px + env(safe-area-inset-top, 0px));
+      padding-bottom: 18px;
+    }
     #splitContainer.layout-top-flip #partnerPane {
       transform: rotate(180deg);
+      /* rotated 180deg: visual top is CSS bottom, visual bottom (near divider) is CSS top */
+      padding-bottom: calc(10px + env(safe-area-inset-top, 0px));
+      padding-top: 18px;
+    }
+    #splitContainer.layout-top-flip #myPane,
+    #splitContainer.layout-top-normal #myPane {
+      padding-top: 18px;
+      padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    }
+
+    #splitContainer.layout-side-right .pane,
+    #splitContainer.layout-side-left .pane {
+      padding: 8px 12px 8px;
+      padding-top: calc(8px + env(safe-area-inset-top, 0px));
+      padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    }
+    #splitContainer.layout-side-right #myPane,
+    #splitContainer.layout-side-left #partnerPane {
+      padding-right: 20px;
+    }
+    #splitContainer.layout-side-right #partnerPane,
+    #splitContainer.layout-side-left #myPane {
+      padding-left: 20px;
     }
 
     .pane-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 6px;
-      flex-shrink: 0;
-      flex-wrap: wrap;
-    }
-    .pane-tag {
-      font-size: 11.5px;
-      font-weight: bold;
-      padding: 4px 9px;
-      border-radius: 12px;
-      display: inline-flex;
-      align-items: center;
       gap: 5px;
-      white-space: nowrap;
-    }
-    #partnerPane .pane-tag {
-      background: var(--partner-soft);
-      color: var(--partner-accent);
-      border: 1px solid rgba(255, 152, 0, 0.35);
+      flex-shrink: 0;
+      flex-wrap: nowrap;
     }
 
     .pane-tools {
       display: flex;
       align-items: center;
       gap: 5px;
-      flex-wrap: wrap;
+      min-width: 0;
     }
-    .mini-pill-btn {
-      padding: 4px 8px;
+
+    .lang-pill-btn {
+      font-size: 12px;
+      font-weight: bold;
+      padding: 5px 10px;
       border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      cursor: pointer;
+      background: var(--partner-soft);
+      color: var(--partner-accent);
+      border: 1px solid rgba(255, 152, 0, 0.45);
+    }
+    .lang-pill-btn:active { transform: scale(0.95); }
+
+    .mini-pill-btn {
+      padding: 5px 8px;
+      border-radius: 11px;
       border: 1px solid var(--border);
       background: var(--surface-2);
       color: var(--text-sub);
@@ -243,10 +249,14 @@
       border-color: rgba(255, 152, 0, 0.5);
       color: var(--partner-accent);
     }
+    .mini-pill-btn.icon-only {
+      padding: 5px 9px;
+      font-size: 13px;
+    }
 
     .status-badge {
-      padding: 4px 8px;
-      border-radius: 12px;
+      padding: 5px 8px;
+      border-radius: 11px;
       border: 1px solid var(--border);
       background: var(--surface-2);
       color: var(--text-sub);
@@ -254,6 +264,9 @@
       font-weight: bold;
       cursor: pointer;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 135px;
     }
     .status-badge.ok { background: rgba(46, 125, 50, 0.18); border-color: #4caf50; color: #81c784; }
     .status-badge.warn { background: rgba(239, 108, 0, 0.18); border-color: #ff9800; color: #ffb74d; }
@@ -266,7 +279,7 @@
       flex: 1;
       min-height: 0;
       overflow-y: auto;
-      padding: 6px 4px;
+      padding: 4px 4px;
       cursor: pointer;
       display: flex;
       flex-direction: column;
@@ -305,128 +318,127 @@
       transition: width 0.08s linear;
     }
 
+    /* ===== Bottom Action Bar (Anh & Em Style Wide Text Buttons) ===== */
     .pane-bottom {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 14px;
+      align-items: stretch;
+      gap: 8px;
       flex-shrink: 0;
       padding-top: 2px;
-      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
-    .circle-btn {
-      width: 54px;
-      height: 54px;
-      border-radius: 50%;
+
+    .side-action-btn {
+      width: 48px;
+      min-height: 48px;
+      border-radius: 13px;
       border: 1.5px solid var(--border);
       background: var(--surface);
       color: var(--text);
-      font-size: 21px;
+      font-size: 20px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.22);
-      transition: transform 0.12s, background 0.15s, border-color 0.15s;
       flex-shrink: 0;
+      transition: transform 0.12s;
     }
-    .circle-btn:active { transform: scale(0.92); }
-    .circle-btn.mic-btn {
-      width: 62px;
-      height: 62px;
-      font-size: 24px;
-      border-width: 2px;
-    }
-    #myMicBtn { border-color: rgba(59, 130, 246, 0.55); }
-    #partnerMicBtn { border-color: rgba(255, 152, 0, 0.55); }
-    .circle-btn.ai-btn {
-      border-color: rgba(144, 202, 249, 0.6);
+    .side-action-btn:active { transform: scale(0.94); }
+    .side-action-btn.ai-btn {
+      border-color: rgba(144, 202, 249, 0.55);
       background: var(--accent-soft);
     }
-    .circle-btn.cancel-btn {
-      border-color: #e53935;
-      background: rgba(229, 57, 53, 0.18);
-      color: #ff8a80;
-    }
-    body.light-theme .circle-btn.cancel-btn {
-      background: #ffebee;
-      color: #c62828;
-    }
-    .circle-btn.listening {
-      background: #2e7d32 !important;
-      border-color: #66bb6a !important;
-      color: #fff;
-      animation: micPulse 1s infinite;
-    }
-    .circle-btn.preparing {
-      background: #ef6c00 !important;
-      border-color: #ffb74d !important;
-      color: #fff;
-    }
-    .circle-btn.finishing {
-      background: #1976d2 !important;
-      border-color: #64b5f6 !important;
-      color: #fff;
-    }
-    @keyframes micPulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.55); }
-      50% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
-    }
 
-    /* Compact controls when side-by-side */
-    #splitContainer.layout-side-right .pane,
-    #splitContainer.layout-side-left .pane {
-      padding: 8px 10px 8px;
-    }
-    #splitContainer.layout-side-right .pane-bottom,
-    #splitContainer.layout-side-left .pane-bottom {
-      gap: 10px;
-    }
-    #splitContainer.layout-side-right .circle-btn,
-    #splitContainer.layout-side-left .circle-btn {
-      width: 48px;
-      height: 48px;
-      font-size: 19px;
-    }
-    #splitContainer.layout-side-right .circle-btn.mic-btn,
-    #splitContainer.layout-side-left .circle-btn.mic-btn {
-      width: 56px;
-      height: 56px;
-      font-size: 22px;
-    }
-
-    /* ===== Popovers & Modals ===== */
-    .popover {
-      position: fixed;
-      top: 46px;
-      right: 10px;
-      width: 264px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      box-shadow: 0 10px 28px rgba(0,0,0,0.48);
-      padding: 10px;
+    .wide-mic-btn {
+      flex: 1;
+      min-width: 0;
+      min-height: 48px;
+      padding: 11px 12px;
+      border: none;
+      border-radius: 13px;
+      font-size: 15.5px;
+      font-weight: bold;
+      color: #fff;
+      cursor: pointer;
       display: flex;
-      flex-direction: column;
-      gap: 8px;
-      z-index: 120;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.22);
+      transition: background 0.15s, transform 0.12s;
     }
-    .pop-title { font-size: 12px; font-weight: bold; color: var(--text-muted); padding: 2px 4px; }
-    .pop-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: bold; color: var(--text-sub); }
-    .pop-btns { display: flex; gap: 5px; }
-    .pop-btn {
-      padding: 7px 10px;
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      background: var(--btn-bg);
-      color: var(--btn-text);
-      font-size: 12.5px;
+    .wide-mic-btn:active { transform: scale(0.97); }
+    .wide-mic-btn.mine { background: #0078ff; }
+    .wide-mic-btn.partner { background: #ef6c00; }
+    .wide-mic-btn.preparing { background: #f57c00; }
+    .wide-mic-btn.finishing { background: #1976d2; }
+
+    .rec-controls {
+      flex: 1;
+      display: flex;
+      gap: 8px;
+    }
+    .rec-cancel-btn {
+      flex: 1;
+      min-height: 48px;
+      padding: 11px 10px;
+      border: none;
+      border-radius: 13px;
+      background: #424242;
+      color: #ff8a80;
+      font-size: 14.5px;
       font-weight: bold;
       cursor: pointer;
+      white-space: nowrap;
     }
-    .pop-btn.full { width: 100%; text-align: left; display: flex; align-items: center; justify-content: space-between; }
-    .pop-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    body.light-theme .rec-cancel-btn {
+      background: #ffebee;
+      color: #c62828;
+      border: 1px solid #ef9a9a;
+    }
+    .rec-send-btn {
+      flex: 2;
+      min-height: 48px;
+      padding: 11px 10px;
+      border: none;
+      border-radius: 13px;
+      background: #2e7d32;
+      color: #fff;
+      font-size: 15.5px;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+      animation: sendPulse 1.2s infinite;
+    }
+    .rec-cancel-btn:active, .rec-send-btn:active { transform: scale(0.97); }
+    @keyframes sendPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.5); }
+      50% { box-shadow: 0 0 0 7px rgba(46, 125, 50, 0); }
+    }
 
+    #splitContainer.layout-side-right .wide-mic-btn,
+    #splitContainer.layout-side-left .wide-mic-btn,
+    #splitContainer.layout-side-right .rec-send-btn,
+    #splitContainer.layout-side-left .rec-send-btn {
+      font-size: 14.5px;
+      min-height: 44px;
+      padding: 9px 10px;
+    }
+    #splitContainer.layout-side-right .side-action-btn,
+    #splitContainer.layout-side-left .side-action-btn,
+    #splitContainer.layout-side-right .rec-cancel-btn,
+    #splitContainer.layout-side-left .rec-cancel-btn {
+      min-height: 44px;
+    }
+    #splitContainer.layout-side-right .side-action-btn,
+    #splitContainer.layout-side-left .side-action-btn {
+      width: 44px;
+      font-size: 18px;
+    }
+
+    /* ===== Modals ===== */
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -439,8 +451,8 @@
     }
     .modal-card {
       width: 100%;
-      max-width: 400px;
-      max-height: 85dvh;
+      max-width: 410px;
+      max-height: 86dvh;
       overflow-y: auto;
       background: var(--surface);
       color: var(--text);
@@ -453,6 +465,7 @@
     }
     .modal-card h3 { font-size: 16px; display: flex; align-items: center; justify-content: space-between; }
     .modal-sub { font-size: 12.5px; color: var(--text-sub); line-height: 1.45; }
+    .modal-section-title { font-size: 11.5px; font-weight: bold; color: var(--text-muted); margin-top: 4px; }
     .modal-input, .modal-textarea {
       width: 100%;
       padding: 11px 12px;
@@ -483,6 +496,29 @@
     }
     .modal-item-btn.active { border-color: var(--accent); background: var(--accent-soft); }
     .modal-item-btn.danger { color: #ef5350; }
+    .modal-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface-2);
+      font-size: 13.5px;
+      font-weight: bold;
+    }
+    .modal-row-btns { display: flex; gap: 6px; }
+    .modal-mini-btn {
+      padding: 6px 11px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      font-size: 12.5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
     .modal-actions { display: flex; gap: 8px; margin-top: 2px; }
     .modal-actions button {
       flex: 1;
@@ -508,7 +544,7 @@
       line-height: 1.4;
       word-break: break-word;
     }
-    .hist-bubble.mine { align-self: flex-end; background: var(--accent-soft); border: 1px solid rgba(59,130,246,0.35); }
+    .hist-bubble.mine { align-self: flex-end; background: var(--accent-soft); border: 1px solid rgba(0,120,255,0.35); }
     .hist-bubble.other { align-self: flex-start; background: var(--surface-2); border-left: 3px solid var(--partner-accent); }
     .hist-orig { font-size: 12px; color: var(--text-sub); margin-top: 3px; }
 
@@ -517,9 +553,9 @@
       left: 50%;
       bottom: 24px;
       transform: translateX(-50%);
-      background: rgba(20, 22, 28, 0.92);
+      background: rgba(20, 22, 28, 0.94);
       color: #fff;
-      border: 1px solid rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.18);
       padding: 9px 16px;
       border-radius: 20px;
       font-size: 13px;
@@ -538,50 +574,12 @@
 </head>
 <body>
 
-<!-- Header -->
-<header>
-  <div class="header-left">
-    <button class="hdr-btn" onclick="openMenuModal()" title="메뉴">☰</button>
-    <button id="relBadgeBtn" class="hdr-btn" onclick="promptEditRelationship()" title="관계 수정">
-      <span id="relBadgeText">관계: 설정 안 됨 ✎</span>
-    </button>
-  </div>
-  <div class="header-right">
-    <button id="layoutBtn" class="hdr-btn" onclick="toggleLayoutPopover(event)" title="화면 배치">↕️🔄</button>
-    <button id="langBtn" class="hdr-btn" onclick="openLanguageModal()" title="상대 언어">🇻🇳 ∨</button>
-    <button id="settingsBtn" class="hdr-btn" onclick="toggleSettingsPopover(event)" title="설정">⚙️</button>
-  </div>
-</header>
-
-<!-- Layout Popover -->
-<div id="layoutPopover" class="popover hidden">
-  <div class="pop-title">🪑 상대방 자리 배치 (좌우 시 자동 가로 회전)</div>
-  <button id="layOptTopFlip" class="pop-btn full" onclick="setSeatingLayout('top-flip', true)"><span>↕️🔄 마주보기 (상대 앞 · 180° 반전)</span></button>
-  <button id="layOptTopNorm" class="pop-btn full" onclick="setSeatingLayout('top-normal', true)"><span>↕️ 상하 분할 (상대 앞 · 정방향)</span></button>
-  <button id="layOptSideRight" class="pop-btn full" onclick="setSeatingLayout('side-right', true)"><span>◧ 좌우 분할 (나 왼쪽 · 상대 오른쪽)</span></button>
-  <button id="layOptSideLeft" class="pop-btn full" onclick="setSeatingLayout('side-left', true)"><span>◨ 좌우 분할 (상대 왼쪽 · 나 오른쪽)</span></button>
-</div>
-
-<!-- Settings Popover -->
-<div id="settingsPopover" class="popover hidden">
-  <div class="pop-row">
-    <span>글자 크기</span>
-    <div class="pop-btns">
-      <button class="pop-btn" onclick="changeFontSize(-2)">가-</button>
-      <button class="pop-btn" onclick="changeFontSize(2)">가+</button>
-    </div>
-  </div>
-  <button id="autoTtsBtn" class="pop-btn full" onclick="toggleAutoTts()"><span>🔊 자동 음성 읽기</span><span id="autoTtsVal">OFF</span></button>
-  <button id="themeBtn" class="pop-btn full" onclick="toggleTheme()">☀️ 라이트 모드</button>
-  <button id="installPwaBtn" class="pop-btn full hidden" onclick="triggerInstallPwa()">📲 홈 화면에 추가</button>
-</div>
-
-<!-- Split Screen -->
+<!-- Full 50:50 Split Screen (No Top Header) -->
 <main id="splitContainer" class="layout-top-flip">
   <!-- Partner Pane -->
   <section id="partnerPane" class="pane">
     <div class="pane-top">
-      <span id="partnerLangTag" class="pane-tag">🇻🇳 베트남어 (상대방)</span>
+      <button id="partnerLangBtn" class="lang-pill-btn" onclick="openLanguageModal()" title="상대방 언어 변경">🇻🇳 베트남어 ∨</button>
       <div class="pane-tools">
         <button id="partnerReRecBtn" class="mini-pill-btn warn hidden" onclick="reRecognizeLastPartnerAudio()" title="방금 녹음한 음성을 Gemini로 다시 듣기">🔄 재인식</button>
         <button class="mini-pill-btn" onclick="copyPartnerText()" id="copyPartnerBtn">📋 복사</button>
@@ -590,7 +588,7 @@
     </div>
 
     <div class="text-scroll" onclick="openTextEditModal(false)">
-      <div id="partnerText" class="pane-text placeholder">Chạm phím micro để bắt đầu hội thoại.</div>
+      <div id="partnerText" class="pane-text placeholder">Chạm phím nói để bắt đầu hội thoại.</div>
     </div>
 
     <div id="partnerVolWrap" class="vol-meter-wrap hidden">
@@ -598,33 +596,45 @@
     </div>
 
     <div class="pane-bottom">
-      <button class="circle-btn" onclick="speakPartnerText()" title="상대 언어 듣기">🔊</button>
-      <button id="partnerMicBtn" class="circle-btn mic-btn" onclick="togglePartnerMic()" title="상대방 마이크">🎙️</button>
-      <button id="partnerCancelBtn" class="circle-btn cancel-btn hidden" onclick="cancelPartnerMic()" title="녹음 취소">❌</button>
+      <button id="partnerSpeakBtn" class="side-action-btn" onclick="speakPartnerText()" title="상대 언어 듣기">🔊</button>
+      <button id="partnerMicBtn" class="wide-mic-btn partner" onclick="togglePartnerMic()">🎤 Nói (Tiếng Việt)</button>
+      <div id="partnerRecControls" class="rec-controls hidden">
+        <button id="partnerCancelBtn" class="rec-cancel-btn" onclick="cancelPartnerMic()">❌ Hủy</button>
+        <button id="partnerSendBtn" class="rec-send-btn" onclick="togglePartnerMic()">📤 Dịch</button>
+      </div>
     </div>
   </section>
 
-  <div id="splitDivider"></div>
+  <!-- Center Divider with Layout Cycle Button -->
+  <div id="splitDivider">
+    <button id="layoutCycleBtn" onclick="cycleSeatingLayout()" title="화면 배치 변경">↕️🔄</button>
+  </div>
 
   <!-- My Pane -->
   <section id="myPane" class="pane">
     <div class="pane-top">
       <div class="pane-tools">
-        <button id="richModeBtn" class="mini-pill-btn" onclick="openRichModeModal()">✨ 풍부한 번역 OFF</button>
-        <button id="undoTurnBtn" class="mini-pill-btn" onclick="undoLastTurn()" title="방금 대화 문맥에서 되돌리기">↩ 되돌리기</button>
+        <button id="richModeBtn" class="mini-pill-btn" onclick="openRichModeModal()">✨ OFF</button>
+        <button id="undoTurnBtn" class="mini-pill-btn icon-only" onclick="undoLastTurn()" title="방금 대화 문맥에서 되돌리기">↩</button>
       </div>
-      <button id="serverStatusBadge" class="status-badge" onclick="openModelModal()">🟡 확인 중...</button>
+      <div class="pane-tools">
+        <button id="serverStatusBadge" class="status-badge" onclick="openModelModal()">🟡 확인 중...</button>
+        <button id="settingsBtn" class="mini-pill-btn icon-only" onclick="openSettingsMenuModal()" title="설정 및 대화방 관리">⚙️</button>
+      </div>
     </div>
 
     <div class="text-scroll" onclick="openTextEditModal(true)">
-      <div id="myText" class="pane-text placeholder">마이크 버튼을 눌러 대화를 시작하세요.</div>
+      <div id="myText" class="pane-text placeholder">말하기 버튼을 눌러 대화를 시작하세요.</div>
     </div>
 
     <div class="pane-bottom">
-      <button class="circle-btn" onclick="speakMyText()" title="한국어 듣기">🔊</button>
-      <button id="myMicBtn" class="circle-btn mic-btn" onclick="toggleMyMic()" title="내 마이크 (한국어)">🎙️</button>
-      <button id="myCancelBtn" class="circle-btn cancel-btn hidden" onclick="cancelMyMic()" title="음성인식 취소">❌</button>
-      <button id="myAiBtn" class="circle-btn ai-btn" onclick="openAiCoachModal()" title="AI 문장 정리·질문">🤖</button>
+      <button id="mySpeakBtn" class="side-action-btn" onclick="speakMyText()" title="한국어 듣기">🔊</button>
+      <button id="myMicBtn" class="wide-mic-btn mine" onclick="toggleMyMic()">🎤 말하기 (한국어)</button>
+      <div id="myRecControls" class="rec-controls hidden">
+        <button id="myCancelBtn" class="rec-cancel-btn" onclick="cancelMyMic()">❌ 취소</button>
+        <button id="mySendBtn" class="rec-send-btn" onclick="toggleMyMic()">📤 번역하기</button>
+      </div>
+      <button id="myAiBtn" class="side-action-btn ai-btn" onclick="openAiCoachModal()" title="AI 문장 정리·질문">🤖</button>
     </div>
   </section>
 </main>
@@ -638,7 +648,7 @@
 
 <script>
   /* ================= 상수 & 내부 난독화 키 ================= */
-  const APP_VERSION = 2;
+  const APP_VERSION = 3;
   const DEFAULT_SYNC_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
 
   const GEMINI_MASK = "ft_v2_gemini_internal_mask_2026";
@@ -669,29 +679,51 @@
   const GROQ_COOLDOWN_MS = 10 * 60 * 1000;
   const MODEL_STATS_KEY = "ft_v2_model_stats";
 
+  const LAYOUT_ORDER = [
+    { id: "top-flip", icon: "↕️🔄", label: "마주보기 (상대 앞 · 180° 반전)" },
+    { id: "top-normal", icon: "↕️", label: "상하 분할 (정방향)" },
+    { id: "side-right", icon: "◧", label: "좌우 분할 (나 왼쪽 · 상대 오른쪽)" },
+    { id: "side-left", icon: "◨", label: "좌우 분할 (상대 왼쪽 · 나 오른쪽)" }
+  ];
+
   const LANG_META = {
     "베트남어": {
       flag: "🇻🇳", whisperCode: "vi", ttsCode: "vi",
-      defaultPrompt: "Chạm phím micro để bắt đầu hội thoại.",
+      micIdle: "🎤 Nói (Tiếng Việt)",
+      micPreparing: "⏳ Đang chuẩn bị...",
+      micFinishing: "🔄 Đang dịch...",
+      btnCancel: "❌ Hủy",
+      btnSend: "📤 Dịch",
+      defaultPrompt: "Chạm nút Nói để bắt đầu hội thoại.",
       translating: "Đang dịch... (번역 중)",
       recognizing: "🎙️ Đang nhận diện... (인식 중)",
-      listening: "🟢 [Đang nghe... (Nói xong hãy chạm lại nút micro)]",
+      listening: "🟢 [Đang nghe... Nói xong bấm Dịch]",
       preparing: "⏳ Đang chuẩn bị micro..."
     },
     "영어": {
       flag: "🇺🇸", whisperCode: "en", ttsCode: "en",
-      defaultPrompt: "Tap the mic to start.",
+      micIdle: "🎤 Speak (English)",
+      micPreparing: "⏳ Preparing...",
+      micFinishing: "🔄 Translating...",
+      btnCancel: "❌ Cancel",
+      btnSend: "📤 Translate",
+      defaultPrompt: "Tap Speak to start.",
       translating: "Translating...",
       recognizing: "🎙️ Recognizing...",
-      listening: "🟢 [Listening... (Tap the mic again when finished)]",
+      listening: "🟢 [Listening... Tap Translate when done]",
       preparing: "⏳ Preparing mic..."
     },
     "스페인어": {
       flag: "🇪🇸", whisperCode: "es", ttsCode: "es",
-      defaultPrompt: "Toca el micrófono para empezar.",
+      micIdle: "🎤 Hablar (Español)",
+      micPreparing: "⏳ Preparando...",
+      micFinishing: "🔄 Traduciendo...",
+      btnCancel: "❌ Cancelar",
+      btnSend: "📤 Traducir",
+      defaultPrompt: "Toca Hablar para empezar.",
       translating: "Traduciendo... (번역 중)",
       recognizing: "🎙️ Reconociendo...",
-      listening: "🟢 [Escuchando... (Toca el micrófono al terminar)]",
+      listening: "🟢 [Escuchando... Toca Traducir al terminar]",
       preparing: "⏳ Preparando micrófono..."
     }
   };
@@ -709,12 +741,13 @@
   let richTranslationLevel = 0; // 0~5
   let lastRawKoreanInput = "";
   let seatingLayout = localStorage.getItem("ft_layout") || "top-flip";
+  if (!LAYOUT_ORDER.some(l => l.id === seatingLayout)) seatingLayout = "top-flip";
   let isLightTheme = localStorage.getItem("ft_theme") === "light";
   let autoTtsEnabled = localStorage.getItem("ft_auto_tts") === "1";
   let fontSizePx = Math.min(30, Math.max(15, Number(localStorage.getItem("ft_font_px")) || 21));
 
   // Model Selection & Auto-Rank Stats
-  let preferredModelIndex = Number(localStorage.getItem("ft_v2_pref_model") ?? -1); // -1: 자동, 0: 3.5-Lite, 1: 3.1-Lite
+  let preferredModelIndex = Number(localStorage.getItem("ft_v2_pref_model") ?? -1);
   if (Number.isNaN(preferredModelIndex) || preferredModelIndex >= GEMINI_MODELS.length) preferredModelIndex = -1;
 
   function createEmptyModelStats() {
@@ -791,30 +824,26 @@
   let deferredInstallPrompt = null;
 
   /* ================= DOM 참조 ================= */
-  const relBadgeText = document.getElementById("relBadgeText");
-  const layoutBtn = document.getElementById("layoutBtn");
-  const langBtn = document.getElementById("langBtn");
-  const layoutPopover = document.getElementById("layoutPopover");
-  const settingsPopover = document.getElementById("settingsPopover");
-  const autoTtsBtn = document.getElementById("autoTtsBtn");
-  const autoTtsVal = document.getElementById("autoTtsVal");
-  const themeBtn = document.getElementById("themeBtn");
-  const installPwaBtn = document.getElementById("installPwaBtn");
   const splitContainer = document.getElementById("splitContainer");
-  const partnerLangTag = document.getElementById("partnerLangTag");
+  const layoutCycleBtn = document.getElementById("layoutCycleBtn");
+  const partnerLangBtn = document.getElementById("partnerLangBtn");
   const partnerReRecBtn = document.getElementById("partnerReRecBtn");
+  const copyPartnerBtn = document.getElementById("copyPartnerBtn");
   const partnerTextEl = document.getElementById("partnerText");
   const partnerVolWrap = document.getElementById("partnerVolWrap");
   const partnerVolBar = document.getElementById("partnerVolBar");
+  const partnerSpeakBtn = document.getElementById("partnerSpeakBtn");
   const partnerMicBtn = document.getElementById("partnerMicBtn");
+  const partnerRecControls = document.getElementById("partnerRecControls");
   const partnerCancelBtn = document.getElementById("partnerCancelBtn");
-  const copyPartnerBtn = document.getElementById("copyPartnerBtn");
+  const partnerSendBtn = document.getElementById("partnerSendBtn");
+
   const richModeBtn = document.getElementById("richModeBtn");
-  const undoTurnBtn = document.getElementById("undoTurnBtn");
   const serverStatusBadge = document.getElementById("serverStatusBadge");
   const myTextEl = document.getElementById("myText");
+  const mySpeakBtn = document.getElementById("mySpeakBtn");
   const myMicBtn = document.getElementById("myMicBtn");
-  const myCancelBtn = document.getElementById("myCancelBtn");
+  const myRecControls = document.getElementById("myRecControls");
   const myAiBtn = document.getElementById("myAiBtn");
   const modalBackdrop = document.getElementById("modalBackdrop");
   const modalCard = document.getElementById("modalCard");
@@ -884,25 +913,22 @@
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;
-    installPwaBtn.classList.remove("hidden");
   });
   window.addEventListener("appinstalled", () => {
     deferredInstallPrompt = null;
-    installPwaBtn.classList.add("hidden");
   });
   async function triggerInstallPwa() {
-    closePopovers();
+    closeModal();
     if (deferredInstallPrompt) {
       deferredInstallPrompt.prompt();
       await deferredInstallPrompt.userChoice.catch(() => {});
       deferredInstallPrompt = null;
-      installPwaBtn.classList.add("hidden");
     }
   }
 
   /* ================= 토스트 & 유틸 ================= */
   let toastTimer = null;
-  function showToast(msg, ms = 2200) {
+  function showToast(msg, ms = 1800) {
     toastEl.textContent = msg;
     toastEl.classList.add("show");
     if (toastTimer) clearTimeout(toastTimer);
@@ -986,32 +1012,32 @@
     }
   }
 
-  /* ================= 테마 · 글자 크기 · 자동 TTS · 4가지 자리 배치 & 자동 회전 ================= */
+  /* ================= 테마 · 글자 크기 · 자동 TTS · 중앙 구분선 자리배치 순환 ================= */
   function applyThemeAndFont() {
     document.body.classList.toggle("light-theme", isLightTheme);
-    themeBtn.textContent = isLightTheme ? "🌙 다크 모드" : "☀️ 라이트 모드";
     document.documentElement.style.setProperty("--font-size", `${fontSizePx}px`);
-    autoTtsVal.textContent = autoTtsEnabled ? "ON" : "OFF";
-    autoTtsBtn.classList.toggle("active", autoTtsEnabled);
   }
 
   function toggleTheme() {
     isLightTheme = !isLightTheme;
     localStorage.setItem("ft_theme", isLightTheme ? "light" : "dark");
     applyThemeAndFont();
+    openSettingsMenuModal();
   }
 
   function toggleAutoTts() {
     autoTtsEnabled = !autoTtsEnabled;
     localStorage.setItem("ft_auto_tts", autoTtsEnabled ? "1" : "0");
-    applyThemeAndFont();
-    showToast(autoTtsEnabled ? "🔊 번역 후 자동 음성 읽기를 켰습니다." : "🔇 자동 음성 읽기를 껐습니다.");
+    openSettingsMenuModal();
+    showToast(autoTtsEnabled ? "🔊 자동 음성 읽기 ON" : "🔇 자동 음성 읽기 OFF");
   }
 
   function changeFontSize(delta) {
     fontSizePx = Math.min(30, Math.max(15, fontSizePx + delta));
     localStorage.setItem("ft_font_px", String(fontSizePx));
     applyThemeAndFont();
+    const sizeLbl = document.getElementById("modalFontSizeVal");
+    if (sizeLbl) sizeLbl.textContent = `${fontSizePx}px`;
   }
 
   async function applyOrientationForLayout(mode, fromUserGesture = false) {
@@ -1023,7 +1049,6 @@
           await screen.orientation.lock(targetOrient);
           return;
         } catch {
-          // 일반 Chrome 탭에서는 전체화면 전환 후 lock이 허용되는 경우가 많음
           if (fromUserGesture && isSide && !document.fullscreenElement && document.documentElement.requestFullscreen) {
             try {
               await document.documentElement.requestFullscreen();
@@ -1042,53 +1067,20 @@
   }
 
   function setSeatingLayout(mode, fromUserGesture = false) {
-    seatingLayout = mode;
-    localStorage.setItem("ft_layout", mode);
-    splitContainer.className = `layout-${mode}`;
-
-    const iconMap = {
-      "top-flip": "↕️🔄",
-      "top-normal": "↕️",
-      "side-right": "◧",
-      "side-left": "◨"
-    };
-    layoutBtn.textContent = iconMap[mode] || "↕️🔄";
-
-    document.getElementById("layOptTopFlip").classList.toggle("active", mode === "top-flip");
-    document.getElementById("layOptTopNorm").classList.toggle("active", mode === "top-normal");
-    document.getElementById("layOptSideRight").classList.toggle("active", mode === "side-right");
-    document.getElementById("layOptSideLeft").classList.toggle("active", mode === "side-left");
-    closePopovers();
-    applyOrientationForLayout(mode, fromUserGesture);
+    const info = LAYOUT_ORDER.find(l => l.id === mode) || LAYOUT_ORDER[0];
+    seatingLayout = info.id;
+    localStorage.setItem("ft_layout", info.id);
+    splitContainer.className = `layout-${info.id}`;
+    layoutCycleBtn.textContent = info.icon;
+    applyOrientationForLayout(info.id, fromUserGesture);
   }
 
-  function closePopovers() {
-    layoutPopover.classList.add("hidden");
-    settingsPopover.classList.add("hidden");
+  function cycleSeatingLayout() {
+    const curIdx = LAYOUT_ORDER.findIndex(l => l.id === seatingLayout);
+    const next = LAYOUT_ORDER[(curIdx + 1) % LAYOUT_ORDER.length];
+    setSeatingLayout(next.id, true);
+    showToast(`${next.icon} ${next.label}`, 1500);
   }
-
-  function toggleLayoutPopover(e) {
-    e.stopPropagation();
-    const wasHidden = layoutPopover.classList.contains("hidden");
-    closePopovers();
-    if (wasHidden) layoutPopover.classList.remove("hidden");
-  }
-
-  function toggleSettingsPopover(e) {
-    e.stopPropagation();
-    const wasHidden = settingsPopover.classList.contains("hidden");
-    closePopovers();
-    if (wasHidden) settingsPopover.classList.remove("hidden");
-  }
-
-  document.addEventListener("click", (e) => {
-    if (!layoutPopover.classList.contains("hidden") && !layoutPopover.contains(e.target) && e.target !== layoutBtn) {
-      layoutPopover.classList.add("hidden");
-    }
-    if (!settingsPopover.classList.contains("hidden") && !settingsPopover.contains(e.target) && e.target !== settingsBtn) {
-      settingsPopover.classList.add("hidden");
-    }
-  });
 
   /* ================= 세션 관리 (MAUI JSON 스키마 100% 호환) ================= */
   function createDefaultSession(relationship = "새로운 관계를 설정하세요", targetLang = "베트남어") {
@@ -1098,7 +1090,7 @@
       Relationship: relationship,
       TargetLanguage: targetLang,
       UpdatedAt: formatNowMMDDHHmm(),
-      LastMyText: "마이크 버튼을 눌러 대화를 시작하세요.",
+      LastMyText: "말하기 버튼을 눌러 대화를 시작하세요.",
       LastPartnerText: meta.defaultPrompt,
       History: [],
       ChatTurns: []
@@ -1178,23 +1170,35 @@
     partnerReRecBtn.classList.toggle("hidden", !canReRec);
   }
 
+  function isDefaultMyPlaceholder(txt) {
+    return !txt || txt.includes("버튼을 눌러 대화를 시작");
+  }
+
+  function isDefaultPartnerPlaceholder(txt) {
+    if (!txt) return true;
+    return txt.includes("Chạm") || txt.includes("Tap ") || txt.includes("Toca ");
+  }
+
   function applySessionToUI() {
     if (!currentSession) return;
     const lang = currentSession.TargetLanguage || "베트남어";
     const meta = getLangMeta();
 
-    relBadgeText.textContent = `${currentSession.Relationship} ✎`;
-    langBtn.textContent = `${meta.flag} ∨`;
-    partnerLangTag.textContent = `${meta.flag} ${lang} (상대방)`;
+    partnerLangBtn.textContent = `${meta.flag} ${lang} ∨`;
+    if (!partnerRecording) {
+      partnerMicBtn.textContent = meta.micIdle;
+    }
+    partnerCancelBtn.textContent = meta.btnCancel;
+    partnerSendBtn.textContent = meta.btnSend;
 
-    const myTxt = currentSession.LastMyText || "마이크 버튼을 눌러 대화를 시작하세요.";
+    const myTxt = currentSession.LastMyText || "말하기 버튼을 눌러 대화를 시작하세요.";
     const pTxt = currentSession.LastPartnerText || meta.defaultPrompt;
 
     myTextEl.textContent = myTxt;
-    myTextEl.className = "pane-text" + (myTxt.includes("마이크 버튼을 눌러") ? " placeholder" : "");
+    myTextEl.className = "pane-text" + (isDefaultMyPlaceholder(myTxt) ? " placeholder" : "");
 
     partnerTextEl.textContent = pTxt;
-    partnerTextEl.className = "pane-text" + (pTxt === meta.defaultPrompt ? " placeholder" : "");
+    partnerTextEl.className = "pane-text" + (isDefaultPartnerPlaceholder(pTxt) ? " placeholder" : "");
 
     updateRichModeButtonUI();
     updateReRecButtonVisibility();
@@ -1202,10 +1206,10 @@
 
   function updateRichModeButtonUI() {
     if (richTranslationLevel === 0) {
-      richModeBtn.textContent = "✨ 풍부한 번역 OFF";
+      richModeBtn.textContent = "✨ OFF";
       richModeBtn.classList.remove("active");
     } else {
-      richModeBtn.textContent = `✨ 풍부한 번역 ${richTranslationLevel}단계`;
+      richModeBtn.textContent = `✨ ${richTranslationLevel}단계`;
       richModeBtn.classList.add("active");
     }
   }
@@ -1277,7 +1281,7 @@
         }
       }
     } else {
-      currentSession.LastMyText = "마이크 버튼을 눌러 대화를 시작하세요.";
+      currentSession.LastMyText = "말하기 버튼을 눌러 대화를 시작하세요.";
       currentSession.LastPartnerText = meta.defaultPrompt;
     }
 
@@ -1361,7 +1365,7 @@
   }
 
   async function checkServerInitStatus() {
-    updateServerStatusBadge("🟡 확인 중...", "warn");
+    updateServerStatusBadge("🟡 확인 중", "warn");
     const ordered = getOrderedGeminiModels();
     const body = JSON.stringify({
       contents: [{ parts: [{ text: "ok" }] }],
@@ -1379,7 +1383,7 @@
         );
         if (res.ok) {
           const sec = ((performance.now() - t0) / 1000).toFixed(1);
-          updateServerStatusBadge(`🟢 ${m.short} (${sec}초)`, "ok");
+          updateServerStatusBadge(`🟢 ${m.short} ${sec}s`, "ok");
           return;
         }
       } catch {}
@@ -1477,7 +1481,7 @@
     });
     messages.push({ role: "user", content: latestUserText });
 
-    updateServerStatusBadge("🟠 Groq 백업 전환...", "warn");
+    updateServerStatusBadge("🟠 Groq 백업", "warn");
     const t0 = performance.now();
     try {
       const res = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
@@ -1501,7 +1505,7 @@
         if (!out) throw new Error("empty");
         const ms = performance.now() - t0;
         recordGroqBucket("groqTrans", true, ms);
-        updateServerStatusBadge(`🟢 Groq (${(ms / 1000).toFixed(1)}초)`, "ok");
+        updateServerStatusBadge(`🟢 Groq ${(ms / 1000).toFixed(1)}s`, "ok");
         return out;
       }
       const isHard = (res.status === 429 || res.status === 401 || res.status === 403);
@@ -1540,7 +1544,7 @@
       const timeoutMs = i === 0
         ? (opts.primaryTimeoutMs ?? GEMINI_PRIMARY_TIMEOUT_MS)
         : (opts.fallbackTimeoutMs ?? GEMINI_FALLBACK_TIMEOUT_MS);
-      updateServerStatusBadge(i === 0 ? `🟡 ${m.short} 통신 중...` : `🟠 ${m.short} 우회 중...`, "warn");
+      updateServerStatusBadge(i === 0 ? `🟡 ${m.short}...` : `🟠 ${m.short} 우회`, "warn");
 
       const t0 = performance.now();
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${m.id}:generateContent?key=${encodeURIComponent(apiKey)}`;
@@ -1556,7 +1560,7 @@
           const ms = performance.now() - t0;
           recordGeminiResult(m.id, true, ms);
           const sec = (performance.now() - tTotalStart) / 1000;
-          updateServerStatusBadge(`${sec <= 2.2 ? "🟢" : "🟠"} ${m.short} (${sec.toFixed(1)}초)`, sec <= 2.2 ? "ok" : "warn");
+          updateServerStatusBadge(`${sec <= 2.2 ? "🟢" : "🟠"} ${m.short} ${sec.toFixed(1)}s`, sec <= 2.2 ? "ok" : "warn");
           const parts = data.candidates?.[0]?.content?.parts || [];
           for (const p of parts) {
             if (p.thought) continue;
@@ -1573,7 +1577,6 @@
       if (i < ordered.length - 1) await sleepMs(150);
     }
 
-    // 텍스트 번역인 경우 Groq 초고속 백업(4초) 시도
     if (!opts.isAudio && opts.plainUserText) {
       try {
         return await callGroqTextBackup(systemPrompt, opts.plainUserText);
@@ -1873,14 +1876,12 @@
     myTextEl.className = "pane-text translating";
 
     try {
-      // 1순위: Groq Whisper (large-v3) 초고속 받아쓰기 -> 문맥 번역 (6초/8초 + Groq 백업 4초)
       const groqStt = await transcribePartnerWithGroq(audioBlob, mimeType, meta.whisperCode);
       if (groqStt.ok && groqStt.text) {
         await translatePartnerTextInput(groqStt.text, { fromAudioPipeline: true });
         return;
       }
 
-      // 2순위 백업: Groq 실패 또는 소리 있었는데 빈 텍스트면 Gemini 오디오 직접 청취
       if (!groqStt.ok || partnerMaxPeak > 0.02) {
         await runGeminiPartnerAudioDirect(audioBlob, mimeType, false);
         return;
@@ -1994,28 +1995,34 @@
     }
   }
 
-  /* ================= 내 마이크 (안드로이드 Chrome 연속 SpeechRecognition + 취소 버튼) ================= */
+  /* ================= 내 마이크 (안드로이드 Chrome 연속 SpeechRecognition + 넓은 텍스트 버튼) ================= */
   function getCombinedMySpeech() {
     return `${myAccumulatedSpeech} ${myPartialSpeech}`.trim();
   }
 
   function setMyMicUI(state) {
-    myMicBtn.classList.remove("preparing", "listening", "finishing");
-    const active = (state === "preparing" || state === "listening");
-    myCancelBtn.classList.toggle("hidden", !active);
-    myAiBtn.classList.toggle("hidden", active);
+    myMicBtn.classList.remove("preparing", "finishing");
+    if (state === "listening") {
+      mySpeakBtn.classList.add("hidden");
+      myMicBtn.classList.add("hidden");
+      myAiBtn.classList.add("hidden");
+      myRecControls.classList.remove("hidden");
+      return;
+    }
+
+    myRecControls.classList.add("hidden");
+    mySpeakBtn.classList.remove("hidden");
+    myMicBtn.classList.remove("hidden");
+    myAiBtn.classList.remove("hidden");
 
     if (state === "idle") {
-      myMicBtn.textContent = "🎙️";
+      myMicBtn.textContent = "🎤 말하기 (한국어)";
     } else if (state === "preparing") {
       myMicBtn.classList.add("preparing");
-      myMicBtn.textContent = "⏳";
-    } else if (state === "listening") {
-      myMicBtn.classList.add("listening");
-      myMicBtn.textContent = "🟢";
+      myMicBtn.textContent = "⏳ 준비 중...";
     } else if (state === "finishing") {
       myMicBtn.classList.add("finishing");
-      myMicBtn.textContent = "🔄";
+      myMicBtn.textContent = "🔄 번역 중...";
     }
   }
 
@@ -2036,8 +2043,8 @@
         setMyMicUI("listening");
         const txt = getCombinedMySpeech();
         myTextEl.textContent = txt
-          ? `🟢 [음성 인식 중... 끝나면 🟢, 취소는 ❌]\n${txt}`
-          : "🟢 [지금 말씀하세요!]\n끝나면 🟢, 취소하려면 ❌을 누르세요.";
+          ? `🟢 [음성 인식 중...]\n${txt}`
+          : "🟢 [지금 말씀하세요!]\n다 말씀하신 뒤 아래 '번역하기'를 눌러주세요.";
         myTextEl.className = "pane-text listening";
       };
       rec.onresult = (event) => {
@@ -2053,7 +2060,7 @@
         myPartialSpeech = part.trim();
         const combined = getCombinedMySpeech();
         if (combined) {
-          myTextEl.textContent = `🟢 [음성 인식 중... 끝나면 🟢, 취소는 ❌]\n${combined}`;
+          myTextEl.textContent = `🟢 [음성 인식 중...]\n${combined}`;
           myTextEl.className = "pane-text listening";
         }
       };
@@ -2139,13 +2146,38 @@
     myAccumulatedSpeech = "";
     myPartialSpeech = "";
     setMyMicUI("preparing");
-    myTextEl.textContent = "⏳ 마이크 준비 중...\n초록불(🟢)이 켜지면 말씀하세요.";
+    myTextEl.textContent = "⏳ 마이크 준비 중...";
     myTextEl.className = "pane-text listening";
     if (navigator.vibrate) navigator.vibrate(40);
     startMySpeechPass();
   }
 
-  /* ================= 상대방 마이크 (Groq Whisper large-v3 우선 + Gemini 백업 + 취소) ================= */
+  /* ================= 상대방 마이크 (Groq Whisper large-v3 우선 + Gemini 백업 + 넓은 텍스트 버튼) ================= */
+  function setPartnerMicUI(state) {
+    const meta = getLangMeta();
+    partnerMicBtn.classList.remove("preparing", "finishing");
+    if (state === "listening") {
+      partnerSpeakBtn.classList.add("hidden");
+      partnerMicBtn.classList.add("hidden");
+      partnerRecControls.classList.remove("hidden");
+      return;
+    }
+
+    partnerRecControls.classList.add("hidden");
+    partnerSpeakBtn.classList.remove("hidden");
+    partnerMicBtn.classList.remove("hidden");
+
+    if (state === "idle") {
+      partnerMicBtn.textContent = meta.micIdle;
+    } else if (state === "preparing") {
+      partnerMicBtn.classList.add("preparing");
+      partnerMicBtn.textContent = meta.micPreparing;
+    } else if (state === "finishing") {
+      partnerMicBtn.classList.add("finishing");
+      partnerMicBtn.textContent = meta.micFinishing;
+    }
+  }
+
   function pickAudioMimeType() {
     if (typeof MediaRecorder === "undefined") return "";
     for (const c of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mp4;codecs=mp4a.40.2"]) {
@@ -2198,13 +2230,11 @@
     if (!partnerRecording) return;
     partnerCancelRequested = true;
     partnerRecording = false;
-    partnerCancelBtn.classList.add("hidden");
+    setPartnerMicUI("idle");
     if (partnerRecorder && partnerRecorder.state !== "inactive") {
       try { partnerRecorder.stop(); } catch {}
     } else {
       stopPartnerMeterAndStream();
-      partnerMicBtn.classList.remove("preparing", "listening", "finishing");
-      partnerMicBtn.textContent = "🎙️";
       applySessionToUI();
     }
     showToast("❌ 상대방 녹음을 취소했습니다.");
@@ -2216,10 +2246,7 @@
     if (partnerRecording) {
       partnerCancelRequested = false;
       partnerRecording = false;
-      partnerCancelBtn.classList.add("hidden");
-      partnerMicBtn.classList.remove("listening");
-      partnerMicBtn.classList.add("finishing");
-      partnerMicBtn.textContent = "🔄";
+      setPartnerMicUI("finishing");
       if (partnerRecorder && partnerRecorder.state !== "inactive") {
         partnerRecorder.stop();
       }
@@ -2235,8 +2262,7 @@
     const meta = getLangMeta();
     partnerCancelRequested = false;
     partnerMaxPeak = 0;
-    partnerMicBtn.classList.add("preparing");
-    partnerMicBtn.textContent = "⏳";
+    setPartnerMicUI("preparing");
     partnerTextEl.textContent = meta.preparing;
     partnerTextEl.className = "pane-text listening";
     updateReRecButtonVisibility();
@@ -2260,9 +2286,7 @@
       };
       partnerRecorder.onstop = async () => {
         stopPartnerMeterAndStream();
-        partnerCancelBtn.classList.add("hidden");
-        partnerMicBtn.classList.remove("preparing", "listening", "finishing");
-        partnerMicBtn.textContent = "🎙️";
+        setPartnerMicUI("idle");
 
         if (partnerCancelRequested) {
           partnerCancelRequested = false;
@@ -2281,10 +2305,7 @@
       };
 
       partnerRecording = true;
-      partnerMicBtn.classList.remove("preparing");
-      partnerMicBtn.classList.add("listening");
-      partnerMicBtn.textContent = "🟢";
-      partnerCancelBtn.classList.remove("hidden");
+      setPartnerMicUI("listening");
       partnerTextEl.textContent = meta.listening;
       partnerTextEl.className = "pane-text listening";
       if (navigator.vibrate) navigator.vibrate(40);
@@ -2292,9 +2313,7 @@
       partnerRecorder.start(250);
     } catch {
       stopPartnerMeterAndStream();
-      partnerCancelBtn.classList.add("hidden");
-      partnerMicBtn.classList.remove("preparing", "listening", "finishing");
-      partnerMicBtn.textContent = "🎙️";
+      setPartnerMicUI("idle");
       applySessionToUI();
       showToast("마이크 권한을 허용해 주세요.");
     }
@@ -2306,7 +2325,7 @@
   }
 
   function speakText(text, langPrefix) {
-    if (!text || text.includes("번역 중") || text.includes("마이크 버튼") || text.includes("Chạm phím") || text.includes("Tap the mic")) return;
+    if (!text || text.includes("번역 중") || isDefaultMyPlaceholder(text) || isDefaultPartnerPlaceholder(text)) return;
     if (!window.speechSynthesis) { showToast("음성 읽기를 지원하지 않는 브라우저입니다."); return; }
     stopSpeaking();
     const utter = new SpeechSynthesisUtterance(text);
@@ -2328,7 +2347,7 @@
 
   async function copyPartnerText() {
     const txt = (partnerTextEl.textContent || "").trim();
-    if (!txt || txt === getLangMeta().defaultPrompt) {
+    if (!txt || isDefaultPartnerPlaceholder(txt)) {
       showToast("복사할 내용이 없습니다.");
       return;
     }
@@ -2540,7 +2559,6 @@
 
   /* ================= 모달 UI 컨트롤 ================= */
   function openModal(html) {
-    closePopovers();
     modalCard.innerHTML = html;
     modalBackdrop.classList.remove("hidden");
   }
@@ -2685,6 +2703,7 @@
     currentSession.Relationship = val;
     applySessionToUI();
     saveSessionsToDisk();
+    showToast(`관계가 [${val}]로 변경되었습니다.`);
     if (lastRawKoreanInput) {
       await translateMyKoreanInput(lastRawKoreanInput);
     }
@@ -2823,7 +2842,7 @@
       checkServerInitStatus();
     } else {
       const m = GEMINI_MODELS[idx];
-      updateServerStatusBadge(`${ok ? "🟢" : "🟠"} ${m.short} (${statusText})`, ok ? "ok" : "warn");
+      updateServerStatusBadge(`${ok ? "🟢" : "🟠"} ${m.short} ${statusText}`, ok ? "ok" : "warn");
     }
   }
 
@@ -2907,7 +2926,8 @@
     showToast("동기화 설정을 해제했습니다.");
   }
 
-  function openMenuModal() {
+  /* ================= 통합 설정 & 대화방 관리 모달 (☰ + ⚙️ 통합) ================= */
+  function openSettingsMenuModal() {
     const syncTag = isRealtimeSyncConfigured() ? (isRealtimeSyncEnabled() ? "🟢" : "⏸️") : "미설정";
     const prefLabel = preferredModelIndex >= 0 ? GEMINI_MODELS[preferredModelIndex].short : "자동";
 
@@ -2921,17 +2941,49 @@
     }).join("");
 
     openModal(`
-      <h3>☰ 번역 관리 메뉴 <small style="font-size:11px; color:var(--text-muted)">v${APP_VERSION}</small></h3>
+      <h3>⚙️ 설정 및 대화방 관리 <small style="font-size:11px; color:var(--text-muted)">v${APP_VERSION}</small></h3>
+
+      <div class="modal-section-title">현재 대화방</div>
       <div class="modal-list">
+        <button class="modal-item-btn active" onclick="promptEditRelationship()">
+          <span>💬 관계: ${escapeHtml(currentSession.Relationship)}</span>
+          <span>✏️ 수정</span>
+        </button>
         <button class="modal-item-btn" onclick="openNewSessionModal()">➕ 새로운 대화방 시작</button>
-        <button class="modal-item-btn" onclick="promptEditRelationship()">✏️ 현재 대화방 관계 수정</button>
-        <button class="modal-item-btn" onclick="openHistoryModal()">📜 현재 대화방 기록 보기 (${(currentSession.History || []).length})</button>
-        <button class="modal-item-btn" onclick="openModelModal()">⚡ AI 모델 선택 · 속도 측정 (${prefLabel})</button>
-        <button class="modal-item-btn" onclick="openSyncModal()">🔗 클라우드 동기화 (${syncTag})</button>
+        <button class="modal-item-btn" onclick="openHistoryModal()">📜 대화 기록 보기 (${(currentSession.History || []).length})</button>
         <button class="modal-item-btn danger" onclick="deleteCurrentSession()">🗑️ 현재 대화방 삭제</button>
       </div>
-      ${sessions.length > 0 ? `<div class="pop-title" style="margin-top:4px;">저장된 대화방 (${sessions.length})</div><div class="modal-list">${sessBtns}</div>` : ""}
-      <div class="modal-actions"><button onclick="closeModal()">닫기</button></div>
+
+      ${sessions.length > 0 ? `<div class="modal-section-title">저장된 대화방 (${sessions.length})</div><div class="modal-list">${sessBtns}</div>` : ""}
+
+      <div class="modal-section-title">화면 및 앱 설정</div>
+      <div class="modal-list">
+        <div class="modal-row">
+          <span>글자 크기 (<span id="modalFontSizeVal">${fontSizePx}px</span>)</span>
+          <div class="modal-row-btns">
+            <button class="modal-mini-btn" onclick="changeFontSize(-2)">가-</button>
+            <button class="modal-mini-btn" onclick="changeFontSize(2)">가+</button>
+          </div>
+        </div>
+        <button class="modal-item-btn ${autoTtsEnabled ? "active" : ""}" onclick="toggleAutoTts()">
+          <span>🔊 번역 후 자동 음성 읽기</span>
+          <span>${autoTtsEnabled ? "ON" : "OFF"}</span>
+        </button>
+        <button class="modal-item-btn" onclick="toggleTheme()">
+          <span>${isLightTheme ? "🌙 다크 모드로 전환" : "☀️ 라이트 모드로 전환"}</span>
+        </button>
+        <button class="modal-item-btn" onclick="openModelModal()">
+          <span>⚡ AI 모델 선택 · 속도 측정</span>
+          <span>${prefLabel}</span>
+        </button>
+        <button class="modal-item-btn" onclick="openSyncModal()">
+          <span>🔗 클라우드 동기화 (MAUI 호환)</span>
+          <span>${syncTag}</span>
+        </button>
+        ${deferredInstallPrompt ? `<button class="modal-item-btn active" onclick="triggerInstallPwa()">📲 홈 화면에 앱으로 추가</button>` : ""}
+      </div>
+
+      <div class="modal-actions"><button class="primary" onclick="closeModal()">닫기</button></div>
     `);
   }
 
