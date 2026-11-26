@@ -648,7 +648,7 @@
 
 <script>
   /* ================= 상수 & 내부 난독화 키 ================= */
-  const APP_VERSION = 3;
+  const APP_VERSION = 4;
   const DEFAULT_SYNC_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
 
   const GEMINI_MASK = "ft_v2_gemini_internal_mask_2026";
@@ -820,7 +820,6 @@
   let lastPartnerAudio = null; // { blob, mime, targetLang }
 
   let isBusy = false;
-  let wakeLockSentinel = null;
   let deferredInstallPrompt = null;
 
   /* ================= DOM 참조 ================= */
@@ -849,7 +848,7 @@
   const modalCard = document.getElementById("modalCard");
   const toastEl = document.getElementById("toast");
 
-  /* ================= 화면 높이 · Wake Lock · PWA ================= */
+  /* ================= 화면 높이 · PWA ================= */
   function syncAppHeight() {
     try {
       const vv = window.visualViewport;
@@ -862,20 +861,6 @@
   window.addEventListener("resize", syncAppHeight);
   window.addEventListener("orientationchange", () => setTimeout(syncAppHeight, 140));
   if (window.visualViewport) window.visualViewport.addEventListener("resize", syncAppHeight);
-
-  async function requestWakeLock() {
-    try {
-      if ("wakeLock" in navigator && document.visibilityState === "visible") {
-        if (wakeLockSentinel) return;
-        wakeLockSentinel = await navigator.wakeLock.request("screen");
-        wakeLockSentinel.addEventListener("release", () => { wakeLockSentinel = null; });
-      }
-    } catch {}
-  }
-
-  document.addEventListener("pointerdown", () => {
-    if (!wakeLockSentinel) requestWakeLock();
-  }, { passive: true });
 
   function setupPwaManifest() {
     try {
@@ -1083,12 +1068,35 @@
   }
 
   /* ================= 세션 관리 (MAUI JSON 스키마 100% 호환) ================= */
-  function createDefaultSession(relationship = "새로운 관계를 설정하세요", targetLang = "베트남어") {
-    const meta = LANG_META[targetLang] || LANG_META["베트남어"];
+  function getSavedLastLang() {
+    const saved = localStorage.getItem("ft_last_lang") || "베트남어";
+    return LANG_META[saved] ? saved : "베트남어";
+  }
+
+  function saveLastLang(lang) {
+    if (lang && LANG_META[lang]) {
+      try { localStorage.setItem("ft_last_lang", lang); } catch {}
+    }
+  }
+
+  function getSavedActiveSessionId() {
+    return (localStorage.getItem("ft_active_session_id") || "").trim();
+  }
+
+  function saveActiveSessionId(id) {
+    try {
+      if (id) localStorage.setItem("ft_active_session_id", id);
+      else localStorage.removeItem("ft_active_session_id");
+    } catch {}
+  }
+
+  function createDefaultSession(relationship = "새로운 관계를 설정하세요", targetLang = getSavedLastLang()) {
+    const lang = LANG_META[targetLang] ? targetLang : getSavedLastLang();
+    const meta = LANG_META[lang] || LANG_META["베트남어"];
     return {
       Id: newGuid(),
       Relationship: relationship,
-      TargetLanguage: targetLang,
+      TargetLanguage: lang,
       UpdatedAt: formatNowMMDDHHmm(),
       LastMyText: "말하기 버튼을 눌러 대화를 시작하세요.",
       LastPartnerText: meta.defaultPrompt,
@@ -1128,6 +1136,16 @@
   }
 
   function loadSessionsFromDisk() {
+    if (isRealtimeSyncActive()) {
+      // 동기화 ON: 로컬에는 설정만 유지하고 대화 목록은 클라우드에서 불러옴
+      try { localStorage.removeItem("ft_sessions_v1"); } catch {}
+      sessions = [];
+      currentSession = createDefaultSession();
+      applySessionToUI();
+      return;
+    }
+
+    // 동기화 OFF: 로컬에 저장된 설정 + 대화 내용 모두 복원
     try {
       const raw = JSON.parse(localStorage.getItem("ft_sessions_v1") || "[]");
       sessions = Array.isArray(raw) ? raw : [];
@@ -1136,8 +1154,9 @@
     }
 
     if (sessions.length > 0) {
-      currentSession = sessions[0];
-      if (!currentSession.TargetLanguage) currentSession.TargetLanguage = "베트남어";
+      const savedActiveId = getSavedActiveSessionId();
+      currentSession = sessions.find(s => s.Id === savedActiveId) || sessions[0];
+      if (!currentSession.TargetLanguage) currentSession.TargetLanguage = getSavedLastLang();
       restoreChatTurnsFromHistoryIfNeeded(currentSession);
     } else {
       currentSession = createDefaultSession();
@@ -1148,15 +1167,27 @@
   function saveSessionsToDisk(skipCloudPush = false) {
     if (!currentSession) return;
     currentSession.UpdatedAt = formatNowMMDDHHmm();
-    if (!sessions.some(s => s.Id === currentSession.Id) && !currentSession.Relationship.includes("새로운 관계를")) {
+    const isNamedRoom = !currentSession.Relationship.includes("새로운 관계를");
+    if (!sessions.some(s => s.Id === currentSession.Id) && isNamedRoom) {
       sessions.unshift(currentSession);
     }
-    try {
-      localStorage.setItem("ft_sessions_v1", JSON.stringify(sessions));
-    } catch {}
 
-    if (!skipCloudPush && !isApplyingRemoteSync && isRealtimeSyncActive()) {
-      pushSessionsToCloud().catch(() => {});
+    saveLastLang(currentSession.TargetLanguage || getSavedLastLang());
+    if (isNamedRoom) {
+      saveActiveSessionId(currentSession.Id);
+    }
+
+    if (isRealtimeSyncActive()) {
+      // 동기화 ON: 로컬 대화 기록 저장 안 함 (클라우드 기준 유지)
+      try { localStorage.removeItem("ft_sessions_v1"); } catch {}
+      if (!skipCloudPush && !isApplyingRemoteSync) {
+        pushSessionsToCloud().catch(() => {});
+      }
+    } else {
+      // 동기화 OFF: 로컬에 대화 목록 및 내용 저장
+      try {
+        localStorage.setItem("ft_sessions_v1", JSON.stringify(sessions));
+      } catch {}
     }
   }
 
@@ -2517,12 +2548,23 @@
       if (sessions.length === 0) {
         currentSession = createDefaultSession();
       } else {
-        currentSession = sessions.find(s => s.Id === activeId) || sessions[0];
+        const localActiveId = getSavedActiveSessionId();
+        currentSession =
+          sessions.find(s => s.Id === activeId) ||
+          sessions.find(s => s.Id === localActiveId) ||
+          sessions[0];
+        if (!currentSession.TargetLanguage) currentSession.TargetLanguage = getSavedLastLang();
         restoreChatTurnsFromHistoryIfNeeded(currentSession);
+        saveActiveSessionId(currentSession.Id);
+        saveLastLang(currentSession.TargetLanguage);
       }
       lastRawKoreanInput = "";
       lastPartnerAudio = null;
-      localStorage.setItem("ft_sessions_v1", JSON.stringify(sessions));
+      if (isRealtimeSyncActive()) {
+        try { localStorage.removeItem("ft_sessions_v1"); } catch {}
+      } else {
+        try { localStorage.setItem("ft_sessions_v1", JSON.stringify(sessions)); } catch {}
+      }
       if (!myListening && !partnerRecording) applySessionToUI();
     } finally {
       isApplyingRemoteSync = false;
@@ -2535,6 +2577,14 @@
     const now = Date.now();
     if (!forceCheck && now - lastResumeSyncCheckAt < 2500) return;
     lastResumeSyncCheckAt = now;
+
+    // 동기화 ON 상태에서 아직 방 목록을 못 불러왔다면 즉시 전체 Pull
+    if (sessions.length === 0) {
+      try {
+        await pullSessionsFromCloud(true);
+      } catch {}
+      return;
+    }
 
     const endpoint = buildFirebaseRoomEndpoint();
     if (!endpoint) return;
@@ -2552,7 +2602,6 @@
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
-      requestWakeLock();
       syncOnAppearOrResume(false);
     }
   });
@@ -2668,6 +2717,7 @@
 
   async function selectTargetLanguage(lang) {
     closeModal();
+    saveLastLang(lang);
     if (currentSession.TargetLanguage === lang) return;
     currentSession.TargetLanguage = lang;
     lastPartnerAudio = null;
@@ -2892,7 +2942,10 @@
     const next = !isRealtimeSyncEnabled();
     localStorage.setItem("ft_sync_enabled", next ? "1" : "0");
     if (next) {
+      try { localStorage.removeItem("ft_sessions_v1"); } catch {}
       try { await pullSessionsFromCloud(true); } catch {}
+    } else {
+      try { localStorage.setItem("ft_sessions_v1", JSON.stringify(sessions)); } catch {}
     }
     openSyncModal();
     showToast(next ? "동기화를 켰습니다." : "동기화를 일시 중지했습니다.");
@@ -2922,6 +2975,7 @@
     localStorage.removeItem("ft_sync_room");
     localStorage.removeItem("ft_sync_ver");
     lastSyncVersion = 0;
+    try { localStorage.setItem("ft_sessions_v1", JSON.stringify(sessions)); } catch {}
     closeModal();
     showToast("동기화 설정을 해제했습니다.");
   }
@@ -3020,8 +3074,9 @@
   applyThemeAndFont();
   setSeatingLayout(seatingLayout, false);
   loadSessionsFromDisk();
-  requestWakeLock();
-  syncOnAppearOrResume(true);
+  if (isRealtimeSyncActive()) {
+    pullSessionsFromCloud(true).catch(() => {});
+  }
   checkServerInitStatus();
 </script>
 </body>
