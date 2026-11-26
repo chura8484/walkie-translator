@@ -1,0 +1,2587 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="AI 대면 통역" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#121212" />
+  <link id="appleTouchIcon" rel="apple-touch-icon" href="" />
+  <link id="pwaManifest" rel="manifest" href="" />
+  <title>AI 대면 통역</title>
+  <style>
+    :root {
+      --bg: #121212;
+      --surface: #1d1e22;
+      --surface-2: #26282e;
+      --pane-partner: #17191f;
+      --pane-mine: #121822;
+      --border: #32353f;
+      --text: #f5f7fa;
+      --text-sub: #b5bcc9;
+      --text-muted: #848c9c;
+      --accent: #3b82f6;
+      --accent-soft: rgba(59, 130, 246, 0.16);
+      --partner-accent: #ff9800;
+      --partner-soft: rgba(255, 152, 0, 0.14);
+      --btn-bg: #2e323c;
+      --btn-text: #eef2f7;
+      --divider: #2e323d;
+      --font-size: 21px;
+    }
+
+    body.light-theme {
+      --bg: #f1f3f7;
+      --surface: #ffffff;
+      --surface-2: #f0f2f6;
+      --pane-partner: #ffffff;
+      --pane-mine: #f4f8ff;
+      --border: #d9dee7;
+      --text: #161a22;
+      --text-sub: #4b5563;
+      --text-muted: #768091;
+      --accent: #0066cc;
+      --accent-soft: #e8f1ff;
+      --partner-accent: #e67e00;
+      --partner-soft: #fff3e0;
+      --btn-bg: #e7ebf2;
+      --btn-text: #1f2937;
+      --divider: #d6dce6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    html { height: 100%; overflow: hidden; }
+    body {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: var(--app-height, 100%);
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .hidden { display: none !important; }
+
+    /* ===== Lock Screen ===== */
+    #lockScreen {
+      position: fixed;
+      inset: 0;
+      background: #121212;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+      gap: 14px;
+      z-index: 200;
+      text-align: center;
+    }
+    #lockScreen h2 { font-size: 20px; }
+    #lockScreen p { font-size: 13px; color: #aaa; max-width: 280px; line-height: 1.5; }
+    #lockScreen input {
+      width: 100%;
+      max-width: 280px;
+      padding: 14px;
+      font-size: 18px;
+      text-align: center;
+      letter-spacing: 4px;
+      border-radius: 10px;
+      border: 1px solid #444;
+      background: #24262c;
+      color: #fff;
+    }
+    #lockScreen button {
+      width: 100%;
+      max-width: 280px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      background: #0078ff;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    /* ===== Top Header ===== */
+    header {
+      padding: 7px 10px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      flex-shrink: 0;
+      z-index: 40;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      flex: 1;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .hdr-btn {
+      height: 34px;
+      padding: 0 9px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .hdr-btn:active { transform: scale(0.95); }
+    .hdr-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    #relBadgeBtn {
+      flex: 1;
+      min-width: 0;
+      justify-content: flex-start;
+      padding: 0 10px;
+      background: var(--surface-2);
+      overflow: hidden;
+    }
+    #relBadgeText {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12.5px;
+    }
+
+    /* ===== Split Container & 4 Seating Layouts ===== */
+    #splitContainer {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    #splitContainer.layout-top-flip { flex-direction: column; }
+    #splitContainer.layout-top-normal { flex-direction: column; }
+    #splitContainer.layout-side-right { flex-direction: row; }
+    #splitContainer.layout-side-left { flex-direction: row-reverse; }
+
+    /* In horizontal modes, Me is first in DOM order? Let's control order explicitly */
+    #splitContainer.layout-top-flip #partnerPane { order: 1; }
+    #splitContainer.layout-top-flip #splitDivider { order: 2; }
+    #splitContainer.layout-top-flip #myPane { order: 3; }
+
+    #splitContainer.layout-top-normal #partnerPane { order: 1; }
+    #splitContainer.layout-top-normal #splitDivider { order: 2; }
+    #splitContainer.layout-top-normal #myPane { order: 3; }
+
+    /* side-right: Me on Left, Partner on Right */
+    #splitContainer.layout-side-right #myPane { order: 1; }
+    #splitContainer.layout-side-right #splitDivider { order: 2; }
+    #splitContainer.layout-side-right #partnerPane { order: 3; }
+
+    /* side-left: Partner on Left, Me on Right */
+    #splitContainer.layout-side-left { flex-direction: row; }
+    #splitContainer.layout-side-left #partnerPane { order: 1; }
+    #splitContainer.layout-side-left #splitDivider { order: 2; }
+    #splitContainer.layout-side-left #myPane { order: 3; }
+
+    #splitDivider {
+      background: var(--divider);
+      flex-shrink: 0;
+      height: 2px;
+      width: 100%;
+    }
+    #splitContainer.layout-side-right #splitDivider,
+    #splitContainer.layout-side-left #splitDivider {
+      width: 2px;
+      height: 100%;
+    }
+
+    .pane {
+      flex: 1;
+      min-height: 0;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 10px 12px 10px;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    #partnerPane { background: var(--pane-partner); }
+    #myPane { background: var(--pane-mine); }
+
+    #splitContainer.layout-top-flip #partnerPane {
+      transform: rotate(180deg);
+    }
+
+    .pane-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .pane-tag {
+      font-size: 11.5px;
+      font-weight: bold;
+      padding: 4px 9px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+    #partnerPane .pane-tag {
+      background: var(--partner-soft);
+      color: var(--partner-accent);
+      border: 1px solid rgba(255, 152, 0, 0.35);
+    }
+    #myPane .pane-tag {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(59, 130, 246, 0.35);
+    }
+
+    .pane-tools {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+    .mini-pill-btn {
+      padding: 4px 9px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-sub);
+      font-size: 11.5px;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .mini-pill-btn:active { transform: scale(0.95); }
+    .mini-pill-btn.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .status-badge {
+      padding: 4px 9px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-sub);
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .status-badge.ok { background: rgba(46, 125, 50, 0.18); border-color: #4caf50; color: #81c784; }
+    .status-badge.warn { background: rgba(239, 108, 0, 0.18); border-color: #ff9800; color: #ffb74d; }
+    .status-badge.err { background: rgba(198, 40, 40, 0.2); border-color: #e53935; color: #ef9a9a; }
+    body.light-theme .status-badge.ok { background: #e8f5e9; color: #1b5e20; }
+    body.light-theme .status-badge.warn { background: #fff3e0; color: #e65100; }
+    body.light-theme .status-badge.err { background: #ffebee; color: #c62828; }
+
+    .text-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 6px 4px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+    .pane-text {
+      font-size: var(--font-size);
+      font-weight: 600;
+      line-height: 1.45;
+      word-break: break-word;
+      white-space: pre-wrap;
+      color: var(--text);
+    }
+    .pane-text.placeholder {
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: calc(var(--font-size) - 4px);
+    }
+    .pane-text.listening { color: #4caf50; }
+    .pane-text.translating { color: #64b5f6; }
+    body.light-theme .pane-text.listening { color: #1b5e20; }
+    body.light-theme .pane-text.translating { color: #0066cc; }
+
+    .vol-meter-wrap {
+      width: 100%;
+      height: 7px;
+      background: rgba(128,128,128,0.22);
+      border-radius: 5px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .vol-meter-fill {
+      width: 4%;
+      height: 100%;
+      background: #4caf50;
+      transition: width 0.08s linear;
+    }
+
+    .pane-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      flex-shrink: 0;
+      padding-top: 2px;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .circle-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.22);
+      transition: transform 0.12s, background 0.15s, border-color 0.15s;
+      flex-shrink: 0;
+    }
+    .circle-btn:active { transform: scale(0.92); }
+    .circle-btn.mic-btn {
+      width: 64px;
+      height: 64px;
+      font-size: 25px;
+      border-width: 2px;
+    }
+    #myMicBtn { border-color: rgba(59, 130, 246, 0.55); }
+    #partnerMicBtn { border-color: rgba(255, 152, 0, 0.55); }
+    .circle-btn.ai-btn {
+      border-color: rgba(144, 202, 249, 0.6);
+      background: var(--accent-soft);
+    }
+    .circle-btn.listening {
+      background: #2e7d32 !important;
+      border-color: #66bb6a !important;
+      color: #fff;
+      animation: micPulse 1s infinite;
+    }
+    .circle-btn.preparing {
+      background: #ef6c00 !important;
+      border-color: #ffb74d !important;
+      color: #fff;
+    }
+    .circle-btn.finishing {
+      background: #1976d2 !important;
+      border-color: #64b5f6 !important;
+      color: #fff;
+    }
+    @keyframes micPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.55); }
+      50% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+    }
+
+    /* Compact controls when side-by-side on narrow portrait screen */
+    #splitContainer.layout-side-right .pane,
+    #splitContainer.layout-side-left .pane {
+      padding: 8px 8px 8px;
+    }
+    #splitContainer.layout-side-right .pane-bottom,
+    #splitContainer.layout-side-left .pane-bottom {
+      gap: 8px;
+    }
+    #splitContainer.layout-side-right .circle-btn,
+    #splitContainer.layout-side-left .circle-btn {
+      width: 46px;
+      height: 46px;
+      font-size: 19px;
+    }
+    #splitContainer.layout-side-right .circle-btn.mic-btn,
+    #splitContainer.layout-side-left .circle-btn.mic-btn {
+      width: 54px;
+      height: 54px;
+      font-size: 22px;
+    }
+    #splitContainer.layout-side-right .pane-text,
+    #splitContainer.layout-side-left .pane-text {
+      font-size: calc(var(--font-size) - 2px);
+    }
+
+    /* ===== Popovers & Modals ===== */
+    .popover {
+      position: fixed;
+      top: 48px;
+      right: 10px;
+      width: 248px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.48);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 120;
+    }
+    .pop-title { font-size: 12px; font-weight: bold; color: var(--text-muted); padding: 2px 4px; }
+    .pop-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: bold; color: var(--text-sub); }
+    .pop-btns { display: flex; gap: 5px; }
+    .pop-btn {
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      font-size: 12.5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .pop-btn.full { width: 100%; text-align: left; display: flex; align-items: center; justify-content: space-between; }
+    .pop-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.74);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 150;
+    }
+    .modal-card {
+      width: 100%;
+      max-width: 390px;
+      max-height: 85dvh;
+      overflow-y: auto;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+    .modal-card h3 { font-size: 16px; display: flex; align-items: center; justify-content: space-between; }
+    .modal-sub { font-size: 12.5px; color: var(--text-sub); line-height: 1.45; }
+    .modal-input, .modal-textarea {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 15px;
+      resize: vertical;
+    }
+    .modal-textarea { min-height: 92px; line-height: 1.45; }
+    .modal-list { display: flex; flex-direction: column; gap: 7px; }
+    .modal-item-btn {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 13.5px;
+      font-weight: bold;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .modal-item-btn.active { border-color: var(--accent); background: var(--accent-soft); }
+    .modal-item-btn.danger { color: #ef5350; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 2px; }
+    .modal-actions button {
+      flex: 1;
+      padding: 11px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      color: #fff;
+      background: #555;
+    }
+    .modal-actions button.primary { background: var(--accent); }
+    .modal-actions button.danger { background: #c62828; }
+
+    /* History chat bubble view inside modal */
+    .hist-list { display: flex; flex-direction: column; gap: 9px; max-height: 55dvh; overflow-y: auto; padding-right: 2px; }
+    .hist-bubble {
+      padding: 9px 12px;
+      border-radius: 12px;
+      max-width: 92%;
+      font-size: 13.5px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .hist-bubble.mine { align-self: flex-end; background: var(--accent-soft); border: 1px solid rgba(59,130,246,0.35); }
+    .hist-bubble.other { align-self: flex-start; background: var(--surface-2); border-left: 3px solid var(--partner-accent); }
+    .hist-orig { font-size: 12px; color: var(--text-sub); margin-top: 3px; }
+
+    #toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      background: rgba(20, 22, 28, 0.92);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.16);
+      padding: 9px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: bold;
+      z-index: 250;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+      max-width: 92vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<!-- Lock Screen (API Key XOR 보호) -->
+<div id="lockScreen">
+  <h2>🔒 AI 대면 통역 입장</h2>
+  <p>방 암호를 입력하면 API 키가 복호화되어 바로 사용할 수 있습니다.</p>
+  <input id="passInput" type="password" inputmode="numeric" placeholder="Password" />
+  <button onclick="unlockApp()">입장하기</button>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="header-left">
+    <button class="hdr-btn" onclick="openMenuModal()" title="메뉴">☰</button>
+    <button id="relBadgeBtn" class="hdr-btn" onclick="promptEditRelationship()" title="관계 수정">
+      <span id="relBadgeText">관계: 설정 안 됨 ✎</span>
+    </button>
+  </div>
+  <div class="header-right">
+    <button id="layoutBtn" class="hdr-btn" onclick="toggleLayoutPopover(event)" title="화면 배치">↕️🔄</button>
+    <button id="langBtn" class="hdr-btn" onclick="openLanguageModal()" title="상대 언어">🇻🇳 ∨</button>
+    <button id="settingsBtn" class="hdr-btn" onclick="toggleSettingsPopover(event)" title="설정">⚙️</button>
+  </div>
+</header>
+
+<!-- Layout Popover -->
+<div id="layoutPopover" class="popover hidden">
+  <div class="pop-title">🪑 상대방 자리 배치 선택</div>
+  <button id="layOptTopFlip" class="pop-btn full" onclick="setSeatingLayout('top-flip')"><span>↕️🔄 마주보기 (상대 앞 · 180° 반전)</span></button>
+  <button id="layOptTopNorm" class="pop-btn full" onclick="setSeatingLayout('top-normal')"><span>↕️ 상하 분할 (상대 앞 · 정방향)</span></button>
+  <button id="layOptSideRight" class="pop-btn full" onclick="setSeatingLayout('side-right')"><span>◧ 좌우 분할 (나 왼쪽 · 상대 오른쪽)</span></button>
+  <button id="layOptSideLeft" class="pop-btn full" onclick="setSeatingLayout('side-left')"><span>◨ 좌우 분할 (상대 왼쪽 · 나 오른쪽)</span></button>
+</div>
+
+<!-- Settings Popover -->
+<div id="settingsPopover" class="popover hidden">
+  <div class="pop-row">
+    <span>글자 크기</span>
+    <div class="pop-btns">
+      <button class="pop-btn" onclick="changeFontSize(-2)">가-</button>
+      <button class="pop-btn" onclick="changeFontSize(2)">가+</button>
+    </div>
+  </div>
+  <button id="themeBtn" class="pop-btn full" onclick="toggleTheme()">☀️ 라이트 모드</button>
+  <button id="installPwaBtn" class="pop-btn full hidden" onclick="triggerInstallPwa()">📲 홈 화면에 추가</button>
+  <button class="pop-btn full" onclick="lockApp()">🚪 잠그기 (암호 재입력)</button>
+</div>
+
+<!-- Split Screen -->
+<main id="splitContainer" class="layout-top-flip">
+  <!-- Partner Pane -->
+  <section id="partnerPane" class="pane">
+    <div class="pane-top">
+      <span id="partnerLangTag" class="pane-tag">🇻🇳 베트남어 (상대방)</span>
+      <div class="pane-tools">
+        <button class="mini-pill-btn" onclick="copyPartnerText()" id="copyPartnerBtn">📋 복사</button>
+        <button class="mini-pill-btn" onclick="pastePartnerText()">📥 붙여넣기</button>
+      </div>
+    </div>
+
+    <div class="text-scroll" onclick="openTextEditModal(false)">
+      <div id="partnerText" class="pane-text placeholder">Chạm phím micro để bắt đầu hội thoại.</div>
+    </div>
+
+    <div id="partnerVolWrap" class="vol-meter-wrap hidden">
+      <div id="partnerVolBar" class="vol-meter-fill"></div>
+    </div>
+
+    <div class="pane-bottom">
+      <button class="circle-btn" onclick="speakPartnerText()" title="상대 언어 듣기">🔊</button>
+      <button id="partnerMicBtn" class="circle-btn mic-btn" onclick="togglePartnerMic()" title="상대방 마이크">🎙️</button>
+    </div>
+  </section>
+
+  <div id="splitDivider"></div>
+
+  <!-- My Pane -->
+  <section id="myPane" class="pane">
+    <div class="pane-top">
+      <button id="richModeBtn" class="mini-pill-btn" onclick="openRichModeModal()">✨ 풍부한 번역 OFF</button>
+      <button id="serverStatusBadge" class="status-badge" onclick="openModelModal()">🟡 확인 중...</button>
+    </div>
+
+    <div class="text-scroll" onclick="openTextEditModal(true)">
+      <div id="myText" class="pane-text placeholder">마이크 버튼을 눌러 대화를 시작하세요.</div>
+    </div>
+
+    <div id="myVolWrap" class="vol-meter-wrap hidden">
+      <div id="myVolBar" class="vol-meter-fill"></div>
+    </div>
+
+    <div class="pane-bottom">
+      <button class="circle-btn" onclick="speakMyText()" title="한국어 듣기">🔊</button>
+      <button id="myMicBtn" class="circle-btn mic-btn" onclick="toggleMyMic()" title="내 마이크 (한국어)">🎙️</button>
+      <button class="circle-btn ai-btn" onclick="openAiCoachModal()" title="AI 문장 정리·질문">🤖</button>
+    </div>
+  </section>
+</main>
+
+<!-- Generic Modal Container -->
+<div id="modalBackdrop" class="modal-backdrop hidden" onclick="if(event.target===this) closeModal()">
+  <div id="modalCard" class="modal-card"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  /* ================= 상수 & 키 설정 ================= */
+  const APP_VERSION = 1;
+  const DEFAULT_SYNC_DB_URL = "https://my-translator-402a8-default-rtdb.asia-southeast1.firebasedatabase.app";
+  const ENC_KEY_BYTES = [
+    121,103,28,116,81,12,106,120,4,127,82,124,79,80,69,102,106,80,
+    103,70,115,82,1,112,79,81,72,121,6,1,93,103,80,120,1,121,85,91,
+    127,6,93,118,115,96,1,102,89,7,21,126,90,123,68
+  ];
+  const ENC_V1_HEADER = "AITRANS_ENC_V1:";
+  const ENC_V2_HEADER = "AITRANS_ENC_V2:";
+  const MAX_TURN_MESSAGES = 18; // 최근 9왕복 문맥 유지
+
+  const MODEL_POOL = [
+    { id: "gemini-3.5-flash-lite", short: "3.5-Lite" },
+    { id: "gemini-3.1-flash-lite", short: "3.1-Lite" },
+    { id: "gemini-3.6-flash", short: "3.6-Flash" }
+  ];
+
+  const LANG_META = {
+    "베트남어": {
+      flag: "🇻🇳", srCode: "vi-VN", ttsCode: "vi",
+      defaultPrompt: "Chạm phím micro để bắt đầu hội thoại.",
+      translating: "Đang dịch... (번역 중)",
+      listening: "🟢 [Đang nghe... (Nói xong hãy chạm lại nút micro)]",
+      preparing: "⏳ Đang chuẩn bị micro..."
+    },
+    "영어": {
+      flag: "🇺🇸", srCode: "en-US", ttsCode: "en",
+      defaultPrompt: "Tap the mic to start.",
+      translating: "Translating...",
+      listening: "🟢 [Listening... (Tap the mic again when finished)]",
+      preparing: "⏳ Preparing mic..."
+    },
+    "스페인어": {
+      flag: "🇪🇸", srCode: "es-ES", ttsCode: "es",
+      defaultPrompt: "Toca el micrófono para empezar.",
+      translating: "Traduciendo... (번역 중)",
+      listening: "🟢 [Escuchando... (Toca el micrófono al terminar)]",
+      preparing: "⏳ Preparando micrófono..."
+    }
+  };
+
+  /* ================= 앱 상태 ================= */
+  let apiKey = "";
+  let sessions = [];
+  let currentSession = null;
+  let richTranslationLevel = 0; // 0~5
+  let lastRawKoreanInput = "";
+  let seatingLayout = localStorage.getItem("ft_layout") || "top-flip";
+  let isLightTheme = localStorage.getItem("ft_theme") === "light";
+  let fontSizePx = Math.min(30, Math.max(15, Number(localStorage.getItem("ft_font_px")) || 21));
+
+  // Model Pool State
+  let preferredModelIndex = Number(localStorage.getItem("ft_pref_model") ?? -1);
+  if (Number.isNaN(preferredModelIndex)) preferredModelIndex = -1;
+  const modelBlockedUntil = [0, 0, 0];
+  const modelTempCongestion = [false, false, false];
+
+  // Sync State (MAUI 호환)
+  const syncDeviceId = (() => {
+    let id = localStorage.getItem("ft_sync_device_id");
+    if (!id) {
+      id = Math.random().toString(16).slice(2, 10);
+      localStorage.setItem("ft_sync_device_id", id);
+    }
+    return id;
+  })();
+  let isApplyingRemoteSync = false;
+  let lastSyncVersion = Number(localStorage.getItem("ft_sync_ver") || 0);
+  let lastResumeSyncCheckAt = 0;
+
+  // Mic / Audio State
+  let myListening = false;
+  let myStopping = false;
+  let mySpeechRec = null;
+  let myAccumulatedSpeech = "";
+  let myPartialSpeech = "";
+  let myFinalResolve = null;
+
+  let partnerRecording = false;
+  let partnerRecorder = null;
+  let partnerStream = null;
+  let partnerChunks = [];
+  let partnerAudioCtx = null;
+  let partnerAnalyser = null;
+  let partnerMeterRaf = null;
+  let partnerRecStartAt = 0;
+
+  let isBusy = false;
+  let deferredInstallPrompt = null;
+
+  /* ================= DOM 참조 ================= */
+  const lockScreen = document.getElementById("lockScreen");
+  const passInput = document.getElementById("passInput");
+  const relBadgeText = document.getElementById("relBadgeText");
+  const layoutBtn = document.getElementById("layoutBtn");
+  const langBtn = document.getElementById("langBtn");
+  const layoutPopover = document.getElementById("layoutPopover");
+  const settingsPopover = document.getElementById("settingsPopover");
+  const themeBtn = document.getElementById("themeBtn");
+  const installPwaBtn = document.getElementById("installPwaBtn");
+  const splitContainer = document.getElementById("splitContainer");
+  const partnerLangTag = document.getElementById("partnerLangTag");
+  const partnerTextEl = document.getElementById("partnerText");
+  const partnerVolWrap = document.getElementById("partnerVolWrap");
+  const partnerVolBar = document.getElementById("partnerVolBar");
+  const partnerMicBtn = document.getElementById("partnerMicBtn");
+  const copyPartnerBtn = document.getElementById("copyPartnerBtn");
+  const richModeBtn = document.getElementById("richModeBtn");
+  const serverStatusBadge = document.getElementById("serverStatusBadge");
+  const myTextEl = document.getElementById("myText");
+  const myVolWrap = document.getElementById("myVolWrap");
+  const myVolBar = document.getElementById("myVolBar");
+  const myMicBtn = document.getElementById("myMicBtn");
+  const modalBackdrop = document.getElementById("modalBackdrop");
+  const modalCard = document.getElementById("modalCard");
+  const toastEl = document.getElementById("toast");
+
+  /* ================= 화면 높이 & PWA ================= */
+  function syncAppHeight() {
+    try {
+      const vv = window.visualViewport;
+      if (vv && vv.scale > 1.05) return;
+      const h = vv ? vv.height : window.innerHeight;
+      if (h > 0) document.documentElement.style.setProperty("--app-height", `${Math.floor(h)}px`);
+    } catch {}
+  }
+  syncAppHeight();
+  window.addEventListener("resize", syncAppHeight);
+  window.addEventListener("orientationchange", () => setTimeout(syncAppHeight, 120));
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", syncAppHeight);
+
+  function setupPwaManifest() {
+    try {
+      const size = 512;
+      const c = document.createElement("canvas");
+      c.width = size; c.height = size;
+      const ctx = c.getContext("2d");
+      const g = ctx.createLinearGradient(0, 0, size, size);
+      g.addColorStop(0, "#1e3a8a");
+      g.addColorStop(1, "#0284c7");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, size, size);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 190px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("🌐", size / 2, size / 2 + 12);
+      const iconUrl = c.toDataURL("image/png");
+      document.getElementById("appleTouchIcon").href = iconUrl;
+      const manifest = {
+        name: "AI 대면 통역",
+        short_name: "AI 통역",
+        start_url: window.location.origin + window.location.pathname,
+        display: "standalone",
+        background_color: "#121212",
+        theme_color: "#121212",
+        icons: [{ src: iconUrl, sizes: "512x512", type: "image/png", purpose: "any maskable" }]
+      };
+      const blob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
+      document.getElementById("pwaManifest").href = URL.createObjectURL(blob);
+    } catch {}
+  }
+  setupPwaManifest();
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    installPwaBtn.classList.remove("hidden");
+  });
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    installPwaBtn.classList.add("hidden");
+  });
+  async function triggerInstallPwa() {
+    closePopovers();
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice.catch(() => {});
+      deferredInstallPrompt = null;
+      installPwaBtn.classList.add("hidden");
+    }
+  }
+
+  /* ================= 토스트 & 유틸 ================= */
+  let toastTimer = null;
+  function showToast(msg, ms = 2200) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), ms);
+  }
+
+  function formatNowMMDDHHmm() {
+    const d = new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    return `${mm}/${dd} ${hh}:${mi}`;
+  }
+
+  function newGuid() {
+    if (crypto && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0;
+      return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+  }
+
+  function escapeHtml(str) {
+    return String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function containsKoreanChar(s) {
+    return /[\uAC00-\uD7A3\u3131-\u318E]/.test(s || "");
+  }
+
+  function isPartnerLanguageText(text, targetLanguage) {
+    let ko = 0, other = 0;
+    for (const ch of text) {
+      if (/[\uAC00-\uD7A3\u3131-\u318E]/.test(ch)) ko++;
+      else if (/[a-zA-Z\u00C0-\u1EF9]/.test(ch)) other++;
+    }
+    if (other === 0 || ko > other) return false;
+    if (targetLanguage === "영어") {
+      if (/[ăâđêôơưĂÂĐÊÔƠƯáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/.test(text)) return false;
+    }
+    return true;
+  }
+
+  function normalizeGeminiAudioMime(rawMime) {
+    const clean = String(rawMime || "audio/webm").split(";")[0].trim().toLowerCase();
+    if (clean === "audio/mp4" || clean === "audio/x-m4a") return "audio/m4a";
+    return clean;
+  }
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onloadend = () => resolve(String(r.result || "").split(",")[1] || "");
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+
+  async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /* ================= 암호 해금 (API 키 보호) ================= */
+  function decodeKey(pass) {
+    if (!pass) return "";
+    return ENC_KEY_BYTES.map((b, i) => String.fromCharCode(b ^ pass.charCodeAt(i % pass.length))).join("");
+  }
+
+  function tryUnlock(pass) {
+    const decoded = decodeKey(pass);
+    if (!decoded.startsWith("AQ.")) return false;
+    apiKey = decoded;
+    localStorage.setItem("ft_pass", pass);
+    lockScreen.classList.add("hidden");
+    onAppReady();
+    return true;
+  }
+
+  function unlockApp() {
+    const val = passInput.value.trim();
+    if (!tryUnlock(val)) {
+      alert("암호가 올바르지 않습니다.");
+      passInput.value = "";
+      passInput.focus();
+    }
+  }
+
+  function lockApp() {
+    closePopovers();
+    localStorage.removeItem("ft_pass");
+    apiKey = "";
+    passInput.value = "";
+    lockScreen.classList.remove("hidden");
+  }
+
+  passInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") unlockApp();
+  });
+
+  /* ================= 테마 · 글자 크기 · 4가지 자리 배치 ================= */
+  function applyThemeAndFont() {
+    document.body.classList.toggle("light-theme", isLightTheme);
+    themeBtn.textContent = isLightTheme ? "🌙 다크 모드" : "☀️ 라이트 모드";
+    document.documentElement.style.setProperty("--font-size", `${fontSizePx}px`);
+  }
+
+  function toggleTheme() {
+    isLightTheme = !isLightTheme;
+    localStorage.setItem("ft_theme", isLightTheme ? "light" : "dark");
+    applyThemeAndFont();
+  }
+
+  function changeFontSize(delta) {
+    fontSizePx = Math.min(30, Math.max(15, fontSizePx + delta));
+    localStorage.setItem("ft_font_px", String(fontSizePx));
+    applyThemeAndFont();
+  }
+
+  function setSeatingLayout(mode) {
+    seatingLayout = mode;
+    localStorage.setItem("ft_layout", mode);
+    splitContainer.className = `layout-${mode}`;
+
+    const iconMap = {
+      "top-flip": "↕️🔄",
+      "top-normal": "↕️",
+      "side-right": "◧",
+      "side-left": "◨"
+    };
+    layoutBtn.textContent = iconMap[mode] || "↕️🔄";
+
+    document.getElementById("layOptTopFlip").classList.toggle("active", mode === "top-flip");
+    document.getElementById("layOptTopNorm").classList.toggle("active", mode === "top-normal");
+    document.getElementById("layOptSideRight").classList.toggle("active", mode === "side-right");
+    document.getElementById("layOptSideLeft").classList.toggle("active", mode === "side-left");
+    closePopovers();
+  }
+
+  function closePopovers() {
+    layoutPopover.classList.add("hidden");
+    settingsPopover.classList.add("hidden");
+  }
+
+  function toggleLayoutPopover(e) {
+    e.stopPropagation();
+    const wasHidden = layoutPopover.classList.contains("hidden");
+    closePopovers();
+    if (wasHidden) layoutPopover.classList.remove("hidden");
+  }
+
+  function toggleSettingsPopover(e) {
+    e.stopPropagation();
+    const wasHidden = settingsPopover.classList.contains("hidden");
+    closePopovers();
+    if (wasHidden) settingsPopover.classList.remove("hidden");
+  }
+
+  document.addEventListener("click", (e) => {
+    if (!layoutPopover.classList.contains("hidden") && !layoutPopover.contains(e.target) && e.target !== layoutBtn) {
+      layoutPopover.classList.add("hidden");
+    }
+    if (!settingsPopover.classList.contains("hidden") && !settingsPopover.contains(e.target) && e.target !== settingsBtn) {
+      settingsPopover.classList.add("hidden");
+    }
+  });
+
+  /* ================= 세션 관리 (MAUI JSON 스키마 100% 호환) ================= */
+  function createDefaultSession(relationship = "새로운 관계를 설정하세요", targetLang = "베트남어") {
+    const meta = LANG_META[targetLang] || LANG_META["베트남어"];
+    return {
+      Id: newGuid(),
+      Relationship: relationship,
+      TargetLanguage: targetLang,
+      UpdatedAt: formatNowMMDDHHmm(),
+      LastMyText: "마이크 버튼을 눌러 대화를 시작하세요.",
+      LastPartnerText: meta.defaultPrompt,
+      History: [],
+      ChatTurns: []
+    };
+  }
+
+  function restoreChatTurnsFromHistoryIfNeeded(session) {
+    if (!session) return;
+    if (!Array.isArray(session.History)) session.History = [];
+    if (!Array.isArray(session.ChatTurns)) session.ChatTurns = [];
+    if (session.ChatTurns.length > 0 || session.History.length === 0) return;
+
+    for (const record of session.History) {
+      const arrowIdx = record.indexOf(" -> ");
+      if (arrowIdx <= 0) continue;
+      let leftPart = record.slice(0, arrowIdx).trim();
+      let rightPart = record.slice(arrowIdx + 4).trim();
+      const isMineRecord = leftPart.startsWith("[나(");
+      const lb = leftPart.indexOf("] ");
+      if (lb >= 0) leftPart = leftPart.slice(lb + 2).trim();
+      const rb = rightPart.indexOf("] ");
+      if (rb >= 0) rightPart = rightPart.slice(rb + 2).trim();
+
+      session.ChatTurns.push({
+        Role: "user",
+        Text: leftPart,
+        RawKoreanInput: isMineRecord ? leftPart : ""
+      });
+      session.ChatTurns.push({
+        Role: "model",
+        Text: rightPart,
+        RawKoreanInput: ""
+      });
+    }
+  }
+
+  function loadSessionsFromDisk() {
+    try {
+      const raw = JSON.parse(localStorage.getItem("ft_sessions_v1") || "[]");
+      sessions = Array.isArray(raw) ? raw : [];
+    } catch {
+      sessions = [];
+    }
+
+    if (sessions.length > 0) {
+      currentSession = sessions[0];
+      if (!currentSession.TargetLanguage) currentSession.TargetLanguage = "베트남어";
+      restoreChatTurnsFromHistoryIfNeeded(currentSession);
+    } else {
+      currentSession = createDefaultSession();
+    }
+    applySessionToUI();
+  }
+
+  function saveSessionsToDisk(skipCloudPush = false) {
+    if (!currentSession) return;
+    currentSession.UpdatedAt = formatNowMMDDHHmm();
+    if (!sessions.some(s => s.Id === currentSession.Id) && !currentSession.Relationship.includes("새로운 관계를")) {
+      sessions.unshift(currentSession);
+    }
+    try {
+      localStorage.setItem("ft_sessions_v1", JSON.stringify(sessions));
+    } catch {}
+
+    if (!skipCloudPush && !isApplyingRemoteSync && isRealtimeSyncActive()) {
+      pushSessionsToCloud().catch(() => {});
+    }
+  }
+
+  function getLangMeta() {
+    const lang = (currentSession && currentSession.TargetLanguage) || "베트남어";
+    return LANG_META[lang] || LANG_META["베트남어"];
+  }
+
+  function applySessionToUI() {
+    if (!currentSession) return;
+    const lang = currentSession.TargetLanguage || "베트남어";
+    const meta = getLangMeta();
+
+    relBadgeText.textContent = `${currentSession.Relationship} ✎`;
+    langBtn.textContent = `${meta.flag} ∨`;
+    partnerLangTag.textContent = `${meta.flag} ${lang} (상대방)`;
+
+    const myTxt = currentSession.LastMyText || "마이크 버튼을 눌러 대화를 시작하세요.";
+    const pTxt = currentSession.LastPartnerText || meta.defaultPrompt;
+
+    myTextEl.textContent = myTxt;
+    myTextEl.className = "pane-text" + (myTxt.includes("마이크 버튼을 눌러") ? " placeholder" : "");
+
+    partnerTextEl.textContent = pTxt;
+    partnerTextEl.className = "pane-text" + (pTxt === meta.defaultPrompt ? " placeholder" : "");
+
+    updateRichModeButtonUI();
+  }
+
+  function updateRichModeButtonUI() {
+    if (richTranslationLevel === 0) {
+      richModeBtn.textContent = "✨ 풍부한 번역 OFF";
+      richModeBtn.classList.remove("active");
+    } else {
+      richModeBtn.textContent = `✨ 풍부한 번역 ${richTranslationLevel}단계`;
+      richModeBtn.classList.add("active");
+    }
+  }
+
+  function addHistoryRecord(record) {
+    if (!Array.isArray(currentSession.History)) currentSession.History = [];
+    currentSession.History.push(record);
+    if (currentSession.History.length > 50) {
+      currentSession.History.splice(0, currentSession.History.length - 50);
+    }
+  }
+
+  function removeTurnsByRawKoreanInput(rawKoreanInput) {
+    if (!rawKoreanInput || !Array.isArray(currentSession.ChatTurns)) return;
+    for (let i = currentSession.ChatTurns.length - 2; i >= 0; i -= 2) {
+      if (currentSession.ChatTurns[i].Role === "user" && currentSession.ChatTurns[i].RawKoreanInput === rawKoreanInput) {
+        currentSession.ChatTurns.splice(i, 2);
+      }
+    }
+  }
+
+  function appendChatTurn(userText, modelText, rawKoreanInput = "") {
+    if (!Array.isArray(currentSession.ChatTurns)) currentSession.ChatTurns = [];
+    currentSession.ChatTurns.push({ Role: "user", Text: userText, RawKoreanInput: rawKoreanInput });
+    currentSession.ChatTurns.push({ Role: "model", Text: modelText, RawKoreanInput: "" });
+    while (currentSession.ChatTurns.length > MAX_TURN_MESSAGES) {
+      currentSession.ChatTurns.splice(0, 2);
+    }
+  }
+
+  /* ================= Gemini 모델 풀 & 상태 배지 ================= */
+  function updateServerStatusBadge(text, stateClass = "") {
+    serverStatusBadge.textContent = text;
+    serverStatusBadge.className = "status-badge" + (stateClass ? ` ${stateClass}` : "");
+  }
+
+  function getBestAvailableModelIndex(attemptOffset = 0) {
+    const now = Date.now();
+    const startIdx = (preferredModelIndex >= 0 && preferredModelIndex < MODEL_POOL.length) ? preferredModelIndex : 0;
+    for (let i = 0; i < MODEL_POOL.length; i++) {
+      const idx = (startIdx + i + attemptOffset) % MODEL_POOL.length;
+      if (now >= modelBlockedUntil[idx]) {
+        modelTempCongestion[idx] = false;
+        return idx;
+      }
+    }
+    let earliest = 0;
+    for (let i = 1; i < MODEL_POOL.length; i++) {
+      if (modelBlockedUntil[i] < modelBlockedUntil[earliest]) earliest = i;
+    }
+    return earliest;
+  }
+
+  function markModelCongested(idx) {
+    modelBlockedUntil[idx] = Date.now() + 30_000;
+    modelTempCongestion[idx] = true;
+    return MODEL_POOL[getBestAvailableModelIndex()].short;
+  }
+
+  function markModelQuotaExceeded(idx, errBody) {
+    const isDaily = /perday|per day|daily/i.test(errBody || "");
+    if (isDaily) {
+      const midnight = new Date();
+      midnight.setHours(24, 0, 0, 0);
+      modelBlockedUntil[idx] = midnight.getTime();
+      modelTempCongestion[idx] = false;
+    } else {
+      modelBlockedUntil[idx] = Date.now() + 60_000;
+      modelTempCongestion[idx] = true;
+    }
+    return MODEL_POOL[getBestAvailableModelIndex()].short;
+  }
+
+  function clearTempCongestion() {
+    for (let i = 0; i < MODEL_POOL.length; i++) {
+      if (modelTempCongestion[i]) {
+        modelBlockedUntil[i] = 0;
+        modelTempCongestion[i] = false;
+      }
+    }
+  }
+
+  async function checkServerInitStatus() {
+    if (!apiKey) return;
+    updateServerStatusBadge("🟡 서버 확인 중...", "warn");
+    clearTempCongestion();
+    const body = JSON.stringify({
+      contents: [{ parts: [{ text: "ok" }] }],
+      generationConfig: { maxOutputTokens: 5, thinkingConfig: { thinkingLevel: "MINIMAL" } }
+    });
+    for (let attempt = 0; attempt < MODEL_POOL.length; attempt++) {
+      const idx = getBestAvailableModelIndex(0);
+      const m = MODEL_POOL[idx];
+      const t0 = performance.now();
+      try {
+        const res = await fetchWithTimeout(
+          `https://generativelanguage.googleapis.com/v1beta/models/${m.id}:generateContent?key=${encodeURIComponent(apiKey)}`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body },
+          8000
+        );
+        if (res.ok) {
+          const sec = ((performance.now() - t0) / 1000).toFixed(1);
+          updateServerStatusBadge(`🟢 ${m.short} (${sec}초)`, "ok");
+          return;
+        }
+        const errText = await res.text();
+        if (res.status === 503) { markModelCongested(idx); continue; }
+        if (res.status === 429 || res.status === 404) { markModelQuotaExceeded(idx, errText); continue; }
+        updateServerStatusBadge(`🔴 오류 (${res.status})`, "err");
+        return;
+      } catch {
+        updateServerStatusBadge("🔴 네트워크 확인", "err");
+        return;
+      }
+    }
+    updateServerStatusBadge("🔴 응답 불가", "err");
+  }
+
+  /* ================= 시스템 프롬프트 & 화자 구분 멀티턴 페이로드 ================= */
+  function buildSystemInstruction(richLevel, isPartnerTurn, inputLength = 20, isPartnerAudio = false) {
+    const targetLang = currentSession.TargetLanguage || "베트남어";
+    const rel = currentSession.Relationship || "일상 대화";
+    const lengthTier = inputLength <= 10 ? 0 : (inputLength <= 35 ? 1 : 2);
+
+    let turnRule = "";
+    if (isPartnerAudio) {
+      turnRule =
+        `[상대방 음성 직접 청취 -> 한국어 번역 규칙]\n` +
+        `- 배경 소음·음악·옆 테이블 말소리는 철저히 무시하고 마이크 가까이에서 말하는 상대방의 ${targetLang} 목소리만 정확히 받아써.\n` +
+        `- 이전 대화 흐름과 관계([${rel}])를 반영해 발음이 약간 뭉개져도 문맥에 맞게 정확히 이해하고 자연스러운 한국어로 번역해.\n` +
+        `- 화자의 말 없이 잡음뿐이면 {"original": "", "translated": ""}를 반환해.\n` +
+        `- 반드시 JSON으로만 응답해: {"original": "${targetLang} 원문", "translated": "자연스러운 한국어 번역문"}`;
+    } else if (isPartnerTurn) {
+      turnRule =
+        `[상대방 메시지 -> 한국어 번역 규칙]\n` +
+        `- 입력된 ${targetLang}(또는 성조 없는 알파벳/영문) 문장을 대화 맥락과 두 사람의 친밀도(반말/존댓말)에 맞게 있는 그대로 자연스러운 한국어로만 번역해.\n` +
+        `- [절대 금지] 원문(${targetLang})을 반복하거나 '한국어:', '번역:' 같은 머리말을 붙이지 말고 오직 한국어 번역문만 단독으로 출력해.`;
+    } else if (richLevel === 0) {
+      turnRule =
+        `[내 한국어 -> ${targetLang} 일반 번역 규칙]\n` +
+        `- 원문에 없는 내용을 덧붙이지 말고, 파악된 친밀도와 대화 맥락에 맞는 ${targetLang} 번역문만 딱 한 줄로 출력해.\n` +
+        `- [절대 금지] 응답에 한국어(한글), '한국어:', '한국어뜻:', '번역:', 괄호 설명 등을 단 한 글자도 포함하지 마. 오직 ${targetLang}만 출력해.`;
+    } else {
+      const levelRules = {
+        1: "1단계(아주 약하게): 원문과 **똑같은 문장 수**를 유지해(1문장이면 반드시 1문장만!). 새로운 문장·인사말·호칭·설명을 덧붙이지 말고 말투와 어감만 살짝 자연스럽게 다듬어.",
+        2: "2단계(약하게): 원문과 **똑같은 문장 수**를 유지해(새 문장 추가 금지). 문장 안에 관계에 어울리는 호칭이나 추임새 1~2단어만 자연스럽게 넣어.",
+        3: "3단계(보통): 원문과 **똑같은 문장 수**를 유지해(새 문장 추가 금지). 호칭과 따뜻한 부사·수식어 2~4단어 정도만 보태어 표현을 풍부하게 만들어.",
+        4: "4단계(풍부하게): 원문 내용을 충실히 번역하고, 문장 끝에 짧은 안부나 공감 구절 **딱 1개만** 자연스럽게 덧붙여.",
+        5: "5단계(최대 풍부하게): 원문 내용을 충실히 번역하고, 관계에 맞는 다정하고 배려 있는 완성형 문장 **딱 1문장만** 덧붙여."
+      };
+      const lengthRule = (richLevel <= 3)
+        ? (lengthTier === 2
+          ? "[장문 규칙] 원문의 핵심 정보를 빠뜨리지 말고 살리되 새 문장을 덧붙이지 말고 말투·표현만 다듬어."
+          : "[문장 수 엄수] 원문이 1문장이면 번역도 반드시 1문장으로 끝내.")
+        : (lengthTier === 0
+          ? "[초단문 규칙] 입력이 짧으므로 장황하게 늘리지 말고 관계에 맞는 호칭과 짧은 마무리 1개만 가볍게 붙여."
+          : "[일반·장문 규칙] 원문 핵심 내용은 빠뜨리지 말고 살리되 허용한 1개 구절/문장 외 추가 문장은 붙이지 마.");
+
+      turnRule =
+        `[내 한국어 -> ${targetLang} 풍부한 번역 ${richLevel}단계 규칙]\n` +
+        `- ${levelRules[richLevel] || levelRules[3]}\n` +
+        `- ${lengthRule}\n` +
+        `- 반드시 아래 두 줄 형식으로만 출력해:\n` +
+        `번역: (${targetLang} 번역문)\n` +
+        `한국어뜻: (위 번역문의 한국어 직역)`;
+    }
+
+    return (
+      `너는 한국어와 ${targetLang} 사이의 대면 실시간 전문 통역사야.\n` +
+      `현재 설정된 기본 관계/상황은 [${rel}]이며, 이전 대화의 화자([나(한국어)] / [상대(${targetLang})])와 말투(반말/존댓말, 베트남어 호칭 anh/chị/em 등)를 정확히 추적해 두 사람의 친밀도와 대화 흐름에 맞춰 자연스럽게 통역해.\n\n` +
+      turnRule
+    );
+  }
+
+  function buildMultiTurnContents(latestUserParts) {
+    const targetLang = currentSession.TargetLanguage || "베트남어";
+    const turns = Array.isArray(currentSession.ChatTurns) ? currentSession.ChatTurns : [];
+    const recent = turns.slice(-MAX_TURN_MESSAGES);
+
+    const contents = recent.map(t => {
+      if (t.Role === "user") {
+        const isMine = Boolean(t.RawKoreanInput) || containsKoreanChar(t.Text);
+        const speakerTag = isMine ? "[나(한국어)]" : `[상대(${targetLang})]`;
+        return { role: "user", parts: [{ text: `${speakerTag} ${t.Text}` }] };
+      }
+      return { role: "model", parts: [{ text: t.Text }] };
+    });
+
+    contents.push({ role: "user", parts: latestUserParts });
+    return contents;
+  }
+
+  async function callGeminiMultiTurn(systemPrompt, latestUserParts, opts = {}) {
+    const initIdx = getBestAvailableModelIndex(0);
+    updateServerStatusBadge(`🟡 ${MODEL_POOL[initIdx].short} 통신 중...`, "warn");
+    const t0 = performance.now();
+
+    const bodyObj = {
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: buildMultiTurnContents(latestUserParts),
+      generationConfig: {
+        temperature: opts.temperature ?? 0.25,
+        maxOutputTokens: opts.maxOutputTokens ?? 380,
+        thinkingConfig: { thinkingLevel: "MINIMAL" }
+      }
+    };
+    if (opts.jsonMode) {
+      bodyObj.generationConfig.responseMimeType = "application/json";
+    }
+    const payload = JSON.stringify(bodyObj);
+
+    const maxAttempts = MODEL_POOL.length * 2;
+    let lastErr = null;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const idx = getBestAvailableModelIndex(0);
+      const m = MODEL_POOL[idx];
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m.id}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+      try {
+        const res = await fetchWithTimeout(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload
+        }, opts.timeoutMs ?? 10000);
+
+        if (res.ok) {
+          const data = await res.json();
+          const sec = (performance.now() - t0) / 1000;
+          updateServerStatusBadge(
+            `${sec <= 2.0 ? "🟢" : "🟠"} ${m.short} (${sec.toFixed(1)}초)`,
+            sec <= 2.0 ? "ok" : "warn"
+          );
+          const parts = data.candidates?.[0]?.content?.parts || [];
+          for (const p of parts) {
+            if (p.thought) continue;
+            if (p.text && p.text.trim()) return p.text.trim();
+          }
+          throw new Error("빈 응답이 반환되었습니다.");
+        }
+
+        const errBody = await res.text();
+        if (res.status === 503 && attempt < maxAttempts - 1) {
+          const nextShort = markModelCongested(idx);
+          updateServerStatusBadge(`🟠 ${m.short} 혼잡 → ${nextShort}`, "warn");
+          await new Promise(r => setTimeout(r, 350));
+          continue;
+        }
+        if ((res.status === 429 || res.status === 404) && attempt < maxAttempts - 1) {
+          const nextShort = markModelQuotaExceeded(idx, errBody);
+          updateServerStatusBadge(`🟠 ${m.short} 우회 → ${nextShort}`, "warn");
+          continue;
+        }
+        updateServerStatusBadge(`🔴 ${m.short} 오류 (${res.status})`, "err");
+        lastErr = new Error(`API 오류 (${res.status}): ${m.short}`);
+        break;
+      } catch (err) {
+        lastErr = err;
+        if (attempt < maxAttempts - 1) {
+          markModelCongested(idx);
+          continue;
+        }
+      }
+    }
+    updateServerStatusBadge("🔴 모델 응답 실패", "err");
+    throw lastErr || new Error("번역 요청에 실패했습니다.");
+  }
+
+  /* ================= 출력 정제 (MAUI 동일) ================= */
+  function extractPureForeignText(rawText, targetLang) {
+    if (!rawText) return "";
+    const lines = [];
+    for (const rawLine of rawText.split("\n")) {
+      let line = rawLine.trim();
+      if (!line) continue;
+      if (/^(한국어뜻:|한국어:|뜻:|해석:)/.test(line)) continue;
+      if (line.startsWith("번역:")) line = line.slice(3).trim();
+      else if (line.startsWith(`${targetLang}:`)) line = line.slice(targetLang.length + 1).trim();
+
+      const pIdx = line.lastIndexOf("(");
+      if (pIdx > 0 && line.endsWith(")") && containsKoreanChar(line.slice(pIdx))) {
+        line = line.slice(0, pIdx).trim();
+      }
+      if (!containsKoreanChar(line)) lines.push(line);
+    }
+    return lines.length > 0 ? lines.join(" ").trim() : rawText.trim();
+  }
+
+  function extractPureKoreanText(rawText, targetLang) {
+    if (!rawText) return "";
+    const lines = [];
+    for (const rawLine of rawText.split("\n")) {
+      let line = rawLine.trim();
+      if (!line) continue;
+      if (line.startsWith(`${targetLang}:`) || line.startsWith("원문:")) continue;
+      if (line.startsWith("한국어:")) line = line.slice(4).trim();
+      else if (line.startsWith("한국어뜻:")) line = line.slice(5).trim();
+      else if (line.startsWith("번역:")) line = line.slice(3).trim();
+      if (containsKoreanChar(line)) lines.push(line);
+    }
+    return lines.length > 0 ? lines.join("\n").trim() : rawText.trim();
+  }
+
+  /* ================= 번역 실행 (나 / 상대 텍스트 / 상대 음성 / AI 코칭) ================= */
+  async function translateMyKoreanInput(input) {
+    const clean = (input || "").trim();
+    if (!clean || isBusy) return;
+    isBusy = true;
+
+    const targetLang = currentSession.TargetLanguage || "베트남어";
+    const meta = getLangMeta();
+
+    myTextEl.textContent = clean;
+    myTextEl.className = "pane-text";
+    partnerTextEl.textContent = meta.translating;
+    partnerTextEl.className = "pane-text translating";
+
+    try {
+      currentSession.History = (currentSession.History || []).filter(h => !h.startsWith(`[나(한국어)] ${clean}`));
+      removeTurnsByRawKoreanInput(clean);
+
+      const sysPrompt = buildSystemInstruction(richTranslationLevel, false, clean.length, false);
+      const userText = richTranslationLevel === 0
+        ? `[나(한국어)] ${clean}`
+        : `[나(한국어)] [${richTranslationLevel}단계] ${clean}`;
+
+      const rawResult = await callGeminiMultiTurn(sysPrompt, [{ text: userText }]);
+
+      if (richTranslationLevel === 0) {
+        const pureForeign = extractPureForeignText(rawResult, targetLang);
+        partnerTextEl.textContent = pureForeign;
+        partnerTextEl.className = "pane-text";
+        currentSession.LastMyText = clean;
+        currentSession.LastPartnerText = pureForeign;
+        appendChatTurn(clean, pureForeign, clean);
+        addHistoryRecord(`[나(한국어)] ${clean} -> [번역(${targetLang})] ${pureForeign}`);
+      } else {
+        let translatedForeign = "";
+        let koreanMeaning = "";
+        for (const line of rawResult.split("\n")) {
+          const tr = line.trim();
+          if (tr.startsWith("번역:")) translatedForeign = tr.slice(3).trim();
+          else if (tr.startsWith("한국어뜻:")) koreanMeaning = tr.slice(5).trim();
+        }
+        if (!translatedForeign) translatedForeign = extractPureForeignText(rawResult, targetLang);
+
+        partnerTextEl.textContent = translatedForeign;
+        partnerTextEl.className = "pane-text";
+        const displayMy = koreanMeaning ? `${clean}\n(${koreanMeaning})` : clean;
+        myTextEl.textContent = displayMy;
+        myTextEl.className = "pane-text";
+
+        currentSession.LastMyText = displayMy;
+        currentSession.LastPartnerText = translatedForeign;
+        appendChatTurn(clean, translatedForeign, clean);
+        addHistoryRecord(`[나(한국어)] ${clean} -> [번역(${targetLang})] ${translatedForeign}`);
+      }
+      saveSessionsToDisk();
+    } catch (err) {
+      partnerTextEl.textContent = `오류: ${err.message}`;
+      partnerTextEl.className = "pane-text";
+      showToast("번역에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      isBusy = false;
+    }
+  }
+
+  async function translatePartnerTextInput(input) {
+    const clean = (input || "").trim();
+    if (!clean || isBusy) return;
+    isBusy = true;
+    lastRawKoreanInput = "";
+
+    const targetLang = currentSession.TargetLanguage || "베트남어";
+    partnerTextEl.textContent = clean;
+    partnerTextEl.className = "pane-text";
+    myTextEl.textContent = "번역 중...";
+    myTextEl.className = "pane-text translating";
+
+    try {
+      const sysPrompt = buildSystemInstruction(0, true, clean.length, false);
+      const rawResult = await callGeminiMultiTurn(sysPrompt, [{ text: `[상대(${targetLang})] ${clean}` }]);
+      const finalKorean = extractPureKoreanText(rawResult, targetLang);
+
+      myTextEl.textContent = finalKorean;
+      myTextEl.className = "pane-text";
+      currentSession.LastPartnerText = clean;
+      currentSession.LastMyText = finalKorean;
+      appendChatTurn(clean, finalKorean, "");
+      addHistoryRecord(`[상대(${targetLang})] ${clean} -> [번역(한국어)] ${finalKorean}`);
+      saveSessionsToDisk();
+    } catch (err) {
+      myTextEl.textContent = `오류: ${err.message}`;
+      myTextEl.className = "pane-text";
+    } finally {
+      isBusy = false;
+    }
+  }
+
+  async function translatePartnerAudioDirect(audioBlob, mimeType) {
+    if (!audioBlob || isBusy) return;
+    isBusy = true;
+    lastRawKoreanInput = "";
+
+    const targetLang = currentSession.TargetLanguage || "베트남어";
+    const meta = getLangMeta();
+    partnerTextEl.textContent = meta.translating;
+    partnerTextEl.className = "pane-text translating";
+    myTextEl.textContent = "🎙️ 상대방 음성을 문맥에 맞춰 듣고 번역 중...";
+    myTextEl.className = "pane-text translating";
+
+    try {
+      const base64Audio = await blobToBase64(audioBlob);
+      const sysPrompt = buildSystemInstruction(0, true, 20, true);
+      const parts = [
+        { text: `[상대(${targetLang}) 음성 입력: 직전 대화 문맥을 반영해 정확히 받아쓰고 자연스러운 한국어로 번역하세요]` },
+        { inline_data: { mime_type: normalizeGeminiAudioMime(mimeType), data: base64Audio } }
+      ];
+
+      const rawJson = await callGeminiMultiTurn(sysPrompt, parts, { jsonMode: true, timeoutMs: 12000 });
+      const cleanedJson = rawJson.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+      const parsed = JSON.parse(cleanedJson);
+      const orig = (parsed.original || "").trim();
+      const trans = (parsed.translated || "").trim();
+
+      if (!orig && !trans) {
+        showToast("목소리가 들리지 않아 취소되었습니다.");
+        applySessionToUI();
+        return;
+      }
+
+      const finalOrig = orig || "(음성)";
+      const finalTrans = trans || orig;
+
+      partnerTextEl.textContent = finalOrig;
+      partnerTextEl.className = "pane-text";
+      myTextEl.textContent = finalTrans;
+      myTextEl.className = "pane-text";
+
+      currentSession.LastPartnerText = finalOrig;
+      currentSession.LastMyText = finalTrans;
+      appendChatTurn(finalOrig, finalTrans, "");
+      addHistoryRecord(`[상대(${targetLang})] ${finalOrig} -> [번역(한국어)] ${finalTrans}`);
+      saveSessionsToDisk();
+    } catch (err) {
+      showToast("음성 인식/번역에 실패했습니다.");
+      applySessionToUI();
+    } finally {
+      isBusy = false;
+    }
+  }
+
+  async function askAiCoaching(userRequest) {
+    if (!userRequest || isBusy) return;
+    isBusy = true;
+
+    const targetLang = currentSession.TargetLanguage || "베트남어";
+    const rel = currentSession.Relationship || "일상 대화";
+    myTextEl.textContent = `🤖 AI가 표현을 정리하고 있습니다...\n("${userRequest}")`;
+    myTextEl.className = "pane-text translating";
+
+    try {
+      const richHint = richTranslationLevel > 0
+        ? `(현재 풍부한 번역 ${richTranslationLevel}단계가 켜져 있으므로 다정함과 표현 풍부함도 ${richTranslationLevel}단계 수준으로 맞춰줘.)`
+        : "(과장 없이 자연스럽고 상황에 딱 맞는 일상 대화체로 다듬어줘.)";
+
+      const coachingPrompt =
+        `[AI 표현 정리 및 번역 요청]\n` +
+        `현재 대화 상대와의 관계는 [${rel}]이고 상대방 언어는 [${targetLang}]야.\n` +
+        `사용자의 요청: "${userRequest}"\n\n` +
+        `지침:\n` +
+        `1. 사용자가 상대방에게 하고 싶어 하는 말의 의도와 느낌을 살려, 앞선 대화 맥락과 관계에 가장 자연스러운 한국어 문장으로 먼저 깔끔하게 정리해. ${richHint}\n` +
+        `2. 그 정리된 문장을 상대방 언어(${targetLang})로 자연스럽게 번역해.\n` +
+        `3. 반드시 아래 3줄 형식으로만 출력해 (다른 부연 설명 금지):\n` +
+        `추천한국어: (다듬어진 한국어 문장)\n` +
+        `번역: (${targetLang} 번역문)\n` +
+        `한국어뜻: (위 ${targetLang} 번역문의 한국어 직역)`;
+
+      const sysPrompt = buildSystemInstruction(0, false, userRequest.length, false);
+      const rawResponse = await callGeminiMultiTurn(sysPrompt, [{ text: coachingPrompt }], { maxOutputTokens: 420 });
+
+      let draftedKorean = "", translatedForeign = "", koreanMeaning = "";
+      for (const line of rawResponse.split("\n")) {
+        const tr = line.trim();
+        if (tr.startsWith("추천한국어:")) draftedKorean = tr.slice(6).trim();
+        else if (tr.startsWith("번역:")) translatedForeign = tr.slice(3).trim();
+        else if (tr.startsWith("한국어뜻:")) koreanMeaning = tr.slice(5).trim();
+      }
+
+      if (!draftedKorean && !translatedForeign) {
+        myTextEl.textContent = rawResponse.trim();
+        myTextEl.className = "pane-text";
+        return;
+      }
+      if (!translatedForeign) translatedForeign = extractPureForeignText(rawResponse, targetLang);
+      if (!draftedKorean) draftedKorean = koreanMeaning || userRequest;
+
+      lastRawKoreanInput = draftedKorean;
+      partnerTextEl.textContent = translatedForeign;
+      partnerTextEl.className = "pane-text";
+
+      const displayMy = (koreanMeaning && koreanMeaning !== draftedKorean)
+        ? `💡 ${draftedKorean}\n(${koreanMeaning})`
+        : `💡 ${draftedKorean}`;
+      myTextEl.textContent = displayMy;
+      myTextEl.className = "pane-text";
+
+      currentSession.LastMyText = displayMy;
+      currentSession.LastPartnerText = translatedForeign;
+      appendChatTurn(draftedKorean, translatedForeign, draftedKorean);
+      addHistoryRecord(`[나(한국어)] ${draftedKorean} -> [번역(${targetLang})] ${translatedForeign}`);
+      saveSessionsToDisk();
+    } catch (err) {
+      myTextEl.textContent = `오류: ${err.message}`;
+      myTextEl.className = "pane-text";
+    } finally {
+      isBusy = false;
+    }
+  }
+
+  /* ================= 내 마이크 (안드로이드 Chrome 연속 SpeechRecognition) ================= */
+  function getCombinedMySpeech() {
+    return `${myAccumulatedSpeech} ${myPartialSpeech}`.trim();
+  }
+
+  function setMyMicUI(state) {
+    myMicBtn.classList.remove("preparing", "listening", "finishing");
+    if (state === "idle") {
+      myMicBtn.textContent = "🎙️";
+    } else if (state === "preparing") {
+      myMicBtn.classList.add("preparing");
+      myMicBtn.textContent = "⏳";
+    } else if (state === "listening") {
+      myMicBtn.classList.add("listening");
+      myMicBtn.textContent = "🟢";
+    } else if (state === "finishing") {
+      myMicBtn.classList.add("finishing");
+      myMicBtn.textContent = "🔄";
+    }
+  }
+
+  function startMySpeechPass() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return false;
+    if (mySpeechRec) {
+      try { mySpeechRec.onend = null; mySpeechRec.stop(); } catch {}
+      mySpeechRec = null;
+    }
+    try {
+      const rec = new SR();
+      rec.lang = "ko-KR";
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.onstart = () => {
+        if (!myListening || myStopping) return;
+        setMyMicUI("listening");
+        const txt = getCombinedMySpeech();
+        myTextEl.textContent = txt
+          ? `🟢 [음성 인식 중... 다 말씀하시면 버튼을 다시 누르세요]\n${txt}`
+          : "🟢 [지금 말씀하세요!]\n말씀이 끝나면 마이크(🟢)를 다시 눌러주세요.";
+        myTextEl.className = "pane-text listening";
+      };
+      rec.onresult = (event) => {
+        if (!myListening) return;
+        let fin = "", part = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const r = event.results[i];
+          const tr = (r[0] && r[0].transcript) ? r[0].transcript : "";
+          if (r.isFinal) fin += tr + " ";
+          else part += tr;
+        }
+        if (fin.trim()) myAccumulatedSpeech = `${myAccumulatedSpeech} ${fin.trim()}`.trim();
+        myPartialSpeech = part.trim();
+        const combined = getCombinedMySpeech();
+        if (combined) {
+          myTextEl.textContent = `🟢 [음성 인식 중... 다 말씀하시면 버튼을 다시 누르세요]\n${combined}`;
+          myTextEl.className = "pane-text listening";
+        }
+      };
+      rec.onerror = () => {
+        if (myStopping && myFinalResolve) { myFinalResolve(); myFinalResolve = null; }
+      };
+      rec.onend = () => {
+        if (mySpeechRec === rec) mySpeechRec = null;
+        if (myStopping) {
+          if (myFinalResolve) { myFinalResolve(); myFinalResolve = null; }
+          return;
+        }
+        if (myListening) {
+          setTimeout(() => { if (myListening && !myStopping) startMySpeechPass(); }, 180);
+        }
+      };
+      mySpeechRec = rec;
+      rec.start();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function toggleMyMic() {
+    if (isBusy || partnerRecording) return;
+    if (myListening) {
+      if (myStopping) return;
+      myStopping = true;
+      setMyMicUI("finishing");
+      if (mySpeechRec) {
+        const waitEnd = new Promise(res => { myFinalResolve = res; });
+        try { mySpeechRec.stop(); } catch { if (myFinalResolve) myFinalResolve(); }
+        await Promise.race([waitEnd, new Promise(r => setTimeout(r, 250))]);
+        if (mySpeechRec) { try { mySpeechRec.abort(); } catch {} mySpeechRec = null; }
+      }
+      const fullText = getCombinedMySpeech();
+      myListening = false;
+      myStopping = false;
+      myAccumulatedSpeech = "";
+      myPartialSpeech = "";
+      setMyMicUI("idle");
+
+      if (!fullText) {
+        applySessionToUI();
+        return;
+      }
+      lastRawKoreanInput = fullText;
+      await translateMyKoreanInput(fullText);
+      return;
+    }
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      showToast("이 브라우저는 실시간 음성인식을 지원하지 않아 직접 입력을 이용해 주세요.");
+      openTextEditModal(true);
+      return;
+    }
+
+    stopSpeaking();
+    myListening = true;
+    myStopping = false;
+    myAccumulatedSpeech = "";
+    myPartialSpeech = "";
+    setMyMicUI("preparing");
+    myTextEl.textContent = "⏳ 마이크 준비 중...\n초록불(🟢)이 켜지면 말씀하세요.";
+    myTextEl.className = "pane-text listening";
+    if (navigator.vibrate) navigator.vibrate(40);
+    startMySpeechPass();
+  }
+
+  /* ================= 상대방 마이크 (Gemini 멀티턴 오디오 직접 청취) ================= */
+  function pickAudioMimeType() {
+    if (typeof MediaRecorder === "undefined") return "";
+    for (const c of ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/mp4;codecs=mp4a.40.2"]) {
+      if (MediaRecorder.isTypeSupported(c)) return c;
+    }
+    return "";
+  }
+
+  function stopPartnerMeterAndStream() {
+    if (partnerMeterRaf) { cancelAnimationFrame(partnerMeterRaf); partnerMeterRaf = null; }
+    if (partnerAudioCtx) { partnerAudioCtx.close().catch(() => {}); partnerAudioCtx = null; partnerAnalyser = null; }
+    if (partnerStream) {
+      partnerStream.getTracks().forEach(tr => tr.stop());
+      partnerStream = null;
+    }
+    partnerVolBar.style.width = "4%";
+    partnerVolWrap.classList.add("hidden");
+  }
+
+  function startPartnerVolumeMeter(stream) {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      partnerAudioCtx = new AC();
+      if (partnerAudioCtx.state === "suspended") partnerAudioCtx.resume().catch(() => {});
+      const src = partnerAudioCtx.createMediaStreamSource(stream);
+      partnerAnalyser = partnerAudioCtx.createAnalyser();
+      partnerAnalyser.fftSize = 256;
+      src.connect(partnerAnalyser);
+      const dataArr = new Uint8Array(256);
+      partnerVolWrap.classList.remove("hidden");
+      const loop = () => {
+        if (!partnerRecording) return;
+        partnerAnalyser.getByteTimeDomainData(dataArr);
+        let peak = 0;
+        for (let i = 0; i < dataArr.length; i++) {
+          const v = Math.abs(dataArr[i] - 128) / 128;
+          if (v > peak) peak = v;
+        }
+        const pct = Math.min(100, Math.max(4, Math.round(peak * 240)));
+        partnerVolBar.style.width = `${pct}%`;
+        partnerMeterRaf = requestAnimationFrame(loop);
+      };
+      loop();
+    } catch {}
+  }
+
+  async function togglePartnerMic() {
+    if (isBusy || myListening) return;
+
+    if (partnerRecording) {
+      partnerRecording = false;
+      partnerMicBtn.classList.remove("listening");
+      partnerMicBtn.classList.add("finishing");
+      partnerMicBtn.textContent = "🔄";
+      if (partnerRecorder && partnerRecorder.state !== "inactive") {
+        partnerRecorder.stop();
+      }
+      return;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === "undefined") {
+      showToast("이 브라우저는 마이크 녹음을 지원하지 않습니다.");
+      return;
+    }
+
+    stopSpeaking();
+    const meta = getLangMeta();
+    partnerMicBtn.classList.add("preparing");
+    partnerMicBtn.textContent = "⏳";
+    partnerTextEl.textContent = meta.preparing;
+    partnerTextEl.className = "pane-text listening";
+
+    try {
+      partnerStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+      const mimeType = pickAudioMimeType();
+      const opts = { audioBitsPerSecond: 64000 };
+      if (mimeType) opts.mimeType = mimeType;
+
+      partnerChunks = [];
+      partnerRecStartAt = Date.now();
+      try { partnerRecorder = new MediaRecorder(partnerStream, opts); }
+      catch { partnerRecorder = new MediaRecorder(partnerStream); }
+
+      const actualMime = (partnerRecorder.mimeType || mimeType || "audio/webm").split(";")[0];
+      partnerRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) partnerChunks.push(e.data);
+      };
+      partnerRecorder.onstop = async () => {
+        stopPartnerMeterAndStream();
+        partnerMicBtn.classList.remove("preparing", "listening", "finishing");
+        partnerMicBtn.textContent = "🎙️";
+        const dur = Date.now() - partnerRecStartAt;
+        if (dur < 350 || partnerChunks.length === 0) {
+          showToast("녹음이 너무 짧아 취소되었습니다.");
+          applySessionToUI();
+          return;
+        }
+        const blob = new Blob(partnerChunks, { type: actualMime });
+        await translatePartnerAudioDirect(blob, actualMime);
+      };
+
+      partnerRecording = true;
+      partnerMicBtn.classList.remove("preparing");
+      partnerMicBtn.classList.add("listening");
+      partnerMicBtn.textContent = "🟢";
+      partnerTextEl.textContent = meta.listening;
+      partnerTextEl.className = "pane-text listening";
+      if (navigator.vibrate) navigator.vibrate(40);
+      startPartnerVolumeMeter(partnerStream);
+      partnerRecorder.start(250);
+    } catch (err) {
+      stopPartnerMeterAndStream();
+      partnerMicBtn.classList.remove("preparing", "listening", "finishing");
+      partnerMicBtn.textContent = "🎙️";
+      applySessionToUI();
+      showToast("마이크 권한을 허용해 주세요.");
+    }
+  }
+
+  /* ================= TTS & 복사 · 붙여넣기 ================= */
+  function stopSpeaking() {
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch {}
+  }
+
+  function speakText(text, langPrefix) {
+    if (!text || text.includes("번역 중") || text.includes("마이크 버튼") || text.includes("Chạm phím") || text.includes("Tap the mic")) return;
+    if (!window.speechSynthesis) { showToast("음성 읽기를 지원하지 않는 브라우저입니다."); return; }
+    stopSpeaking();
+    const utter = new SpeechSynthesisUtterance(text);
+    const voices = window.speechSynthesis.getVoices() || [];
+    const matched = voices.find(v => (v.lang || "").toLowerCase().startsWith(langPrefix.toLowerCase()));
+    if (matched) utter.voice = matched;
+    utter.lang = matched ? matched.lang : langPrefix;
+    window.speechSynthesis.speak(utter);
+  }
+
+  function speakMyText() {
+    const txt = lastRawKoreanInput || myTextEl.textContent.split("\n(")[0].replace(/^💡\s*/, "");
+    speakText(txt, "ko");
+  }
+
+  function speakPartnerText() {
+    speakText(partnerTextEl.textContent, getLangMeta().ttsCode);
+  }
+
+  async function copyPartnerText() {
+    const txt = (partnerTextEl.textContent || "").trim();
+    if (!txt || txt === getLangMeta().defaultPrompt) {
+      showToast("복사할 내용이 없습니다.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(txt);
+      copyPartnerBtn.textContent = "✅ 복사됨";
+      setTimeout(() => { copyPartnerBtn.textContent = "📋 복사"; }, 1400);
+    } catch {
+      showToast("클립보드 복사에 실패했습니다.");
+    }
+  }
+
+  async function pastePartnerText() {
+    try {
+      const clip = (await navigator.clipboard.readText() || "").trim();
+      if (!clip) { showToast("클립보드가 비어 있습니다."); return; }
+      const targetLang = currentSession.TargetLanguage || "베트남어";
+      if (!isPartnerLanguageText(clip, targetLang)) {
+        showToast(`클립보드 내용이 ${targetLang}가 아닙니다.`);
+        return;
+      }
+      await translatePartnerTextInput(clip);
+    } catch {
+      showToast("클립보드 읽기 권한을 허용해 주세요.");
+    }
+  }
+
+  /* ================= Firebase 동기화 (MAUI AES-256-CBC + PBKDF2-SHA256 100% 호환) ================= */
+  function isRealtimeSyncEnabled() { return localStorage.getItem("ft_sync_enabled") === "1"; }
+  function getSyncDbUrl() { return (localStorage.getItem("ft_sync_db_url") || DEFAULT_SYNC_DB_URL).trim().replace(/\/+$/, ""); }
+  function getSyncRoomCode() { return (localStorage.getItem("ft_sync_room") || "").trim(); }
+  function isRealtimeSyncConfigured() { return Boolean(getSyncDbUrl() && getSyncRoomCode()); }
+  function isRealtimeSyncActive() { return isRealtimeSyncEnabled() && isRealtimeSyncConfigured(); }
+
+  function sanitizeRoomKey(roomCode) {
+    return encodeURIComponent(roomCode.trim().replace(/[.$#\[\]\/ ]/g, "_"));
+  }
+
+  function buildFirebaseRoomEndpoint() {
+    const db = getSyncDbUrl();
+    const room = getSyncRoomCode();
+    if (!db || !room) return "";
+    const url = /^https?:\/\//i.test(db) ? db : `https://${db}`;
+    return `${url}/rooms/${sanitizeRoomKey(room)}.json`;
+  }
+
+  function bytesToBase64(bytes) {
+    let bin = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    return btoa(bin);
+  }
+
+  function base64ToBytes(b64) {
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  async function deriveAesKey(password, salt, iterations) {
+    const enc = new TextEncoder();
+    const baseKey = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
+    return await crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
+      baseKey,
+      { name: "AES-CBC", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  }
+
+  async function encryptStringAes256(plainText, password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(16));
+    const key = await deriveAesKey(password, salt, 10_000);
+    const plainBytes = new TextEncoder().encode(plainText);
+    const cipherBuf = await crypto.subtle.encrypt({ name: "AES-CBC", iv }, key, plainBytes);
+    const cipherBytes = new Uint8Array(cipherBuf);
+    const combined = new Uint8Array(32 + cipherBytes.length);
+    combined.set(salt, 0);
+    combined.set(iv, 16);
+    combined.set(cipherBytes, 32);
+    return ENC_V2_HEADER + bytesToBase64(combined);
+  }
+
+  async function decryptStringAes256(encryptedContent, password) {
+    const isV2 = encryptedContent.startsWith(ENC_V2_HEADER);
+    const iterations = isV2 ? 10_000 : 100_000;
+    const headerLen = isV2 ? ENC_V2_HEADER.length : ENC_V1_HEADER.length;
+    const combined = base64ToBytes(encryptedContent.slice(headerLen).trim());
+    if (combined.length <= 32) throw new Error("Invalid encrypted payload");
+    const salt = combined.slice(0, 16);
+    const iv = combined.slice(16, 32);
+    const cipherBytes = combined.slice(32);
+    const key = await deriveAesKey(password, salt, iterations);
+    const plainBuf = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, key, cipherBytes);
+    return new TextDecoder().decode(plainBuf);
+  }
+
+  async function pushSessionsToCloud() {
+    const endpoint = buildFirebaseRoomEndpoint();
+    if (!endpoint) return;
+    const newVer = Math.max(Date.now(), lastSyncVersion + 1);
+    lastSyncVersion = newVer;
+    localStorage.setItem("ft_sync_ver", String(newVer));
+
+    const listCopy = sessions.slice();
+    if (!listCopy.some(s => s.Id === currentSession.Id) && !currentSession.Relationship.includes("새로운 관계를")) {
+      listCopy.unshift(currentSession);
+    }
+
+    const innerJson = JSON.stringify({
+      ActiveSessionId: currentSession.Id,
+      Sessions: listCopy
+    });
+    const encryptedData = await encryptStringAes256(innerJson, getSyncRoomCode());
+    const payload = {
+      Version: newVer,
+      SenderDeviceId: syncDeviceId,
+      EncryptedData: encryptedData
+    };
+
+    const res = await fetchWithTimeout(endpoint, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }, 8000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  }
+
+  async function pullSessionsFromCloud(forceApply = false) {
+    const endpoint = buildFirebaseRoomEndpoint();
+    if (!endpoint) return false;
+    const res = await fetchWithTimeout(endpoint, { method: "GET" }, 8000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const payload = await res.json();
+    if (!payload) return false;
+    if (!payload.EncryptedData && (!Array.isArray(payload.Sessions) || payload.Sessions.length === 0)) return false;
+
+    if (!forceApply) {
+      if (payload.SenderDeviceId === syncDeviceId) return false;
+      if (Number(payload.Version || 0) <= lastSyncVersion) return false;
+    }
+
+    let remoteSessions = null;
+    let activeId = "";
+    if (payload.EncryptedData) {
+      const decrypted = await decryptStringAes256(payload.EncryptedData, getSyncRoomCode());
+      const inner = JSON.parse(decrypted);
+      remoteSessions = inner.Sessions || null;
+      activeId = inner.ActiveSessionId || "";
+    } else if (Array.isArray(payload.Sessions)) {
+      remoteSessions = payload.Sessions;
+      activeId = payload.ActiveSessionId || "";
+    }
+    if (!Array.isArray(remoteSessions)) return false;
+
+    lastSyncVersion = Math.max(lastSyncVersion, Number(payload.Version || 0));
+    localStorage.setItem("ft_sync_ver", String(lastSyncVersion));
+
+    isApplyingRemoteSync = true;
+    try {
+      sessions = remoteSessions;
+      if (sessions.length === 0) {
+        currentSession = createDefaultSession();
+      } else {
+        currentSession = sessions.find(s => s.Id === activeId) || sessions[0];
+        restoreChatTurnsFromHistoryIfNeeded(currentSession);
+      }
+      lastRawKoreanInput = "";
+      localStorage.setItem("ft_sessions_v1", JSON.stringify(sessions));
+      if (!myListening && !partnerRecording) applySessionToUI();
+    } finally {
+      isApplyingRemoteSync = false;
+    }
+    return true;
+  }
+
+  async function syncOnAppearOrResume(forceCheck = false) {
+    if (!isRealtimeSyncActive()) return;
+    const now = Date.now();
+    if (!forceCheck && now - lastResumeSyncCheckAt < 2500) return;
+    lastResumeSyncCheckAt = now;
+
+    const endpoint = buildFirebaseRoomEndpoint();
+    if (!endpoint) return;
+    try {
+      const verUrl = endpoint.replace(/\.json$/, "/Version.json");
+      const res = await fetchWithTimeout(verUrl, { method: "GET" }, 5000);
+      if (!res.ok) return;
+      const remoteVer = Number(await res.json());
+      if (remoteVer > lastSyncVersion) {
+        const pulled = await pullSessionsFromCloud(false);
+        if (pulled) showToast("☁️ 클라우드에서 최신 대화를 동기화했습니다.");
+      }
+    } catch {}
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && apiKey) {
+      syncOnAppearOrResume(false);
+    }
+  });
+
+  /* ================= 모달 UI 컨트롤 ================= */
+  function openModal(html) {
+    closePopovers();
+    modalCard.innerHTML = html;
+    modalBackdrop.classList.remove("hidden");
+  }
+
+  function closeModal() {
+    modalBackdrop.classList.add("hidden");
+    modalCard.innerHTML = "";
+  }
+
+  function openTextEditModal(isMine) {
+    if (myListening || partnerRecording || isBusy) return;
+    const lang = currentSession.TargetLanguage || "베트남어";
+    const meta = getLangMeta();
+    let initial = "";
+    if (isMine) {
+      initial = lastRawKoreanInput || (myTextEl.classList.contains("placeholder") ? "" : myTextEl.textContent.split("\n(")[0].replace(/^💡\s*/, ""));
+    } else {
+      initial = partnerTextEl.classList.contains("placeholder") ? "" : partnerTextEl.textContent;
+    }
+
+    openModal(`
+      <h3>${isMine ? "✏️ 한국어 직접 입력 / 수정" : `✏️ ${lang} 직접 입력 / 수정`}</h3>
+      <textarea id="editModalArea" class="modal-textarea" placeholder="${isMine ? "한국어를 입력하세요..." : `${lang}로 입력하세요...`}">${escapeHtml(initial)}</textarea>
+      <div class="modal-actions">
+        <button onclick="closeModal()">취소</button>
+        <button class="primary" onclick="submitTextEditModal(${isMine})">번역하기</button>
+      </div>
+    `);
+    const area = document.getElementById("editModalArea");
+    area.focus();
+  }
+
+  async function submitTextEditModal(isMine) {
+    const val = (document.getElementById("editModalArea")?.value || "").trim();
+    closeModal();
+    if (!val) return;
+    if (isMine) {
+      lastRawKoreanInput = val;
+      await translateMyKoreanInput(val);
+    } else {
+      await translatePartnerTextInput(val);
+    }
+  }
+
+  function openAiCoachModal() {
+    if (myListening || partnerRecording || isBusy) return;
+    const lang = currentSession.TargetLanguage || "베트남어";
+    openModal(`
+      <h3>🤖 AI 문장 정리 · 질문하기</h3>
+      <div class="modal-sub">어떤 느낌이나 상황으로 말하고 싶은지 적어주세요.<br>[${escapeHtml(currentSession.Relationship)}] 관계에 맞춰 한국어를 다듬고 ${lang}로 번역해 드립니다.</div>
+      <textarea id="aiCoachArea" class="modal-textarea" placeholder="예: 오늘 피곤해서 내일 보자고 기분 안 상하게 다정하게 말해줘"></textarea>
+      <div class="modal-actions">
+        <button onclick="closeModal()">취소</button>
+        <button class="primary" onclick="submitAiCoachModal()">AI에게 보내기</button>
+      </div>
+    `);
+    document.getElementById("aiCoachArea").focus();
+  }
+
+  async function submitAiCoachModal() {
+    const val = (document.getElementById("aiCoachArea")?.value || "").trim();
+    closeModal();
+    if (!val) return;
+    await askAiCoaching(val);
+  }
+
+  function openRichModeModal() {
+    const labels = [
+      "❌ 풍부한 번역 끄기 (OFF)",
+      "✨ 1단계 (어투만 가볍게)",
+      "✨ 2단계 (호칭만 1~2단어 추가)",
+      "✨ 3단계 (짧은 수식어 추가)",
+      "✨ 4단계 (짧은 안부 덧붙이기)",
+      "✨ 5단계 (다정한 문장 덧붙이기)"
+    ];
+    const btns = labels.map((lb, idx) =>
+      `<button class="modal-item-btn ${richTranslationLevel === idx ? "active" : ""}" onclick="selectRichLevel(${idx})"><span>${lb}</span>${richTranslationLevel === idx ? "<span>✔</span>" : ""}</button>`
+    ).join("");
+    openModal(`
+      <h3>✨ 풍부한 번역 단계 (한→외국어 전용)</h3>
+      <div class="modal-list">${btns}</div>
+      <div class="modal-actions"><button onclick="closeModal()">닫기</button></div>
+    `);
+  }
+
+  async function selectRichLevel(lvl) {
+    closeModal();
+    if (richTranslationLevel === lvl) return;
+    richTranslationLevel = lvl;
+    updateRichModeButtonUI();
+    if (lastRawKoreanInput) {
+      await translateMyKoreanInput(lastRawKoreanInput);
+    }
+  }
+
+  function openLanguageModal() {
+    const cur = currentSession.TargetLanguage || "베트남어";
+    const langs = ["베트남어", "영어", "스페인어"];
+    const btns = langs.map(l =>
+      `<button class="modal-item-btn ${cur === l ? "active" : ""}" onclick="selectTargetLanguage('${l}')"><span>${LANG_META[l].flag} ${l}</span>${cur === l ? "<span>✔</span>" : ""}</button>`
+    ).join("");
+    openModal(`
+      <h3>🌐 상대방 언어 선택</h3>
+      <div class="modal-list">${btns}</div>
+      <div class="modal-actions"><button onclick="closeModal()">닫기</button></div>
+    `);
+  }
+
+  async function selectTargetLanguage(lang) {
+    closeModal();
+    if (currentSession.TargetLanguage === lang) return;
+    currentSession.TargetLanguage = lang;
+    applySessionToUI();
+    saveSessionsToDisk();
+    if (lastRawKoreanInput) {
+      await translateMyKoreanInput(lastRawKoreanInput);
+    } else {
+      currentSession.LastPartnerText = LANG_META[lang].defaultPrompt;
+      applySessionToUI();
+      saveSessionsToDisk();
+    }
+  }
+
+  function promptEditRelationship() {
+    const init = currentSession.Relationship.includes("새로운 관계를") ? "" : currentSession.Relationship;
+    openModal(`
+      <h3>✏️ 관계 / 친밀도 수정</h3>
+      <div class="modal-sub">대화 내역은 유지한 채 상대방과의 관계·친밀도를 변경할 수 있습니다.</div>
+      <input id="relInput" class="modal-input" type="text" maxlength="60" value="${escapeHtml(init)}" placeholder="예: 연인, 10년지기 절친, 베트남 직장 동료" />
+      <div class="modal-actions">
+        <button onclick="closeModal()">취소</button>
+        <button class="primary" onclick="submitRelationshipEdit()">적용</button>
+      </div>
+    `);
+    document.getElementById("relInput").focus();
+  }
+
+  async function submitRelationshipEdit() {
+    const val = (document.getElementById("relInput")?.value || "").trim();
+    closeModal();
+    if (!val || val === currentSession.Relationship) return;
+    currentSession.Relationship = val;
+    applySessionToUI();
+    saveSessionsToDisk();
+    if (lastRawKoreanInput) {
+      await translateMyKoreanInput(lastRawKoreanInput);
+    }
+  }
+
+  function openNewSessionModal() {
+    openModal(`
+      <h3>➕ 새로운 대화방 시작</h3>
+      <div class="modal-sub">대화할 상대방과의 관계나 상황을 입력해 주세요.</div>
+      <input id="newRelInput" class="modal-input" type="text" maxlength="60" placeholder="예: 여자친구, 식당 직원, 친구" />
+      <div class="modal-actions">
+        <button onclick="closeModal()">취소</button>
+        <button class="primary" onclick="submitNewSession()">시작</button>
+      </div>
+    `);
+    document.getElementById("newRelInput").focus();
+  }
+
+  function submitNewSession() {
+    const rel = (document.getElementById("newRelInput")?.value || "").trim();
+    closeModal();
+    if (!rel) return;
+    lastRawKoreanInput = "";
+    const lang = (currentSession && currentSession.TargetLanguage) || "베트남어";
+    currentSession = createDefaultSession(rel, lang);
+    sessions.unshift(currentSession);
+    applySessionToUI();
+    saveSessionsToDisk();
+    showToast(`[${rel}] 새 대화방을 시작했습니다.`);
+  }
+
+  function openHistoryModal() {
+    const hist = Array.isArray(currentSession.History) ? currentSession.History : [];
+    let bodyHtml = "";
+    if (hist.length === 0) {
+      bodyHtml = `<div class="modal-sub" style="text-align:center; padding:18px 0;">아직 대화 기록이 없습니다.</div>`;
+    } else {
+      bodyHtml = `<div class="hist-list">` + hist.map(item => {
+        const isMine = item.startsWith("[나(");
+        const arrowIdx = item.indexOf(" -> ");
+        if (arrowIdx > 0) {
+          let left = item.slice(0, arrowIdx).replace(/^\[[^\]]+\]\s*/, "");
+          let right = item.slice(arrowIdx + 4).replace(/^\[[^\]]+\]\s*/, "");
+          return `<div class="hist-bubble ${isMine ? "mine" : "other"}"><div><strong>${escapeHtml(right)}</strong></div><div class="hist-orig">${escapeHtml(left)}</div></div>`;
+        }
+        return `<div class="hist-bubble other">${escapeHtml(item)}</div>`;
+      }).join("") + `</div>`;
+    }
+    openModal(`
+      <h3>📜 대화 기록 (${hist.length}개)</h3>
+      ${bodyHtml}
+      <div class="modal-actions"><button class="primary" onclick="closeModal()">닫기</button></div>
+    `);
+    const list = modalCard.querySelector(".hist-list");
+    if (list) list.scrollTop = list.scrollHeight;
+  }
+
+  async function openModelModal() {
+    openModal(`
+      <h3>⚡ AI 모델 속도 측정 중...</h3>
+      <div class="modal-sub">3개 모델의 실시간 응답 시간을 병렬로 측정하고 있습니다.</div>
+      <div class="modal-actions"><button onclick="closeModal()">닫기</button></div>
+    `);
+
+    const body = JSON.stringify({
+      contents: [{ parts: [{ text: "ok" }] }],
+      generationConfig: { maxOutputTokens: 5, thinkingConfig: { thinkingLevel: "MINIMAL" } }
+    });
+
+    const results = await Promise.all(MODEL_POOL.map(async (m) => {
+      const t0 = performance.now();
+      try {
+        const res = await fetchWithTimeout(
+          `https://generativelanguage.googleapis.com/v1beta/models/${m.id}:generateContent?key=${encodeURIComponent(apiKey)}`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body },
+          9000
+        );
+        const sec = (performance.now() - t0) / 1000;
+        if (res.ok) return { ok: true, sec, text: `${sec.toFixed(1)}초` };
+        return { ok: false, sec: 999, text: `오류 ${res.status}` };
+      } catch {
+        return { ok: false, sec: 999, text: "시간초과" };
+      }
+    }));
+
+    const rows = MODEL_POOL.map((m, idx) => {
+      const r = results[idx];
+      const icon = r.ok ? (r.sec <= 2.0 ? "⚡" : "🟢") : "🔴";
+      const active = preferredModelIndex === idx;
+      return `<button class="modal-item-btn ${active ? "active" : ""}" onclick="selectPreferredModel(${idx}, ${r.ok}, '${r.text}')">
+        <span>${icon} ${m.short} <small style="opacity:0.75">(${m.id})</small></span>
+        <span>${r.text}${active ? " ✔" : ""}</span>
+      </button>`;
+    }).join("");
+
+    const autoActive = preferredModelIndex === -1;
+    openModal(`
+      <h3>⚡ AI 모델 선택 · 속도 측정</h3>
+      <div class="modal-list">
+        ${rows}
+        <button class="modal-item-btn ${autoActive ? "active" : ""}" onclick="selectPreferredModel(-1, true, '')">
+          <span>🔄 자동 선택 (3.5 → 3.1 → 3.6)</span>
+          <span>${autoActive ? "✔" : ""}</span>
+        </button>
+      </div>
+      <div class="modal-actions"><button onclick="closeModal()">닫기</button></div>
+    `);
+  }
+
+  function selectPreferredModel(idx, ok, statusText) {
+    preferredModelIndex = idx;
+    localStorage.setItem("ft_pref_model", String(idx));
+    clearTempCongestion();
+    closeModal();
+    if (idx === -1) {
+      checkServerInitStatus();
+    } else {
+      const m = MODEL_POOL[idx];
+      updateServerStatusBadge(`${ok ? "🟢" : "🟠"} ${m.short} (${statusText})`, ok ? "ok" : "warn");
+    }
+  }
+
+  function openSyncModal() {
+    const configured = isRealtimeSyncConfigured();
+    const enabled = isRealtimeSyncEnabled();
+    const room = getSyncRoomCode();
+    const statusText = configured
+      ? `방 코드: ${"•".repeat(Math.min(8, room.length))} (${enabled ? "실시간 켜짐 🟢" : "일시중지 ⏸️"})`
+      : "아직 동기화 방 코드가 설정되지 않았습니다.";
+
+    openModal(`
+      <h3>🔗 클라우드 동기화 (MAUI 호환)</h3>
+      <div class="modal-sub">${statusText}<br><small>기존 MAUI 앱과 같은 방 코드를 입력하면 대화방과 기록이 암호화되어 그대로 이어집니다.</small></div>
+      <input id="syncRoomInput" class="modal-input" type="password" value="${escapeHtml(room)}" placeholder="비밀 방 코드 입력" />
+      <div class="modal-list">
+        <button class="modal-item-btn active" onclick="connectSyncRoom()">🔑 방 코드 연결 및 동기화 시작</button>
+        ${configured ? `
+          <button class="modal-item-btn" onclick="toggleSyncEnabled()">${enabled ? "⏸️ 동기화 일시 중지" : "▶️ 동기화 다시 켜기"}</button>
+          <button class="modal-item-btn" onclick="manualPushSync()">⬆️ 지금 클라우드로 올리기</button>
+          <button class="modal-item-btn" onclick="manualPullSync()">⬇️ 클라우드에서 지금 가져오기</button>
+          <button class="modal-item-btn danger" onclick="clearSyncConfig()">🔌 동기화 연결 해제</button>
+        ` : ""}
+      </div>
+      <div class="modal-actions"><button onclick="closeModal()">닫기</button></div>
+    `);
+  }
+
+  async function connectSyncRoom() {
+    const room = (document.getElementById("syncRoomInput")?.value || "").trim();
+    if (!room) { showToast("방 코드를 입력해 주세요."); return; }
+    localStorage.setItem("ft_sync_db_url", DEFAULT_SYNC_DB_URL);
+    localStorage.setItem("ft_sync_room", room);
+    localStorage.setItem("ft_sync_enabled", "1");
+    closeModal();
+    showToast("☁️ 클라우드 연결 중...");
+    try {
+      const pulled = await pullSessionsFromCloud(true);
+      if (!pulled) await pushSessionsToCloud();
+      showToast(pulled ? "✅ 기존 클라우드 대화를 불러왔습니다!" : "✅ 동기화 연결 완료 (현재 대화 업로드됨)");
+    } catch (err) {
+      showToast(`동기화 연결 실패: ${err.message}`);
+    }
+  }
+
+  async function toggleSyncEnabled() {
+    const next = !isRealtimeSyncEnabled();
+    localStorage.setItem("ft_sync_enabled", next ? "1" : "0");
+    if (next) {
+      try { await pullSessionsFromCloud(true); } catch {}
+    }
+    openSyncModal();
+    showToast(next ? "동기화를 켰습니다." : "동기화를 일시 중지했습니다.");
+  }
+
+  async function manualPushSync() {
+    try {
+      await pushSessionsToCloud();
+      showToast("⬆️ 클라우드에 업로드했습니다.");
+    } catch (err) {
+      showToast(`업로드 실패: ${err.message}`);
+    }
+  }
+
+  async function manualPullSync() {
+    try {
+      const ok = await pullSessionsFromCloud(true);
+      closeModal();
+      showToast(ok ? "⬇️ 클라우드에서 최신 대화를 가져왔습니다." : "클라우드에 저장된 대화가 없습니다.");
+    } catch (err) {
+      showToast(`가져오기 실패: ${err.message}`);
+    }
+  }
+
+  function clearSyncConfig() {
+    localStorage.removeItem("ft_sync_enabled");
+    localStorage.removeItem("ft_sync_room");
+    localStorage.removeItem("ft_sync_ver");
+    lastSyncVersion = 0;
+    closeModal();
+    showToast("동기화 설정을 해제했습니다.");
+  }
+
+  function openMenuModal() {
+    const syncTag = isRealtimeSyncConfigured() ? (isRealtimeSyncEnabled() ? "🟢" : "⏸️") : "미설정";
+    const prefLabel = preferredModelIndex >= 0 ? MODEL_POOL[preferredModelIndex].short : "자동";
+
+    const sessBtns = sessions.map((s, idx) => {
+      const isCur = currentSession && s.Id === currentSession.Id;
+      const preview = (s.History && s.History.length > 0 ? s.LastMyText : "대화 없음").replace(/\n/g, " ").slice(0, 14);
+      return `<button class="modal-item-btn ${isCur ? "active" : ""}" onclick="switchSession(${idx})">
+        <span>${isCur ? "⭐ " : ""}${idx + 1}. [${escapeHtml(s.Relationship)}] ${escapeHtml(preview)}</span>
+        <small style="opacity:0.7">${escapeHtml(s.TargetLanguage || "베트남어")}</small>
+      </button>`;
+    }).join("");
+
+    openModal(`
+      <h3>☰ 번역 관리 메뉴 <small style="font-size:11px; color:var(--text-muted)">v${APP_VERSION}</small></h3>
+      <div class="modal-list">
+        <button class="modal-item-btn" onclick="openNewSessionModal()">➕ 새로운 대화방 시작</button>
+        <button class="modal-item-btn" onclick="promptEditRelationship()">✏️ 현재 대화방 관계 수정</button>
+        <button class="modal-item-btn" onclick="openHistoryModal()">📜 현재 대화방 기록 보기 (${(currentSession.History || []).length})</button>
+        <button class="modal-item-btn" onclick="openModelModal()">⚡ AI 모델 선택 · 속도 측정 (${prefLabel})</button>
+        <button class="modal-item-btn" onclick="openSyncModal()">🔗 클라우드 동기화 (${syncTag})</button>
+        <button class="modal-item-btn danger" onclick="deleteCurrentSession()">🗑️ 현재 대화방 삭제</button>
+      </div>
+      ${sessions.length > 0 ? `<div class="pop-title" style="margin-top:4px;">저장된 대화방 (${sessions.length})</div><div class="modal-list">${sessBtns}</div>` : ""}
+      <div class="modal-actions"><button onclick="closeModal()">닫기</button></div>
+    `);
+  }
+
+  function switchSession(idx) {
+    if (idx < 0 || idx >= sessions.length) return;
+    currentSession = sessions[idx];
+    restoreChatTurnsFromHistoryIfNeeded(currentSession);
+    lastRawKoreanInput = "";
+    applySessionToUI();
+    saveSessionsToDisk();
+    closeModal();
+    showToast(`[${currentSession.Relationship}] 대화방으로 전환했습니다.`);
+  }
+
+  function deleteCurrentSession() {
+    if (!currentSession || currentSession.Relationship.includes("새로운 관계를")) {
+      showToast("삭제할 대화방이 없습니다.");
+      return;
+    }
+    if (!confirm(`[${currentSession.Relationship}] 대화방을 삭제할까요?`)) return;
+    sessions = sessions.filter(s => s.Id !== currentSession.Id);
+    currentSession = sessions.length > 0 ? sessions[0] : createDefaultSession();
+    restoreChatTurnsFromHistoryIfNeeded(currentSession);
+    lastRawKoreanInput = "";
+    applySessionToUI();
+    saveSessionsToDisk();
+    closeModal();
+    showToast("대화방을 삭제했습니다.");
+  }
+
+  /* ================= 초기화 ================= */
+  function onAppReady() {
+    applyThemeAndFont();
+    setSeatingLayout(seatingLayout);
+    loadSessionsFromDisk();
+    syncOnAppearOrResume(true);
+    checkServerInitStatus();
+  }
+
+  applyThemeAndFont();
+  setSeatingLayout(seatingLayout);
+  const savedPass = localStorage.getItem("ft_pass") || "";
+  if (savedPass) {
+    if (!tryUnlock(savedPass)) localStorage.removeItem("ft_pass");
+  }
+</script>
+</body>
+</html>
