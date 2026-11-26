@@ -248,6 +248,21 @@
     }
     .app-info-row { display: flex; justify-content: space-between; gap: 8px; }
     .app-info-row strong { color: var(--text); text-align: right; }
+    .console-link-row { display: flex; gap: 6px; margin-top: 6px; }
+    .console-link-btn {
+      flex: 1;
+      padding: 8px 6px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      font-size: 11.5px;
+      font-weight: bold;
+      cursor: pointer;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .console-link-btn:active { transform: scale(0.96); }
     .stats-actions { display: flex; gap: 8px; margin-top: 2px; }
     .stats-actions button {
       flex: 1;
@@ -562,6 +577,10 @@
       border-radius: 18px;
       font-size: 14px;
     }
+    #photoModal #photoDownloadBtn {
+      background: #2e323c;
+      border: 1px solid rgba(255,255,255,0.22);
+    }
 
     #videoModal {
       position: fixed;
@@ -642,9 +661,8 @@
       font-size: 12.5px;
       white-space: nowrap;
     }
-    #videoFullscreenBtn, #videoRotateBtn { background: #2e323c; border: 1px solid rgba(255,255,255,0.22); }
+    #videoFullscreenBtn, #videoRotateBtn, #videoDownloadBtn { background: #2e323c; border: 1px solid rgba(255,255,255,0.22); }
     #videoFullscreenBtn.active, #videoRotateBtn.active { background: #0078ff; border-color: #64b5f6; }
-    #videoDownloadBtn { background: #0078ff; }
     #videoCloseBtn { background: #555; }
 
     #videoRecordModal {
@@ -1208,6 +1226,15 @@
     <div id="modelStatsList" class="stats-list"></div>
     <div id="modelStatsOtherTitle" class="stats-section-title">ℹ️ 앱 및 저장 상태</div>
     <div id="appInfoBox" class="app-info-box"></div>
+    <div id="koUsageSection" class="hidden">
+      <div class="stats-section-title" style="margin-bottom:6px;">📈 서버 사용량 추정 및 콘솔 (한국어 전용)</div>
+      <div id="koUsageBox" class="app-info-box"></div>
+      <div class="console-link-row">
+        <button class="console-link-btn" onclick="openServiceConsole('firebase')">🔥 Firebase</button>
+        <button class="console-link-btn" onclick="openServiceConsole('aistudio')">✨ AI Studio</button>
+        <button class="console-link-btn" onclick="openServiceConsole('groq')">⚡ Groq</button>
+      </div>
+    </div>
     <div class="stats-actions">
       <button id="modelStatsResetBtn" onclick="resetModelStats()">🔄 순위 초기화</button>
       <button id="modelStatsCloseBtn" onclick="closeModelStatsModal()">닫기</button>
@@ -1427,7 +1454,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 65;
+  const APP_VERSION = 66;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -1573,6 +1600,8 @@
       photoLoading: "사진 불러오는 중...",
       photoExpired: "오래된 사진입니다",
       photoDownload: "💾 저장",
+      confirmSavePhoto: "이 사진을 휴대폰에 저장할까요?",
+      confirmSaveVideo: "이 동영상을 휴대폰에 저장할까요?",
       photoClose: "닫기",
       photoConfirmSend: "📤 보내기",
       photoConfirmCancel: "❌ 취소",
@@ -1695,6 +1724,8 @@
       photoLoading: "Đang tải ảnh...",
       photoExpired: "Ảnh đã cũ",
       photoDownload: "💾 Lưu",
+      confirmSavePhoto: "Lưu ảnh này vào điện thoại?",
+      confirmSaveVideo: "Lưu video này vào điện thoại?",
       photoClose: "Đóng",
       photoConfirmSend: "📤 Gửi ảnh",
       photoConfirmCancel: "❌ Hủy",
@@ -2125,6 +2156,7 @@
           body: JSON.stringify({ data, mime })
         }, 12000);
         if (res.ok) {
+          trackFirebaseTraffic(data.length + 64);
           await markAudioReady(ts);
           return true;
         }
@@ -2436,7 +2468,10 @@
         });
         clearTimeout(timer);
         activeVideoAbortCtrl = null;
-        if (res.ok) return true;
+        if (res.ok) {
+          trackFirebaseTraffic(b64Data.length + 64);
+          return true;
+        }
       } catch (err) {
         clearTimeout(timer);
         activeVideoAbortCtrl = null;
@@ -4148,6 +4183,7 @@ ${getHonorificRule(msgLang)}
       if (!res.ok) throw new Error();
       const obj = await res.json();
       if (obj && obj.dataUrl) {
+        trackFirebaseTraffic(obj.dataUrl.length + 32);
         photoCache[ts] = obj.dataUrl;
         idbPut("photos", { ts, dataUrl: obj.dataUrl });
         attachSrc(obj.dataUrl);
@@ -4284,6 +4320,7 @@ ${getHonorificRule(msgLang)}
 
   function downloadCurrentPhoto() {
     if (!currentModalPhotoDataUrl) return;
+    if (!confirm(t().confirmSavePhoto)) return;
     const a = document.createElement("a");
     a.href = currentModalPhotoDataUrl;
     a.download = `photo_${currentModalPhotoTs || Date.now()}.jpg`;
@@ -4638,6 +4675,7 @@ ${getHonorificRule(msgLang)}
           await markVideoFailedOrExpired(msg.ts);
           return;
         }
+        trackFirebaseTraffic((cached.data || "").length + 64);
         videoCache[msg.ts] = cached;
         idbPut("videos", { ts: msg.ts, data: cached.data, mime: cached.mime });
       }
@@ -4726,6 +4764,7 @@ ${getHonorificRule(msgLang)}
 
   function downloadCurrentVideo() {
     if (!currentVideoObjectUrl) return;
+    if (!confirm(t().confirmSaveVideo)) return;
     const ext = currentModalVideoMime.includes("webm") ? "webm" : "mp4";
     const a = document.createElement("a");
     a.href = currentVideoObjectUrl;
@@ -5727,6 +5766,11 @@ ${getHonorificRule(myRole)}
         if (m.videoThumb) {
           const thumbImg = document.createElement("img");
           thumbImg.className = "msg-video-thumb";
+          const shouldScrollAfterThumb = allowPhotoAutoScroll &&
+            ((subtitlesEl.scrollHeight - subtitlesEl.scrollTop - subtitlesEl.clientHeight) < 320);
+          thumbImg.onload = () => {
+            if (shouldScrollAfterThumb) scrollToBottom(false);
+          };
           thumbImg.src = m.videoThumb;
           videoWrap.appendChild(thumbImg);
         }
@@ -5888,6 +5932,7 @@ ${getHonorificRule(myRole)}
       subtitlesEl.scrollTop = prevScrollTop;
     } else {
       scrollToBottom(false);
+      requestAnimationFrame(() => scrollToBottom(false));
     }
 
     if (latest && latest.ts && latest.ts > lastOverlayMsgTs) {
@@ -6005,6 +6050,7 @@ ${getHonorificRule(myRole)}
           }
           return;
         }
+        trackFirebaseTraffic((cached.data || "").length + 64);
         audioCache[targetTs] = cached;
         idbPut("audios", { ts: targetTs, data: cached.data, mime: cached.mime });
       }
@@ -7200,6 +7246,112 @@ ${getHonorificRule(myRole)}
 
   const MODEL_LIST = [MODEL_35_LITE, MODEL_31_LITE];
   const MODEL_STATS_KEY = "wt_model_stats_v2";
+  const USAGE_STATS_KEY = "wt_usage_stats_v1";
+
+  function getCurrentMonthKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function getCurrentDayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  function loadUsageStats() {
+    const curMonth = getCurrentMonthKey();
+    const curDay = getCurrentDayKey();
+    const base = { monthKey: curMonth, trafficBytes: 0, dayKey: curDay, geminiCalls: 0, groqCalls: 0 };
+    try {
+      const raw = JSON.parse(localStorage.getItem(USAGE_STATS_KEY) || "null");
+      if (raw && typeof raw === "object") {
+        if (raw.monthKey === curMonth) {
+          base.trafficBytes = Number(raw.trafficBytes || 0);
+        }
+        if (raw.dayKey === curDay) {
+          base.geminiCalls = Number(raw.geminiCalls || 0);
+          base.groqCalls = Number(raw.groqCalls || 0);
+        }
+      }
+    } catch {}
+    return base;
+  }
+
+  let usageStats = loadUsageStats();
+
+  function saveUsageStats() {
+    try {
+      localStorage.setItem(USAGE_STATS_KEY, JSON.stringify(usageStats));
+    } catch {}
+  }
+
+  function trackFirebaseTraffic(bytes) {
+    const n = Number(bytes || 0);
+    if (n <= 0) return;
+    const curMonth = getCurrentMonthKey();
+    if (usageStats.monthKey !== curMonth) {
+      usageStats.monthKey = curMonth;
+      usageStats.trafficBytes = 0;
+    }
+    usageStats.trafficBytes += n;
+    saveUsageStats();
+  }
+
+  function trackDailyApiCall(provider) {
+    const curDay = getCurrentDayKey();
+    if (usageStats.dayKey !== curDay) {
+      usageStats.dayKey = curDay;
+      usageStats.geminiCalls = 0;
+      usageStats.groqCalls = 0;
+    }
+    if (provider === "gemini") usageStats.geminiCalls++;
+    else if (provider === "groq") usageStats.groqCalls++;
+    saveUsageStats();
+  }
+
+  function formatBytesHuman(bytes) {
+    const b = Math.max(0, Number(bytes || 0));
+    if (b >= 1024 * 1024 * 1024) return `${(b / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    if (b >= 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+    if (b >= 1024) return `${Math.round(b / 1024)} KB`;
+    return `${b} B`;
+  }
+
+  function estimateCurrentDbStorageBytes() {
+    const msgs = roomState.messages || [];
+    let total = 0;
+    try {
+      total += JSON.stringify(msgs).length;
+    } catch {
+      total += msgs.length * 320;
+    }
+    for (const m of msgs) {
+      if (!m) continue;
+      if (m.hasAudio || m.audioData) {
+        const c = audioCache[m.ts];
+        total += (c && c.data) ? c.data.length : 42000;
+      }
+      if (m.hasPhoto) {
+        const p = photoCache[m.ts];
+        total += p ? p.length : 95000;
+      }
+      if (m.hasVideo && !isVideoExpiredMsg(m)) {
+        const v = videoCache[m.ts];
+        total += (v && v.data) ? v.data.length : 2800000;
+      }
+    }
+    return total;
+  }
+
+  function openServiceConsole(target) {
+    const urls = {
+      firebase: "https://console.firebase.google.com/project/my-translator-402a8/database/my-translator-402a8-default-rtdb/usage",
+      aistudio: "https://aistudio.google.com/usage",
+      groq: "https://console.groq.com/dashboard/metrics"
+    };
+    const u = urls[target];
+    if (u) window.open(u, "_blank", "noopener");
+  }
 
   function getGroqKey() {
     if (!apiKey) return "";
@@ -7314,6 +7466,7 @@ ${getHonorificRule(myRole)}
   }
 
   function recordGroqResult(success, latencyMs, errLabel = "", forceCooldown = false) {
+    trackDailyApiCall("groq");
     if (!modelStats.groq) modelStats.groq = createEmptyGroqStats();
     const st = modelStats.groq;
     const now = Date.now();
@@ -7475,6 +7628,7 @@ ${getHonorificRule(myRole)}
   }
 
   function recordGroqTranslateResult(success, latencyMs, errLabel = "", forceCooldown = false) {
+    trackDailyApiCall("groq");
     if (!modelStats.groqTranslate) modelStats.groqTranslate = createEmptyGroqStats();
     const st = modelStats.groqTranslate;
     const now = Date.now();
@@ -7597,6 +7751,7 @@ ${getHonorificRule(myRole)}
   }
 
   function recordModelResult(model, success, latencyMs, errLabel = "") {
+    trackDailyApiCall("gemini");
     if (!modelStats.models[model]) return;
     const st = modelStats.models[model];
     const now = Date.now();
@@ -7744,6 +7899,37 @@ ${getHonorificRule(myRole)}
       <div class="app-info-row"><span>${text.infoVideos}</span><strong>${videoCount} / ${MAX_VIDEO_MSGS}</strong></div>
       <div class="app-info-row"><span>${text.infoCodec}</span><strong>${codecStr}</strong></div>
     `;
+
+    const koSecEl = document.getElementById("koUsageSection");
+    const koBoxEl = document.getElementById("koUsageBox");
+    if (koSecEl && koBoxEl) {
+      if (myRole === "ko") {
+        koSecEl.classList.remove("hidden");
+        const estDbBytes = estimateCurrentDbStorageBytes();
+        const dbLimitBytes = 1024 * 1024 * 1024;
+        const dbPct = ((estDbBytes / dbLimitBytes) * 100).toFixed(1);
+
+        const curMonth = getCurrentMonthKey();
+        if (usageStats.monthKey !== curMonth) {
+          usageStats.monthKey = curMonth;
+          usageStats.trafficBytes = 0;
+        }
+        const monthLimitBytes = 10 * 1024 * 1024 * 1024;
+        const monthPct = ((usageStats.trafficBytes / monthLimitBytes) * 100).toFixed(1);
+
+        const curDay = getCurrentDayKey();
+        const gemToday = usageStats.dayKey === curDay ? (usageStats.geminiCalls || 0) : 0;
+        const groqToday = usageStats.dayKey === curDay ? (usageStats.groqCalls || 0) : 0;
+
+        koBoxEl.innerHTML = `
+          <div class="app-info-row"><span>DB 저장 추정 (한도 1GB)</span><strong>약 ${formatBytesHuman(estDbBytes)} (${dbPct}%)</strong></div>
+          <div class="app-info-row"><span>이번 달 트래픽 (한도 10GB)</span><strong>약 ${formatBytesHuman(usageStats.trafficBytes)} (${monthPct}%)</strong></div>
+          <div class="app-info-row"><span>오늘 AI 호출 (현재 기기)</span><strong>Gemini ${gemToday}회 · Groq ${groqToday}회</strong></div>
+        `;
+      } else {
+        koSecEl.classList.add("hidden");
+      }
+    }
   }
 
   function openModelStatsModal() {
