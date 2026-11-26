@@ -1162,7 +1162,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 62;
+  const APP_VERSION = 63;
   const LIVE_MAX_CHUNK_MS = 10000;
   const LIVE_MIN_SPEECH_MS = 450;
   const LIVE_ONSET_MS = 140;
@@ -1191,7 +1191,6 @@
   const SUBTITLE_DISPLAY_MS = 7000;
   const POLL_FAST_MS = 900;
   const POLL_IDLE_MS = 4000;
-  const VOICE_BOOST_GAIN = 1.8;
   const SILENT_WAV_DATA_URL = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
 
   const ICE_CONFIG = {
@@ -1519,9 +1518,7 @@
     }
   });
 
-  /* ================= 오디오 포커스 & 볼륨 증폭 ================= */
-
-  let playbackAudioCtx = null;
+  /* ================= 오디오 포커스 ================= */
 
   function setMediaSessionState(state, title = "Anh & Em") {
     try {
@@ -1875,6 +1872,8 @@
   let speechInterimText = "";
 
   let currentAudioEl = null;
+  let currentAudioObjectUrl = null;
+  let audioSafetyTimer = null;
   let currentPlayingTs = null;
   const audioCache = {};
   const audioDurationCache = {};
@@ -4635,10 +4634,55 @@ ${getHonorificRule(myRole)}
     btn.innerHTML = buildPlayBtnHTML(isPlaying, dur);
   }
 
+  function base64ToBlobUrl(b64Data, mimeType) {
+    try {
+      const bin = atob(b64Data);
+      const len = bin.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = bin.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: mimeType || "audio/mp4" });
+      return URL.createObjectURL(blob);
+    } catch {
+      return `data:${mimeType || "audio/mp4"};base64,${b64Data}`;
+    }
+  }
+
+  function scheduleAudioSafetyTimeout(targetTs, sec) {
+    if (audioSafetyTimer) {
+      clearTimeout(audioSafetyTimer);
+      audioSafetyTimer = null;
+    }
+    const maxWaitMs = sec > 0 ? Math.round((sec + 2.5) * 1000) : 65000;
+    audioSafetyTimer = setTimeout(() => {
+      if (currentPlayingTs === targetTs) {
+        stopCurrentAudio();
+      }
+    }, maxWaitMs);
+  }
+
   function stopCurrentAudio() {
+    if (audioSafetyTimer) {
+      clearTimeout(audioSafetyTimer);
+      audioSafetyTimer = null;
+    }
     if (currentAudioEl) {
-      currentAudioEl.pause();
+      currentAudioEl.onloadedmetadata = null;
+      currentAudioEl.onended = null;
+      currentAudioEl.onerror = null;
+      try {
+        currentAudioEl.pause();
+        currentAudioEl.removeAttribute("src");
+        currentAudioEl.load();
+      } catch {}
       currentAudioEl = null;
+    }
+    if (currentAudioObjectUrl) {
+      if (currentAudioObjectUrl.startsWith("blob:")) {
+        try { URL.revokeObjectURL(currentAudioObjectUrl); } catch {}
+      }
+      currentAudioObjectUrl = null;
     }
     if (currentPlayingTs !== null) {
       const prevTs = currentPlayingTs;
@@ -4694,44 +4738,40 @@ ${getHonorificRule(myRole)}
 
       if (currentPlayingTs !== targetTs) return;
 
-      const audio = new Audio(`data:${cached.mime};base64,${cached.data}`);
+      const mediaUrl = base64ToBlobUrl(cached.data, cached.mime);
+      currentAudioObjectUrl = mediaUrl;
+
+      const audio = new Audio(mediaUrl);
+      audio.preload = "auto";
       audio.volume = 1.0;
       currentAudioEl = audio;
-
-      try {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (AudioContextClass) {
-          if (!playbackAudioCtx || playbackAudioCtx.state === "closed") {
-            playbackAudioCtx = new AudioContextClass();
-          }
-          if (playbackAudioCtx.state === "suspended") {
-            await playbackAudioCtx.resume();
-          }
-          const source = playbackAudioCtx.createMediaElementSource(audio);
-          const gainNode = playbackAudioCtx.createGain();
-          gainNode.gain.value = VOICE_BOOST_GAIN;
-          source.connect(gainNode);
-          gainNode.connect(playbackAudioCtx.destination);
-        }
-      } catch {}
 
       const knownDur = msg.audioDuration || audioDurationCache[targetTs] || 0;
       updatePlayButtonVisual(targetTs, true, knownDur);
       setMediaSessionState("playing", "Voice Message");
+      scheduleAudioSafetyTimeout(targetTs, knownDur);
 
       audio.onloadedmetadata = () => {
         if (isFinite(audio.duration) && audio.duration > 0) {
           const sec = Math.max(1, Math.round(audio.duration));
           audioDurationCache[targetTs] = sec;
-          updatePlayButtonVisual(targetTs, currentPlayingTs === targetTs, sec);
+          if (currentPlayingTs === targetTs) {
+            updatePlayButtonVisual(targetTs, true, sec);
+            scheduleAudioSafetyTimeout(targetTs, sec);
+          }
         }
       };
 
-      audio.onended = () => stopCurrentAudio();
-      audio.onerror = () => stopCurrentAudio();
-      audio.play().catch(() => stopCurrentAudio());
+      audio.onended = () => {
+        if (currentPlayingTs === targetTs) stopCurrentAudio();
+      };
+      audio.onerror = () => {
+        if (currentPlayingTs === targetTs) stopCurrentAudio();
+      };
+
+      await audio.play();
     } catch {
-      stopCurrentAudio();
+      if (currentPlayingTs === targetTs) stopCurrentAudio();
     }
   }
 
@@ -6582,9 +6622,6 @@ ${getHonorificRule(myRole)}
     }
 
     stopCurrentAudio();
-    if (playbackAudioCtx && playbackAudioCtx.state === "running") {
-      playbackAudioCtx.suspend().catch(() => {});
-    }
     setMediaSessionState("playing", "Recording");
 
     // Pre-create & resume AudioContext inside direct user gesture before await getUserMedia
