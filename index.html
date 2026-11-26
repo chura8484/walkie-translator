@@ -1470,7 +1470,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 72;
+  const APP_VERSION = 73;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -3381,58 +3381,80 @@
     off.width = pxSize;
     off.height = pxSize;
     const ctx = off.getContext("2d");
+
+    const pcx = pxSize / 2;
+    const pcy = pxSize / 2;
+    const pDialR = (pxSize * 0.445) * 0.912;
+
+    // 1. 픽셀 단위(ImageData) 실사 오팔린 실버-아이보리 다이얼 + 미세 방사형 브러싱 + 돔형 곡면 음영
+    const imgData = ctx.createImageData(pxSize, pxSize);
+    const data = imgData.data;
+    const r2Max = (pDialR + 2) * (pDialR + 2);
+    const invR = 1 / pDialR;
+
+    // 결정론적 고속 해시 노이즈 (매 프레임 동일, 실버 도금 다이얼 특유의 미세 모래알 입자감)
+    for (let y = 0; y < pxSize; y++) {
+      const dy = y - pcy;
+      const dy2 = dy * dy;
+      for (let x = 0; x < pxSize; x++) {
+        const dx = x - pcx;
+        const d2 = dx * dx + dy2;
+        if (d2 > r2Max) continue;
+
+        const dist = Math.sqrt(d2) * invR; // 0(중심) ~ 1(가장자리)
+        const ang = Math.atan2(dy, dx);
+
+        // 돔형(Bombe) 실버 다이얼 곡면 명암: 중심부는 부드럽게 볼록하고, 외곽 0.82 이후 자연스럽게 휘어지며 어두워짐
+        const dome = dist < 0.80
+          ? 1.0 - 0.045 * (dist * dist)
+          : 0.971 - 0.21 * Math.pow((dist - 0.80) / 0.20, 1.85);
+
+        // 아주 미세한 방사형 실버 브러싱 결 (각도 기반 고주파 파형)
+        const brush = Math.sin(ang * 180 + dist * 6) * 0.008 + Math.cos(ang * 320) * 0.005;
+
+        // 따뜻한 은백색 오팔린 톤 (순백/차가운 회색 대신 실물 IWC 포르토피노의 아이보리 실버)
+        // 좌상단에서 우하단으로 아주 미세한 자연광 그라데이션
+        const dirLight = (-dx * invR * 0.025) + (-dy * invR * 0.032);
+
+        // 미세 모래알(오팔린 매트 실버) 입자 노이즈
+        let h = (x * 374761393 + y * 668265263) ^ 0x5bf03635;
+        h = (h ^ (h >> 13)) * 1274126177;
+        const grain = (((h ^ (h >> 16)) & 255) / 255 - 0.5) * 6.5;
+
+        const lum = Math.max(0.65, Math.min(1.04, dome + brush + dirLight));
+        const idx = (y * pxSize + x) * 4;
+        data[idx]     = Math.max(0, Math.min(255, Math.round(244 * lum + grain)));
+        data[idx + 1] = Math.max(0, Math.min(255, Math.round(242 * lum + grain)));
+        data[idx + 2] = Math.max(0, Math.min(255, Math.round(237 * lum + grain)));
+        data[idx + 3] = 255;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    ctx.save();
     ctx.scale(dpr, dpr);
 
     const cx = cssSize / 2;
     const cy = cssSize / 2;
     const dialR = (cssSize * 0.445) * 0.912;
 
-    // 1. 실버 화이트 베이스 + 미세 모래알 그레인 질감
+    // 2. 외곽 60초 분 눈금 & 5초 간격 숫자 (잉크 인쇄 느낌의 딥 차콜)
+    const trackOuter = dialR * 0.952;
     ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, dialR, 0, Math.PI * 2);
-    ctx.clip();
-
-    const dialBase = ctx.createRadialGradient(cx, cy, dialR * 0.05, cx, cy, dialR);
-    dialBase.addColorStop(0.00, "#fbfbfc");
-    dialBase.addColorStop(0.62, "#f0f1f4");
-    dialBase.addColorStop(0.90, "#e1e3e8");
-    dialBase.addColorStop(1.00, "#cfd2d9");
-    ctx.fillStyle = dialBase;
-    ctx.fillRect(cx - dialR, cy - dialR, dialR * 2, dialR * 2);
-
-    // 실버 도금 다이얼 특유의 미세 매트 그레인(모래알 질감)
-    let seed = 1337;
-    const rand = () => {
-      seed = (seed * 16807) % 2147483647;
-      return (seed - 1) / 2147483646;
-    };
-    for (let i = 0; i < 3400; i++) {
-      const gx = cx + (rand() * 2 - 1) * dialR;
-      const gy = cy + (rand() * 2 - 1) * dialR;
-      const isLight = rand() > 0.48;
-      ctx.fillStyle = isLight ? "rgba(255,255,255,0.25)" : "rgba(95,104,118,0.068)";
-      ctx.fillRect(gx, gy, 1, 1);
-    }
-    ctx.restore();
-
-    // 2. 외곽 60초 분 눈금 & 5초 간격 숫자 (5, 10, 15... 60)
-    const trackOuter = dialR * 0.955;
-    ctx.save();
-    ctx.fillStyle = "#202632";
+    ctx.fillStyle = "#1d222b";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = `600 ${Math.max(8, Math.round(dialR * 0.044))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.font = `600 ${Math.max(8, Math.round(dialR * 0.043))}px -apple-system, BlinkMacSystemFont, sans-serif`;
 
     for (let i = 0; i < 60; i++) {
       const ang = (i * 6) * Math.PI / 180;
       const isFive = (i % 5 === 0);
-      const tickLen = isFive ? dialR * 0.068 : dialR * 0.042;
+      const tickLen = isFive ? dialR * 0.066 : dialR * 0.040;
       ctx.beginPath();
       ctx.moveTo(cx + Math.sin(ang) * (trackOuter - tickLen), cy - Math.cos(ang) * (trackOuter - tickLen));
       ctx.lineTo(cx + Math.sin(ang) * trackOuter, cy - Math.cos(ang) * trackOuter);
-      ctx.strokeStyle = isFive ? "#141923" : "rgba(28, 34, 46, 0.65)";
-      ctx.lineWidth = isFive ? 1.55 : 0.9;
+      ctx.strokeStyle = isFive ? "#141820" : "rgba(26, 30, 38, 0.72)";
+      ctx.lineWidth = isFive ? 1.45 : 0.85;
       ctx.stroke();
 
       if (isFive) {
@@ -3447,54 +3469,59 @@
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillStyle = "#161b24";
+    ctx.fillStyle = "#161920";
     ctx.font = `bold ${Math.max(12, Math.round(dialR * 0.095))}px "Times New Roman", Georgia, serif`;
     ctx.fillText("IWC", cx, cy - dialR * 0.235);
 
-    ctx.fillStyle = "#2b3240";
+    ctx.fillStyle = "#262b36";
     ctx.font = `600 ${Math.max(6, Math.round(dialR * 0.032))}px -apple-system, BlinkMacSystemFont, sans-serif`;
     ctx.fillText("SCHAFFHAUSEN", cx, cy - dialR * 0.168);
 
-    ctx.fillStyle = "#2b3240";
-    ctx.font = `600 ${Math.max(6.5, Math.round(dialR * 0.036))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.fillStyle = "#262b36";
+    ctx.font = `600 ${Math.max(6.5, Math.round(dialR * 0.035))}px -apple-system, BlinkMacSystemFont, sans-serif`;
     ctx.fillText("PORTOFINO", cx + dialR * 0.29, cy - dialR * 0.015);
 
-    ctx.font = `600 ${Math.max(5.5, Math.round(dialR * 0.025))}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.font = `600 ${Math.max(5.5, Math.round(dialR * 0.024))}px -apple-system, BlinkMacSystemFont, sans-serif`;
     ctx.fillText("SWISS", cx - dialR * 0.075, cy + dialR * 0.875);
     ctx.fillText("MADE", cx + dialR * 0.075, cy + dialR * 0.875);
     ctx.restore();
 
-    // 4. 3시 방향 입체 날짜창 (베벨 프레임 + 내부 깊이 그림자 + 오늘 날짜)
-    const dateBoxW = dialR * 0.145;
-    const dateBoxH = dialR * 0.105;
+    // 4. 3시 방향 이중 단차 입체 날짜창 (실제 파인 창 + 내부 그림자 + 날짜 디스크)
+    const dateBoxW = dialR * 0.148;
+    const dateBoxH = dialR * 0.106;
     const dateBoxX = cx + dialR * 0.56 - dateBoxW / 2;
     const dateBoxY = cy - dateBoxH / 2;
 
     ctx.save();
-    ctx.fillStyle = "#b5bcc8";
-    ctx.fillRect(dateBoxX - 1.5, dateBoxY - 1.5, dateBoxW + 3, dateBoxH + 3);
-    ctx.fillStyle = "#f5f6f8";
+    // 바깥 경사면 베벨 (상단 어둡고 하단 밝은 음각 단차)
+    ctx.fillStyle = "#9da3ae";
+    ctx.fillRect(dateBoxX - 2, dateBoxY - 2, dateBoxW + 4, dateBoxH + 4);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(dateBoxX - 0.5, dateBoxY - 0.5, dateBoxW + 2.5, dateBoxH + 2.5);
+    ctx.fillStyle = "#f4f2ec";
     ctx.fillRect(dateBoxX, dateBoxY, dateBoxW, dateBoxH);
 
-    // 날짜창 안쪽 상단/좌측 깊이 그림자
-    const dShadow = ctx.createLinearGradient(dateBoxX, dateBoxY, dateBoxX + dateBoxW * 0.35, dateBoxY + dateBoxH * 0.45);
-    dShadow.addColorStop(0, "rgba(18, 24, 34, 0.32)");
-    dShadow.addColorStop(1, "rgba(18, 24, 34, 0)");
-    ctx.fillStyle = dShadow;
+    // 날짜 디스크 위로 떨어지는 깊은 상단·좌측 그림자
+    const dShadowTop = ctx.createLinearGradient(dateBoxX, dateBoxY, dateBoxX, dateBoxY + dateBoxH * 0.42);
+    dShadowTop.addColorStop(0, "rgba(18, 22, 30, 0.42)");
+    dShadowTop.addColorStop(1, "rgba(18, 22, 30, 0)");
+    ctx.fillStyle = dShadowTop;
     ctx.fillRect(dateBoxX, dateBoxY, dateBoxW, dateBoxH);
 
-    ctx.strokeStyle = "rgba(20, 26, 36, 0.42)";
-    ctx.lineWidth = 1.1;
-    ctx.strokeRect(dateBoxX, dateBoxY, dateBoxW, dateBoxH);
+    const dShadowLeft = ctx.createLinearGradient(dateBoxX, dateBoxY, dateBoxX + dateBoxW * 0.30, dateBoxY);
+    dShadowLeft.addColorStop(0, "rgba(18, 22, 30, 0.30)");
+    dShadowLeft.addColorStop(1, "rgba(18, 22, 30, 0)");
+    ctx.fillStyle = dShadowLeft;
+    ctx.fillRect(dateBoxX, dateBoxY, dateBoxW, dateBoxH);
 
-    ctx.fillStyle = "#171c26";
+    ctx.fillStyle = "#171b22";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font = `600 ${Math.max(9, Math.round(dialR * 0.072))}px -apple-system, BlinkMacSystemFont, sans-serif`;
     ctx.fillText(String(dayNum), dateBoxX + dateBoxW / 2, cy + 0.5);
     ctx.restore();
 
-    // 5. 하단 6시 움푹 들어간 스몰 세컨즈 판 + 동심원 아쥐라주(스네일링) 미세 홈 결
+    // 5. 하단 6시 움푹 들어간 스몰 세컨즈 판 + 초정밀 동심원 스네일링(아쥐라주) 결
     const subCy = cy + dialR * 0.445;
     const subR = dialR * 0.215;
     ctx.save();
@@ -3502,36 +3529,42 @@
     ctx.arc(cx, subCy, subR, 0, Math.PI * 2);
     ctx.clip();
 
-    const subBase = ctx.createRadialGradient(cx, subCy + subR * 0.08, subR * 0.65, cx, subCy, subR);
-    subBase.addColorStop(0, "#eff0f3");
-    subBase.addColorStop(0.84, "#e3e5ea");
-    subBase.addColorStop(1, "#c7ccd5");
+    const subBase = ctx.createRadialGradient(cx, subCy + subR * 0.08, subR * 0.55, cx, subCy, subR);
+    subBase.addColorStop(0, "#eceae4");
+    subBase.addColorStop(0.82, "#dfddd6");
+    subBase.addColorStop(1, "#c2c0b9");
     ctx.fillStyle = subBase;
     ctx.fillRect(cx - subR, subCy - subR, subR * 2, subR * 2);
 
-    // 동심원 미세 홈 (스네일링/아쥐라주 패턴)
-    for (let rr = 3; rr < subR * 0.96; rr += 2.1) {
+    // 초정밀 동심원 미세 홈 (아쥐라주 패턴)
+    for (let rr = 2.5; rr < subR * 0.96; rr += 1.65) {
       ctx.beginPath();
       ctx.arc(cx, subCy, rr, 0, Math.PI * 2);
-      ctx.strokeStyle = (Math.floor(rr) % 2 === 0) ? "rgba(255,255,255,0.32)" : "rgba(65,75,92,0.085)";
-      ctx.lineWidth = 0.65;
+      ctx.strokeStyle = (Math.floor(rr * 2) % 2 === 0) ? "rgba(255,255,255,0.38)" : "rgba(55,60,70,0.095)";
+      ctx.lineWidth = 0.6;
       ctx.stroke();
     }
 
-    // 서브다이얼 안쪽 상단 경계 깊은 단차 그림자
-    const subRimShadow = ctx.createRadialGradient(cx, subCy + subR * 0.09, subR * 0.80, cx, subCy, subR * 1.02);
+    // 음각 서브다이얼 상단 경계 깊은 그림자 & 하단 미세 하이라이트
+    const subRimShadow = ctx.createRadialGradient(cx, subCy + subR * 0.11, subR * 0.78, cx, subCy, subR * 1.03);
     subRimShadow.addColorStop(0, "rgba(0,0,0,0)");
-    subRimShadow.addColorStop(1, "rgba(18, 24, 34, 0.34)");
+    subRimShadow.addColorStop(1, "rgba(18, 22, 30, 0.38)");
     ctx.fillStyle = subRimShadow;
     ctx.fillRect(cx - subR, subCy - subR, subR * 2, subR * 2);
     ctx.restore();
 
-    // 서브다이얼 외곽 링 & 60초 눈금 & 숫자
+    // 서브다이얼 외곽 링 (상단 그림자 + 하단 은빛 반사 테두리)
     ctx.save();
     ctx.beginPath();
-    ctx.arc(cx, subCy, subR, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(30, 36, 48, 0.32)";
-    ctx.lineWidth = 1;
+    ctx.arc(cx, subCy, subR, Math.PI * 0.1, Math.PI * 0.9);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(cx, subCy, subR, Math.PI * 1.1, Math.PI * 1.9);
+    ctx.strokeStyle = "rgba(30, 35, 44, 0.38)";
+    ctx.lineWidth = 1.1;
     ctx.stroke();
 
     for (let i = 0; i < 60; i++) {
@@ -3542,7 +3575,7 @@
       ctx.beginPath();
       ctx.moveTo(cx + Math.sin(a) * rIn, subCy - Math.cos(a) * rIn);
       ctx.lineTo(cx + Math.sin(a) * rOut, subCy - Math.cos(a) * rOut);
-      ctx.strokeStyle = isMajor ? "#1e2533" : "rgba(30, 37, 51, 0.48)";
+      ctx.strokeStyle = isMajor ? "#1a1f29" : "rgba(28, 33, 44, 0.50)";
       ctx.lineWidth = isMajor ? 1.2 : 0.75;
       ctx.stroke();
     }
@@ -3561,7 +3594,7 @@
       const a = (item.deg) * Math.PI / 180;
       const lx = cx + Math.sin(a) * (subR * 0.56);
       const ly = subCy - Math.cos(a) * (subR * 0.56);
-      ctx.fillStyle = item.hi ? "#c82323" : "#1e2533";
+      ctx.fillStyle = item.hi ? "#b81d1d" : "#1c222d";
       ctx.fillText(item.text, lx, ly);
     });
     ctx.restore();
@@ -3581,13 +3614,13 @@
 
     ctx.beginPath();
     ctx.arc(batCx, batCy, batR * 0.85, ((startDeg - 90) * Math.PI) / 180, ((redStartDeg - 90) * Math.PI) / 180);
-    ctx.strokeStyle = "#262d3a";
+    ctx.strokeStyle = "#222732";
     ctx.lineWidth = Math.max(1.2, batR * 0.045);
     ctx.stroke();
 
     ctx.beginPath();
     ctx.arc(batCx, batCy, batR * 0.85, ((redStartDeg - 90) * Math.PI) / 180, ((endDeg - 90) * Math.PI) / 180);
-    ctx.strokeStyle = "#c82323";
+    ctx.strokeStyle = "#b81d1d";
     ctx.lineWidth = Math.max(2, batR * 0.095);
     ctx.stroke();
 
@@ -3602,18 +3635,19 @@
       ctx.beginPath();
       ctx.moveTo(batCx + Math.cos(rad) * rIn, batCy + Math.sin(rad) * rIn);
       ctx.lineTo(batCx + Math.cos(rad) * rOut, batCy + Math.sin(rad) * rOut);
-      ctx.strokeStyle = (k >= 7) ? "#c82323" : "#1f2633";
+      ctx.strokeStyle = (k >= 7) ? "#b81d1d" : "#1c222d";
       ctx.lineWidth = isMajor ? 1.3 : 0.85;
       ctx.stroke();
 
       if (batLabels[k] !== undefined) {
         const lr = batR * 1.22;
-        ctx.fillStyle = (k === 8) ? "#c82323" : "#1f2633";
+        ctx.fillStyle = (k === 8) ? "#b81d1d" : "#1c222d";
         ctx.fillText(batLabels[k], batCx + Math.cos(rad) * lr, batCy + Math.sin(rad) * lr);
       }
     }
     ctx.restore();
 
+    ctx.restore(); // dpr scale end
     return off;
   }
 
@@ -3809,11 +3843,13 @@
     const by2 = cy - Math.sin(lightAng) * outerR;
     const bezelBase = ctx.createLinearGradient(bx1, by1, bx2, by2);
     bezelBase.addColorStop(0.00, "#ffffff");
-    bezelBase.addColorStop(0.18, "#9aa3b2");
-    bezelBase.addColorStop(0.38, "#f8fafe");
-    bezelBase.addColorStop(0.58, "#67707e");
-    bezelBase.addColorStop(0.80, "#e5e9f0");
-    bezelBase.addColorStop(1.00, "#545c69");
+    bezelBase.addColorStop(0.12, "#d8dde6");
+    bezelBase.addColorStop(0.24, "#4b525e");
+    bezelBase.addColorStop(0.38, "#f5f7fb");
+    bezelBase.addColorStop(0.52, "#2f343d");
+    bezelBase.addColorStop(0.68, "#cfd5df");
+    bezelBase.addColorStop(0.84, "#ffffff");
+    bezelBase.addColorStop(1.00, "#3a404a");
     ctx.beginPath();
     ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
     ctx.fillStyle = bezelBase;
