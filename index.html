@@ -563,6 +563,231 @@
       font-size: 14px;
     }
 
+    #videoModal {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 95;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #videoModalStage {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    #videoModalPlayer {
+      width: 100%;
+      height: 100%;
+      max-width: 100vw;
+      max-height: 100dvh;
+      object-fit: contain;
+      background: #000;
+    }
+    #videoModal.force-landscape #videoModalStage {
+      width: 100dvh;
+      height: 100vw;
+      transform: rotate(90deg);
+      transform-origin: center center;
+    }
+    #videoModal.force-landscape #videoModalPlayer {
+      max-width: 100dvh;
+      max-height: 100vw;
+    }
+    #videoModalLoading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.72);
+      color: #fff;
+      font-size: 15px;
+      font-weight: bold;
+      z-index: 2;
+    }
+    #videoModal .video-modal-actions {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 7px;
+      padding: 6px 10px;
+      border-radius: 24px;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(6px);
+      z-index: 98;
+      margin-top: 0;
+      max-width: 96vw;
+    }
+    #videoModal .video-modal-actions button {
+      padding: 8px 12px;
+      border-radius: 18px;
+      font-size: 12.5px;
+      white-space: nowrap;
+    }
+    #videoFullscreenBtn, #videoRotateBtn { background: #2e323c; border: 1px solid rgba(255,255,255,0.22); }
+    #videoFullscreenBtn.active, #videoRotateBtn.active { background: #0078ff; border-color: #64b5f6; }
+    #videoDownloadBtn { background: #0078ff; }
+    #videoCloseBtn { background: #555; }
+
+    #videoRecordModal {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 96;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+    #videoRecPreview {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+    }
+    .video-rec-top {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 12px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.68), transparent);
+    }
+    .video-rec-timer {
+      padding: 6px 13px;
+      border-radius: 16px;
+      background: rgba(0,0,0,0.65);
+      color: #fff;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+    .video-rec-timer.recording {
+      background: rgba(211, 47, 47, 0.9);
+    }
+    .video-rec-top-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.3);
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    .video-rec-bottom {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+      background: linear-gradient(to top, rgba(0,0,0,0.78), transparent);
+    }
+    .video-rec-hint {
+      color: rgba(255,255,255,0.88);
+      font-size: 12.5px;
+      font-weight: bold;
+    }
+    .video-rec-shutter {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: 4px solid #fff;
+      background: rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .video-rec-shutter-inner {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: #e53935;
+      transition: all 0.16s ease;
+    }
+    .video-rec-shutter.recording .video-rec-shutter-inner {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+    }
+
+    .msg-video-wrap {
+      position: relative;
+      width: 210px;
+      min-height: 125px;
+      max-height: 230px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #111;
+      margin: 2px 0 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .msg-video-wrap.disabled { cursor: default; }
+    .msg-video-thumb {
+      width: 100%;
+      max-height: 230px;
+      object-fit: cover;
+      display: block;
+    }
+    .msg-video-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.36);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px;
+      text-align: center;
+    }
+    .msg-video-play-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.68);
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      color: #fff;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-left: 3px;
+    }
+    .msg-video-badge {
+      padding: 3px 9px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.72);
+      color: #fff;
+      font-size: 11.5px;
+      font-weight: bold;
+    }
+    .msg-video-badge.paused {
+      background: rgba(239, 108, 0, 0.9);
+    }
+    .msg-video-badge.working {
+      background: rgba(0, 120, 255, 0.9);
+    }
+
     #photoPreviewModal { position: fixed; inset: 0; background: rgba(0,0,0,0.94); display: flex; flex-direction: column; align-items: center; justify-content: space-between; z-index: 95; padding: 14px; gap: 10px; }
     .photo-preview-stage { flex: 1; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
     #photoPreviewCanvas { max-width: 100%; max-height: 100%; width: auto; height: auto; border-radius: 10px; touch-action: none; background: #000; display: block; }
@@ -992,6 +1217,34 @@
   </div>
 </div>
 
+<div id="videoModal" class="hidden">
+  <div id="videoModalStage">
+    <video id="videoModalPlayer" playsinline webkit-playsinline controls></video>
+    <div id="videoModalLoading" class="hidden">⏳ 동영상 불러오는 중...</div>
+  </div>
+  <div class="photo-modal-actions video-modal-actions">
+    <button id="videoFullscreenBtn" onclick="toggleVideoModalFullscreen()">⛶ 전체화면</button>
+    <button id="videoRotateBtn" onclick="toggleVideoModalRotate()">🔄 회전</button>
+    <button id="videoDownloadBtn" onclick="downloadCurrentVideo()">💾 저장</button>
+    <button id="videoCloseBtn" onclick="closeVideoModal()">닫기</button>
+  </div>
+</div>
+
+<div id="videoRecordModal" class="hidden">
+  <video id="videoRecPreview" autoplay playsinline muted></video>
+  <div class="video-rec-top">
+    <button class="video-rec-top-btn" onclick="closeVideoRecordModal()">✕</button>
+    <div id="videoRecTimerBadge" class="video-rec-timer">00:00 / 00:30</div>
+    <button class="video-rec-top-btn" onclick="flipVideoRecCamera()">🔄</button>
+  </div>
+  <div class="video-rec-bottom">
+    <div id="videoRecHintText" class="video-rec-hint">480p · 최대 30초 촬영</div>
+    <button id="videoRecShutterBtn" class="video-rec-shutter" onclick="toggleVideoRecordShutter()">
+      <div class="video-rec-shutter-inner"></div>
+    </button>
+  </div>
+</div>
+
 <div id="photoPreviewModal" class="hidden">
   <div class="photo-preview-stage">
     <canvas id="photoPreviewCanvas"></canvas>
@@ -1129,6 +1382,8 @@
   <div id="photoMenu" class="hidden">
     <button id="menuCameraBtn" onclick="openCameraInput()">📸 사진 찍기</button>
     <button id="menuGalleryBtn" onclick="openGalleryInput()">🖼️ 앨범에서 선택</button>
+    <button id="menuVideoRecBtn" onclick="openVideoRecordModal()">🎥 동영상 찍기</button>
+    <button id="menuVideoGalBtn" onclick="openVideoGalleryInput()">🎞️ 동영상 선택</button>
   </div>
 
   <label id="noTranslateBar" class="hidden">
@@ -1139,6 +1394,8 @@
   <div class="text-row">
     <input id="photoCameraInput" type="file" accept="image/*" capture="environment" class="hidden" />
     <input id="photoGalleryInput" type="file" accept="image/*" class="hidden" />
+    <input id="videoNativeCaptureInput" type="file" accept="video/*" capture="environment" class="hidden" />
+    <input id="videoGalleryInput" type="file" accept="video/*" class="hidden" />
     <button id="photoBtn" onclick="togglePhotoMenu(event)" title="사진 보내기">📷</button>
     <input id="textInput" type="text" placeholder="키보드로 직접 입력..." />
     <button id="textSendBtn" onclick="sendTextMessage()">전송</button>
@@ -1162,7 +1419,14 @@
 </footer>
 
 <script>
-  const APP_VERSION = 63;
+  const APP_VERSION = 64;
+  const MAX_VIDEO_MSGS = 30;
+  const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+  const VIDEO_RECORD_MAX_SEC = 30;
+  const VIDEO_GALLERY_MAX_BYTES = 10 * 1024 * 1024;
+  const VIDEO_GALLERY_MAX_SEC = 60;
+  const VIDEO_TARGET_HEIGHT = 480;
+  const VIDEO_TARGET_BPS = 800000;
   const LIVE_MAX_CHUNK_MS = 10000;
   const LIVE_MIN_SPEECH_MS = 450;
   const LIVE_ONSET_MS = 140;
@@ -1306,6 +1570,22 @@
       photoConfirmCancel: "❌ 취소",
       menuCamera: "📸 사진 찍기",
       menuGallery: "🖼️ 앨범에서 선택",
+      menuVideoRec: "🎥 동영상 찍기",
+      menuVideoGal: "🎞️ 동영상 선택",
+      videoLabel: "🎬 동영상",
+      videoLoading: "⏳ 동영상 불러오는 중...",
+      videoExpired: "만료된 동영상입니다",
+      videoPartnerPreparing: "⏳ 상대방 동영상 준비 중...",
+      videoPausedCall: "⏸️ 통화 종료 후 자동 전송",
+      videoTranscoding: "⚙️ 변환 중",
+      videoUploading: "☁️ 업로드 중...",
+      videoFullscreen: "⛶ 전체화면",
+      videoExitFullscreen: "⛶ 축소",
+      videoRotate: "🔄 회전",
+      videoRecHint: "480p · 최대 30초 촬영",
+      videoRecRecording: "🔴 녹화 중... 누르면 종료 및 전송",
+      infoVideos: "저장된 동영상",
+      lastErrorPrefix: "최근 오류",
       deleteConfirm: "이 메시지를 삭제할까요?",
       settingFont: "글자 크기",
       settingLang: "언어",
@@ -1411,6 +1691,22 @@
       photoConfirmCancel: "❌ Hủy",
       menuCamera: "📸 Chụp ảnh",
       menuGallery: "🖼️ Chọn từ thư viện",
+      menuVideoRec: "🎥 Quay video",
+      menuVideoGal: "🎞️ Chọn video",
+      videoLabel: "🎬 Video",
+      videoLoading: "⏳ Đang tải video...",
+      videoExpired: "Video đã hết hạn",
+      videoPartnerPreparing: "⏳ Đối phương đang gửi video...",
+      videoPausedCall: "⏸️ Tự động gửi sau cuộc gọi",
+      videoTranscoding: "⚙️ Đang nén",
+      videoUploading: "☁️ Đang tải lên...",
+      videoFullscreen: "⛶ Toàn màn hình",
+      videoExitFullscreen: "⛶ Thu nhỏ",
+      videoRotate: "🔄 Xoay",
+      videoRecHint: "480p · Quay tối đa 30 giây",
+      videoRecRecording: "🔴 Đang quay... Bấm để dừng & gửi",
+      infoVideos: "Video đã lưu",
+      lastErrorPrefix: "Lỗi gần nhất",
       deleteConfirm: "Bạn muốn xóa tin nhắn này?",
       settingFont: "Cỡ chữ",
       settingLang: "Ngôn ngữ",
@@ -1467,8 +1763,12 @@
   function hasAnyOverlayOpen() {
     const installModal = document.getElementById("installGuideModal");
     const statsModal = document.getElementById("modelStatsModal");
+    const vModal = document.getElementById("videoModal");
+    const vRecModal = document.getElementById("videoRecordModal");
     return !photoModal.classList.contains("hidden") ||
       !photoPreviewModal.classList.contains("hidden") ||
+      (vModal && !vModal.classList.contains("hidden")) ||
+      (vRecModal && !vRecModal.classList.contains("hidden")) ||
       (installModal && !installModal.classList.contains("hidden")) ||
       (statsModal && !statsModal.classList.contains("hidden")) ||
       !settingsMenu.classList.contains("hidden") ||
@@ -1499,7 +1799,13 @@
 
     const installModal = document.getElementById("installGuideModal");
     const statsModal = document.getElementById("modelStatsModal");
-    if (!photoModal.classList.contains("hidden")) {
+    const vModal = document.getElementById("videoModal");
+    const vRecModal = document.getElementById("videoRecordModal");
+    if (vModal && !vModal.classList.contains("hidden")) {
+      closeVideoModal(true);
+    } else if (vRecModal && !vRecModal.classList.contains("hidden")) {
+      closeVideoRecordModal(true);
+    } else if (!photoModal.classList.contains("hidden")) {
       closePhotoModal(true);
     } else if (!photoPreviewModal.classList.contains("hidden")) {
       cancelPendingPhoto(true);
@@ -1714,11 +2020,13 @@
     mediaDbPromise = new Promise((resolve) => {
       if (typeof indexedDB === "undefined") { resolve(null); return; }
       try {
-        const req = indexedDB.open("wt_media_cache_v1", 1);
+        const req = indexedDB.open("wt_media_cache_v1", 2);
         req.onupgradeneeded = (e) => {
           const db = e.target.result;
           if (!db.objectStoreNames.contains("photos")) db.createObjectStore("photos", { keyPath: "ts" });
           if (!db.objectStoreNames.contains("audios")) db.createObjectStore("audios", { keyPath: "ts" });
+          if (!db.objectStoreNames.contains("videos")) db.createObjectStore("videos", { keyPath: "ts" });
+          if (!db.objectStoreNames.contains("video_queue")) db.createObjectStore("video_queue", { keyPath: "ts" });
         };
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => resolve(null);
@@ -1727,6 +2035,21 @@
       }
     });
     return mediaDbPromise;
+  }
+
+  async function idbGetAll(storeName) {
+    const db = await openMediaDb();
+    if (!db) return [];
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction(storeName, "readonly");
+        const req = tx.objectStore(storeName).getAll();
+        req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+        req.onerror = () => resolve([]);
+      } catch {
+        resolve([]);
+      }
+    });
   }
 
   async function idbGet(storeName, ts) {
@@ -1811,6 +2134,398 @@
         await uploadAudioToFirebase(item.ts, item.data, item.mime);
       }
     })();
+  }
+
+  /* ================= 동영상 백그라운드 변환·업로드 (영통 중 일시정지 / 종료 후 자동 재개) ================= */
+
+  const videoCache = {};
+  const videoJobStatusMap = {}; // ts -> { state: 'paused'|'transcoding'|'uploading', progress: 0~100 }
+  let pendingVideoQueue = [];
+  let isProcessingVideoQueue = false;
+  let videoQueuePaused = false;
+  let activeVideoAbortCtrl = null;
+  let activeTranscodeCancel = null;
+
+  function isVideoExpiredMsg(m) {
+    if (!m) return false;
+    if (m.videoExpired) return true;
+    if (m.hasVideo && m.ts && (Date.now() - m.ts > VIDEO_TTL_MS)) return true;
+    return false;
+  }
+
+  function setVideoJobStatus(ts, statusObj) {
+    if (!statusObj) {
+      delete videoJobStatusMap[ts];
+    } else {
+      videoJobStatusMap[ts] = statusObj;
+    }
+    lastRenderSig = "";
+    renderMessages(true);
+  }
+
+  function pauseVideoQueueForCall() {
+    videoQueuePaused = true;
+    if (activeTranscodeCancel) {
+      try { activeTranscodeCancel(); } catch {}
+      activeTranscodeCancel = null;
+    }
+    if (activeVideoAbortCtrl) {
+      try { activeVideoAbortCtrl.abort(); } catch {}
+      activeVideoAbortCtrl = null;
+    }
+    pendingVideoQueue.forEach(job => {
+      videoJobStatusMap[job.ts] = { state: "paused", progress: 0 };
+    });
+    lastRenderSig = "";
+    renderMessages(true);
+  }
+
+  function resumeVideoQueueAfterCall() {
+    videoQueuePaused = false;
+    if (!roomPass) return;
+    processNextVideoJob();
+  }
+
+  async function restorePendingVideoQueueFromIdb() {
+    if (!roomPass) return;
+    try {
+      const items = await idbGetAll("video_queue");
+      if (!items || items.length === 0) return;
+      items.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      for (const item of items) {
+        if (!item || !item.ts || !item.blob) continue;
+        if (Date.now() - item.ts > VIDEO_TTL_MS) {
+          await idbDelete("video_queue", item.ts);
+          continue;
+        }
+        if (!pendingVideoQueue.some(q => q.ts === item.ts)) {
+          pendingVideoQueue.push({
+            ts: item.ts,
+            blob: item.blob,
+            mime: item.mime || "video/mp4",
+            durationSec: item.durationSec || 1,
+            needsTranscode: Boolean(item.needsTranscode)
+          });
+          videoJobStatusMap[item.ts] = {
+            state: callState !== "idle" ? "paused" : (item.needsTranscode ? "transcoding" : "uploading"),
+            progress: 0
+          };
+        }
+      }
+      if (pendingVideoQueue.length > 0 && callState === "idle") {
+        processNextVideoJob();
+      }
+    } catch {}
+  }
+
+  async function markVideoReady(msgTs, finalDurationSec) {
+    const idx = (roomState.messages || []).findIndex(m => m.ts === msgTs);
+    if (idx === -1) return;
+    const updated = roomState.messages.map((m, i) =>
+      i === idx ? {
+        ...m,
+        videoReady: true,
+        videoDuration: finalDurationSec || m.videoDuration || 1
+      } : m
+    );
+    roomState.messages = updated;
+    setVideoJobStatus(msgTs, null);
+
+    const syncTs = Date.now();
+    loadedMsgSyncTs = syncTs;
+    await saveMessagesToDb(updated, syncTs, { upsertMsg: updated[idx] });
+  }
+
+  async function markVideoFailedOrExpired(msgTs) {
+    setVideoJobStatus(msgTs, null);
+    const idx = (roomState.messages || []).findIndex(m => m.ts === msgTs);
+    if (idx === -1) return;
+    const updated = roomState.messages.map((m, i) =>
+      i === idx ? {
+        ...m,
+        hasVideo: false,
+        videoExpired: true,
+        videoThumb: "",
+        original: t().videoExpired,
+        translated: t().videoExpired
+      } : m
+    );
+    roomState.messages = updated;
+    lastRenderSig = "";
+    renderMessages(true);
+
+    const syncTs = Date.now();
+    loadedMsgSyncTs = syncTs;
+    await saveMessagesToDb(updated, syncTs, { upsertMsg: updated[idx] });
+  }
+
+  function pickVideoRecorderMime() {
+    if (typeof MediaRecorder === "undefined") return "";
+    const candidates = [
+      "video/webm;codecs=vp9,opus",
+      "video/webm;codecs=vp8,opus",
+      "video/webm",
+      "video/mp4"
+    ];
+    for (const c of candidates) {
+      if (MediaRecorder.isTypeSupported(c)) return c;
+    }
+    return "";
+  }
+
+  function transcodeVideoTo480p(inputBlob, maxSec, onProgress) {
+    return new Promise((resolve, reject) => {
+      const srcUrl = URL.createObjectURL(inputBlob);
+      const vid = document.createElement("video");
+      vid.src = srcUrl;
+      vid.muted = false;
+      vid.playsInline = true;
+      vid.preload = "auto";
+
+      let cancelled = false;
+      let recorder = null;
+      let progressTimer = null;
+      let audioCtxTmp = null;
+
+      const cleanup = () => {
+        if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+        try { vid.pause(); vid.removeAttribute("src"); vid.load(); } catch {}
+        try { URL.revokeObjectURL(srcUrl); } catch {}
+        if (audioCtxTmp) { audioCtxTmp.close().catch(() => {}); audioCtxTmp = null; }
+      };
+
+      activeTranscodeCancel = () => {
+        cancelled = true;
+        if (recorder && recorder.state !== "inactive") {
+          try { recorder.stop(); } catch {}
+        }
+        cleanup();
+        reject(new Error("transcode_paused"));
+      };
+
+      vid.onloadedmetadata = () => {
+        if (cancelled) return;
+        const rawDur = (isFinite(vid.duration) && vid.duration > 0) ? vid.duration : maxSec;
+        const targetDur = Math.min(rawDur, maxSec);
+        const origW = vid.videoWidth || 640;
+        const origH = vid.videoHeight || 480;
+
+        let outW = origW;
+        let outH = origH;
+        const shortSide = Math.min(origW, origH);
+        if (shortSide > VIDEO_TARGET_HEIGHT) {
+          const scale = VIDEO_TARGET_HEIGHT / shortSide;
+          outW = Math.round((origW * scale) / 2) * 2;
+          outH = Math.round((origH * scale) / 2) * 2;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = outW;
+        canvas.height = outH;
+        const ctx = canvas.getContext("2d");
+
+        if (typeof canvas.captureStream !== "function" || typeof MediaRecorder === "undefined") {
+          cleanup();
+          reject(new Error("transcode_unsupported"));
+          return;
+        }
+
+        const canvasStream = canvas.captureStream(24);
+        const combinedTracks = [...canvasStream.getVideoTracks()];
+
+        try {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) {
+            audioCtxTmp = new AC();
+            const srcNode = audioCtxTmp.createMediaElementSource(vid);
+            const destNode = audioCtxTmp.createMediaStreamDestination();
+            srcNode.connect(destNode);
+            destNode.stream.getAudioTracks().forEach(tr => combinedTracks.push(tr));
+          }
+        } catch {}
+
+        const outStream = new MediaStream(combinedTracks);
+        const mime = pickVideoRecorderMime();
+        const opts = { videoBitsPerSecond: VIDEO_TARGET_BPS, audioBitsPerSecond: 64000 };
+        if (mime) opts.mimeType = mime;
+
+        const chunks = [];
+        try {
+          recorder = new MediaRecorder(outStream, opts);
+        } catch {
+          recorder = new MediaRecorder(outStream);
+        }
+        const actualMime = (recorder.mimeType || mime || "video/webm").split(";")[0];
+
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+        recorder.onstop = () => {
+          activeTranscodeCancel = null;
+          if (cancelled) return;
+          const outBlob = new Blob(chunks, { type: actualMime });
+          const finalSec = Math.max(1, Math.round(targetDur));
+          cleanup();
+          resolve({ blob: outBlob, mime: actualMime, durationSec: finalSec });
+        };
+
+        const drawFrame = () => {
+          if (cancelled || vid.paused || vid.ended) return;
+          ctx.drawImage(vid, 0, 0, outW, outH);
+          if (vid.currentTime >= targetDur) {
+            vid.pause();
+            if (recorder && recorder.state !== "inactive") recorder.stop();
+            return;
+          }
+          requestAnimationFrame(drawFrame);
+        };
+
+        progressTimer = setInterval(() => {
+          if (cancelled || !targetDur) return;
+          const pct = Math.min(99, Math.max(1, Math.round((vid.currentTime / targetDur) * 100)));
+          if (onProgress) onProgress(pct);
+        }, 350);
+
+        vid.onended = () => {
+          if (recorder && recorder.state !== "inactive") recorder.stop();
+        };
+
+        recorder.start(300);
+        vid.play().then(() => {
+          requestAnimationFrame(drawFrame);
+        }).catch((err) => {
+          activeTranscodeCancel = null;
+          cleanup();
+          reject(err);
+        });
+      };
+
+      vid.onerror = () => {
+        activeTranscodeCancel = null;
+        cleanup();
+        reject(new Error("video_decode_error"));
+      };
+    });
+  }
+
+  async function uploadVideoToFirebase(ts, b64Data, mime) {
+    if (!roomPass || !ts || !b64Data) return false;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (videoQueuePaused || callState !== "idle") {
+        throw new Error("video_paused_for_call");
+      }
+      const ctrl = new AbortController();
+      activeVideoAbortCtrl = ctrl;
+      const timer = setTimeout(() => ctrl.abort(), 45000);
+      try {
+        const res = await fetch(`${getVideoBaseUrl()}/${ts}.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: b64Data, mime }),
+          signal: ctrl.signal
+        });
+        clearTimeout(timer);
+        activeVideoAbortCtrl = null;
+        if (res.ok) return true;
+      } catch (err) {
+        clearTimeout(timer);
+        activeVideoAbortCtrl = null;
+        if (videoQueuePaused || callState !== "idle") {
+          throw new Error("video_paused_for_call");
+        }
+      }
+      if (attempt === 0) await sleepMs(1000);
+    }
+    return false;
+  }
+
+  async function processNextVideoJob() {
+    if (isProcessingVideoQueue || videoQueuePaused || callState !== "idle" || !roomPass) return;
+    if (pendingVideoQueue.length === 0) return;
+
+    isProcessingVideoQueue = true;
+    const job = pendingVideoQueue[0];
+
+    try {
+      let workBlob = job.blob;
+      let workMime = job.mime || "video/mp4";
+      let workDur = job.durationSec || 1;
+
+      if (job.needsTranscode) {
+        setVideoJobStatus(job.ts, { state: "transcoding", progress: 1 });
+        const converted = await transcodeVideoTo480p(workBlob, VIDEO_GALLERY_MAX_SEC, (pct) => {
+          if (!videoQueuePaused && callState === "idle") {
+            setVideoJobStatus(job.ts, { state: "transcoding", progress: pct });
+          }
+        });
+        workBlob = converted.blob;
+        workMime = converted.mime;
+        workDur = converted.durationSec;
+        job.blob = workBlob;
+        job.mime = workMime;
+        job.durationSec = workDur;
+        job.needsTranscode = false;
+        await idbPut("video_queue", {
+          ts: job.ts,
+          blob: workBlob,
+          mime: workMime,
+          durationSec: workDur,
+          needsTranscode: false
+        });
+      }
+
+      if (videoQueuePaused || callState !== "idle") {
+        setVideoJobStatus(job.ts, { state: "paused", progress: 0 });
+        return;
+      }
+
+      if (workBlob.size > 11.5 * 1024 * 1024) {
+        // 11.5MB 초과 시 16MB JSON 한도 보호를 위해 1회 더 480p 압축 시도
+        setVideoJobStatus(job.ts, { state: "transcoding", progress: 1 });
+        const reConverted = await transcodeVideoTo480p(workBlob, VIDEO_GALLERY_MAX_SEC, (pct) => {
+          if (!videoQueuePaused && callState === "idle") {
+            setVideoJobStatus(job.ts, { state: "transcoding", progress: pct });
+          }
+        });
+        workBlob = reConverted.blob;
+        workMime = reConverted.mime;
+        workDur = reConverted.durationSec;
+      }
+
+      setVideoJobStatus(job.ts, { state: "uploading", progress: 100 });
+      const b64Data = await blobToBase64(workBlob);
+
+      if (videoQueuePaused || callState !== "idle") {
+        setVideoJobStatus(job.ts, { state: "paused", progress: 0 });
+        return;
+      }
+
+      const uploaded = await uploadVideoToFirebase(job.ts, b64Data, workMime);
+      if (uploaded) {
+        videoCache[job.ts] = { data: b64Data, mime: workMime };
+        await idbPut("videos", { ts: job.ts, data: b64Data, mime: workMime });
+        await idbDelete("video_queue", job.ts);
+        pendingVideoQueue.shift();
+        await markVideoReady(job.ts, workDur);
+      } else {
+        await idbDelete("video_queue", job.ts);
+        pendingVideoQueue.shift();
+        await markVideoFailedOrExpired(job.ts);
+      }
+    } catch (err) {
+      if (err && (err.message === "transcode_paused" || err.message === "video_paused_for_call")) {
+        setVideoJobStatus(job.ts, { state: "paused", progress: 0 });
+      } else {
+        await idbDelete("video_queue", job.ts);
+        pendingVideoQueue.shift();
+        await markVideoFailedOrExpired(job.ts);
+      }
+    } finally {
+      isProcessingVideoQueue = false;
+      if (!videoQueuePaused && callState === "idle" && pendingVideoQueue.length > 0) {
+        setTimeout(processNextVideoJob, 150);
+      }
+    }
   }
 
   /* ================= 앱 상태 ================= */
@@ -2273,6 +2988,18 @@
     photoConfirmCancelBtn.textContent = text.photoConfirmCancel;
     menuCameraBtn.textContent = text.menuCamera;
     menuGalleryBtn.textContent = text.menuGallery;
+    const mVRec = document.getElementById("menuVideoRecBtn");
+    if (mVRec) mVRec.textContent = text.menuVideoRec;
+    const mVGal = document.getElementById("menuVideoGalBtn");
+    if (mVGal) mVGal.textContent = text.menuVideoGal;
+    const vFsBtn = document.getElementById("videoFullscreenBtn");
+    if (vFsBtn) vFsBtn.textContent = text.videoFullscreen;
+    const vRotBtn = document.getElementById("videoRotateBtn");
+    if (vRotBtn) vRotBtn.textContent = text.videoRotate;
+    const vDlBtn = document.getElementById("videoDownloadBtn");
+    if (vDlBtn) vDlBtn.textContent = text.videoDownload;
+    const vClBtn = document.getElementById("videoCloseBtn");
+    if (vClBtn) vClBtn.textContent = text.photoClose;
     stkSmallerBtn.textContent = text.stkSmaller;
     stkLargerBtn.textContent = text.stkLarger;
     stkRemoveBtn.textContent = text.stkRemove;
@@ -2411,10 +3138,10 @@
   }
 
   function setReplyTarget(msg) {
-    const preview = msg.hasPhoto
-      ? t().photoLabel
-      : (msg.translated || msg.original || "").slice(0, 45);
-    replyTarget = { ts: msg.ts, text: preview, isPhoto: Boolean(msg.hasPhoto) };
+    const preview = msg.hasVideo
+      ? t().videoLabel
+      : (msg.hasPhoto ? t().photoLabel : (msg.translated || msg.original || "").slice(0, 45));
+    replyTarget = { ts: msg.ts, text: preview, isPhoto: Boolean(msg.hasPhoto), isVideo: Boolean(msg.hasVideo) };
     replyPreviewText.textContent = t().replyPrefix + preview;
     replyPreviewBar.classList.remove("hidden");
     textInput.focus();
@@ -2517,6 +3244,10 @@
     return `${FIREBASE_DB_URL}/walkie_test/photos_${encodeURIComponent(roomPass)}`;
   }
 
+  function getVideoBaseUrl() {
+    return `${FIREBASE_DB_URL}/walkie_test/videos_${encodeURIComponent(roomPass)}`;
+  }
+
   function getCallSignalUrl(callId) {
     return `${FIREBASE_DB_URL}/walkie_test/call_${encodeURIComponent(roomPass)}/${callId}`;
   }
@@ -2535,6 +3266,7 @@
     visibleMsgCount = INITIAL_VISIBLE_MSGS;
     sendHeartbeat();
     reportDiag(myDiagCode);
+    restorePendingVideoQueueFromIdb();
     pollRoom();
     heartbeatTimer = setInterval(() => {
       if (document.hidden && callState === "idle") return;
@@ -2839,9 +3571,11 @@ ${getHonorificRule(msgLang)}
     const total = msgs.length;
     const startIdx = Math.max(0, total - visibleMsgCount);
     const visibleSlice = msgs.slice(startIdx);
-    return `${startIdx}|${myRole}|${currentPlayingTs}|` + visibleSlice.map(m =>
-      `${m.ts}:${m.type || ""}:${(m.hasAudio || m.audioData) ? 1 : 0}:${m.audioReady === false ? 0 : 1}:${m.audioDuration || audioDurationCache[m.ts] || 0}:${m.hasPhoto ? 1 : 0}:${m.liked ? 1 : 0}:${m.untranslated ? 1 : 0}:${translatingIncomingSet.has(m.ts) ? 1 : 0}:${(m.original || "").length}:${(m.translated || "").length}`
-    ).join("|");
+    return `${startIdx}|${myRole}|${currentPlayingTs}|` + visibleSlice.map(m => {
+      const vSt = videoJobStatusMap[m.ts];
+      const vSig = vSt ? `${vSt.state}_${vSt.progress}` : "";
+      return `${m.ts}:${m.type || ""}:${(m.hasAudio || m.audioData) ? 1 : 0}:${m.audioReady === false ? 0 : 1}:${m.audioDuration || audioDurationCache[m.ts] || 0}:${m.hasPhoto ? 1 : 0}:${m.hasVideo ? 1 : 0}:${m.videoReady ? 1 : 0}:${m.videoExpired ? 1 : 0}:${vSig}:${m.liked ? 1 : 0}:${m.untranslated ? 1 : 0}:${translatingIncomingSet.has(m.ts) ? 1 : 0}:${(m.original || "").length}:${(m.translated || "").length}`;
+    }).join("|");
   }
 
   async function toggleMessageHeart(msgTs, btnEl) {
@@ -2883,6 +3617,14 @@ ${getHonorificRule(msgLang)}
       delete photoCache[msgTs];
       idbDelete("photos", msgTs);
       fetch(`${getPhotoBaseUrl()}/${msgTs}.json`, { method: "DELETE" }).catch(() => {});
+    }
+    if (target.hasVideo) {
+      pendingVideoQueue = pendingVideoQueue.filter(q => q.ts !== msgTs);
+      delete videoJobStatusMap[msgTs];
+      delete videoCache[msgTs];
+      idbDelete("videos", msgTs);
+      idbDelete("video_queue", msgTs);
+      fetch(`${getVideoBaseUrl()}/${msgTs}.json`, { method: "DELETE" }).catch(() => {});
     }
 
     const updated = roomState.messages.filter(m => m.ts !== msgTs);
@@ -3538,6 +4280,480 @@ ${getHonorificRule(msgLang)}
     document.body.appendChild(a);
     a.click();
     a.remove();
+  }
+
+  /* ================= 동영상 촬영 (480p · 30초) & 갤러리 선택 (10MB · 1분) ================= */
+
+  const videoNativeCaptureInput = document.getElementById("videoNativeCaptureInput");
+  const videoGalleryInput = document.getElementById("videoGalleryInput");
+  const videoRecModal = document.getElementById("videoRecordModal");
+  const videoRecPreview = document.getElementById("videoRecPreview");
+  const videoRecTimerBadge = document.getElementById("videoRecTimerBadge");
+  const videoRecHintText = document.getElementById("videoRecHintText");
+  const videoRecShutterBtn = document.getElementById("videoRecShutterBtn");
+
+  let videoRecStream = null;
+  let videoRecRecorder = null;
+  let videoRecChunks = [];
+  let videoRecTimer = null;
+  let videoRecStartAt = 0;
+  let videoRecFacing = "environment";
+  let videoRecActive = false;
+  let videoRecDiscard = false;
+
+  function openVideoGalleryInput() {
+    closePhotoMenu(false);
+    videoGalleryInput.value = "";
+    videoGalleryInput.click();
+  }
+
+  videoGalleryInput.addEventListener("change", (e) => handleVideoFileSelected(e.target.files?.[0], false));
+  videoNativeCaptureInput.addEventListener("change", (e) => handleVideoFileSelected(e.target.files?.[0], true));
+
+  async function openVideoRecordModal() {
+    closePhotoMenu(false);
+    if (callState !== "idle") {
+      alert(t().callPartnerOffline);
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === "undefined") {
+      videoNativeCaptureInput.value = "";
+      videoNativeCaptureInput.click();
+      return;
+    }
+
+    stopCurrentAudio();
+    videoRecActive = false;
+    videoRecDiscard = false;
+    videoRecTimerBadge.textContent = "00:00 / 00:30";
+    videoRecTimerBadge.classList.remove("recording");
+    videoRecShutterBtn.classList.remove("recording");
+    videoRecHintText.textContent = t().videoRecHint;
+
+    try {
+      videoRecStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: videoRecFacing },
+          width: { ideal: 640, max: 854 },
+          height: { ideal: 480, max: 480 },
+          frameRate: { ideal: 24, max: 30 }
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      videoRecPreview.srcObject = videoRecStream;
+      videoRecPreview.style.transform = videoRecFacing === "user" ? "scaleX(-1)" : "none";
+      videoRecModal.classList.remove("hidden");
+      ensureModalHistory();
+    } catch {
+      videoNativeCaptureInput.value = "";
+      videoNativeCaptureInput.click();
+    }
+  }
+
+  async function flipVideoRecCamera() {
+    if (videoRecActive) return;
+    videoRecFacing = videoRecFacing === "environment" ? "user" : "environment";
+    if (videoRecStream) {
+      videoRecStream.getTracks().forEach(tr => tr.stop());
+      videoRecStream = null;
+    }
+    try {
+      videoRecStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: videoRecFacing },
+          width: { ideal: 640, max: 854 },
+          height: { ideal: 480, max: 480 },
+          frameRate: { ideal: 24, max: 30 }
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      videoRecPreview.srcObject = videoRecStream;
+      videoRecPreview.style.transform = videoRecFacing === "user" ? "scaleX(-1)" : "none";
+    } catch {}
+  }
+
+  function toggleVideoRecordShutter() {
+    if (!videoRecStream) return;
+    if (!videoRecActive) {
+      const mime = pickVideoRecorderMime();
+      const opts = { videoBitsPerSecond: VIDEO_TARGET_BPS, audioBitsPerSecond: 64000 };
+      if (mime) opts.mimeType = mime;
+
+      videoRecChunks = [];
+      videoRecDiscard = false;
+      try {
+        videoRecRecorder = new MediaRecorder(videoRecStream, opts);
+      } catch {
+        videoRecRecorder = new MediaRecorder(videoRecStream);
+      }
+      const actualMime = (videoRecRecorder.mimeType || mime || "video/webm").split(";")[0];
+
+      videoRecRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) videoRecChunks.push(e.data);
+      };
+      videoRecRecorder.onstop = async () => {
+        const elapsedSec = Math.max(1, Math.min(VIDEO_RECORD_MAX_SEC, Math.round((Date.now() - videoRecStartAt) / 1000)));
+        const chunksCopy = videoRecChunks.slice();
+        const wasDiscarded = videoRecDiscard;
+        closeVideoRecordModal(false);
+        if (!wasDiscarded && chunksCopy.length > 0) {
+          const blob = new Blob(chunksCopy, { type: actualMime });
+          await enqueueVideoForSending(blob, actualMime, elapsedSec, false);
+        }
+      };
+
+      videoRecActive = true;
+      videoRecStartAt = Date.now();
+      videoRecShutterBtn.classList.add("recording");
+      videoRecTimerBadge.classList.add("recording");
+      videoRecHintText.textContent = t().videoRecRecording;
+
+      videoRecRecorder.start(300);
+      videoRecTimer = setInterval(() => {
+        const sec = Math.floor((Date.now() - videoRecStartAt) / 1000);
+        videoRecTimerBadge.textContent = `${formatDuration(Math.min(sec, VIDEO_RECORD_MAX_SEC), true)} / 00:30`;
+        if (sec >= VIDEO_RECORD_MAX_SEC && videoRecActive) {
+          videoRecActive = false;
+          if (videoRecRecorder && videoRecRecorder.state !== "inactive") {
+            videoRecRecorder.stop();
+          }
+        }
+      }, 250);
+    } else {
+      videoRecActive = false;
+      if (videoRecTimer) { clearInterval(videoRecTimer); videoRecTimer = null; }
+      if (videoRecRecorder && videoRecRecorder.state !== "inactive") {
+        videoRecRecorder.stop();
+      }
+    }
+  }
+
+  function closeVideoRecordModal(fromPopState = false) {
+    if (videoRecTimer) { clearInterval(videoRecTimer); videoRecTimer = null; }
+    if (videoRecActive && videoRecRecorder && videoRecRecorder.state !== "inactive") {
+      videoRecDiscard = true;
+      videoRecActive = false;
+      try { videoRecRecorder.stop(); } catch {}
+    }
+    videoRecActive = false;
+    if (videoRecStream) {
+      videoRecStream.getTracks().forEach(tr => tr.stop());
+      videoRecStream = null;
+    }
+    videoRecPreview.srcObject = null;
+    if (!videoRecModal.classList.contains("hidden")) {
+      videoRecModal.classList.add("hidden");
+      if (!fromPopState) releaseModalHistoryIfNoneOpen();
+    }
+  }
+
+  function inspectVideoFileMeta(fileOrBlob) {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(fileOrBlob);
+      const vid = document.createElement("video");
+      vid.preload = "metadata";
+      vid.muted = true;
+      vid.playsInline = true;
+      vid.src = url;
+
+      let settled = false;
+      const done = (res) => {
+        if (settled) return;
+        settled = true;
+        try { vid.removeAttribute("src"); vid.load(); } catch {}
+        try { URL.revokeObjectURL(url); } catch {}
+        resolve(res);
+      };
+
+      vid.onloadeddata = () => {
+        const dur = (isFinite(vid.duration) && vid.duration > 0) ? vid.duration : 1;
+        const seekTo = Math.min(0.2, dur * 0.1);
+        vid.currentTime = seekTo;
+      };
+
+      vid.onseeked = () => {
+        let thumbDataUrl = "";
+        try {
+          const vw = vid.videoWidth || 320;
+          const vh = vid.videoHeight || 240;
+          const maxW = 360;
+          const scale = vw > maxW ? (maxW / vw) : 1;
+          const cw = Math.max(2, Math.round(vw * scale));
+          const ch = Math.max(2, Math.round(vh * scale));
+          const c = document.createElement("canvas");
+          c.width = cw;
+          c.height = ch;
+          c.getContext("2d").drawImage(vid, 0, 0, cw, ch);
+          thumbDataUrl = c.toDataURL("image/jpeg", 0.65);
+        } catch {}
+        done({
+          duration: (isFinite(vid.duration) && vid.duration > 0) ? vid.duration : 1,
+          width: vid.videoWidth || 640,
+          height: vid.videoHeight || 480,
+          thumbDataUrl
+        });
+      };
+
+      vid.onerror = () => done({ duration: 1, width: 640, height: 480, thumbDataUrl: "" });
+      setTimeout(() => done({
+        duration: (isFinite(vid.duration) && vid.duration > 0) ? vid.duration : 1,
+        width: vid.videoWidth || 640,
+        height: vid.videoHeight || 480,
+        thumbDataUrl: ""
+      }), 3500);
+    });
+  }
+
+  async function handleVideoFileSelected(file, fromNativeCapture = false) {
+    if (!file || !roomPass) return;
+    const meta = await inspectVideoFileMeta(file);
+    const maxAllowedSec = fromNativeCapture ? VIDEO_RECORD_MAX_SEC : VIDEO_GALLERY_MAX_SEC;
+    const needsTranscode = (file.size > VIDEO_GALLERY_MAX_BYTES) || (meta.duration > maxAllowedSec + 0.5);
+    const displayDur = Math.max(1, Math.min(maxAllowedSec, Math.round(meta.duration)));
+    await enqueueVideoForSending(file, file.type || "video/mp4", displayDur, needsTranscode, meta.thumbDataUrl);
+  }
+
+  async function enqueueVideoForSending(fileOrBlob, mime, durationSec, needsTranscode, preThumb = "") {
+    if (!roomPass) return;
+    const msgTs = Date.now();
+    let thumbDataUrl = preThumb;
+    if (!thumbDataUrl) {
+      const meta = await inspectVideoFileMeta(fileOrBlob);
+      thumbDataUrl = meta.thumbDataUrl;
+    }
+
+    const inCallNow = (callState !== "idle");
+    const initState = inCallNow ? "paused" : (needsTranscode ? "transcoding" : "uploading");
+    videoJobStatusMap[msgTs] = { state: initState, progress: 0 };
+
+    const newMsg = {
+      lang: myRole,
+      original: "",
+      translated: "",
+      hasAudio: false,
+      hasPhoto: false,
+      hasVideo: true,
+      videoReady: false,
+      videoExpired: false,
+      videoDuration: durationSec,
+      videoThumb: thumbDataUrl,
+      liked: false,
+      replyTo: replyTarget ? { ...replyTarget } : null,
+      ts: msgTs
+    };
+    clearReplyTarget();
+
+    const updatedMessages = buildUpdatedMessages(newMsg);
+    roomState.messages = updatedMessages;
+    lastRenderSig = "";
+    renderMessages(false);
+
+    await idbPut("video_queue", {
+      ts: msgTs,
+      blob: fileOrBlob,
+      mime: mime || "video/mp4",
+      durationSec,
+      needsTranscode: Boolean(needsTranscode)
+    });
+
+    pendingVideoQueue.push({
+      ts: msgTs,
+      blob: fileOrBlob,
+      mime: mime || "video/mp4",
+      durationSec,
+      needsTranscode: Boolean(needsTranscode)
+    });
+
+    const syncTs = Date.now();
+    loadedMsgSyncTs = syncTs;
+    await saveMessagesToDb(updatedMessages, syncTs, { upsertMsg: newMsg });
+
+    if (!inCallNow && !videoQueuePaused) {
+      processNextVideoJob();
+    }
+  }
+
+  /* ================= 전체화면 동영상 플레이어 (전체화면 · 회전 버튼 분리) ================= */
+
+  const videoModal = document.getElementById("videoModal");
+  const videoModalPlayer = document.getElementById("videoModalPlayer");
+  const videoModalLoading = document.getElementById("videoModalLoading");
+  const videoFullscreenBtn = document.getElementById("videoFullscreenBtn");
+  const videoRotateBtn = document.getElementById("videoRotateBtn");
+
+  let currentVideoObjectUrl = "";
+  let currentModalVideoTs = 0;
+  let currentModalVideoMime = "video/mp4";
+  let isVideoModalLandscape = false;
+
+  async function openVideoModal(msg) {
+    if (!msg || !msg.ts || isVideoExpiredMsg(msg)) return;
+    stopCurrentAudio();
+    currentModalVideoTs = msg.ts;
+    isVideoModalLandscape = false;
+    videoModal.classList.remove("force-landscape");
+    videoRotateBtn.classList.remove("active");
+    videoFullscreenBtn.classList.remove("active");
+    videoFullscreenBtn.textContent = t().videoFullscreen;
+
+    videoModalLoading.textContent = t().videoLoading;
+    videoModalLoading.classList.remove("hidden");
+    videoModalPlayer.removeAttribute("src");
+    videoModal.classList.remove("hidden");
+    ensureModalHistory();
+
+    try {
+      let cached = videoCache[msg.ts];
+      if (!cached) {
+        const fromIdb = await idbGet("videos", msg.ts);
+        if (fromIdb && fromIdb.data) {
+          cached = { data: fromIdb.data, mime: fromIdb.mime };
+          videoCache[msg.ts] = cached;
+        }
+      }
+      if (!cached) {
+        const res = await fetchWithTimeout(`${getVideoBaseUrl()}/${msg.ts}.json`, { method: "GET" }, 35000);
+        if (!res.ok) throw new Error("video_fetch_failed");
+        cached = await res.json();
+        if (!cached || !cached.data) {
+          closeVideoModal(false);
+          await markVideoFailedOrExpired(msg.ts);
+          return;
+        }
+        videoCache[msg.ts] = cached;
+        idbPut("videos", { ts: msg.ts, data: cached.data, mime: cached.mime });
+      }
+
+      if (videoModal.classList.contains("hidden") || currentModalVideoTs !== msg.ts) return;
+
+      currentModalVideoMime = cached.mime || "video/mp4";
+      const blobUrl = base64ToBlobUrl(cached.data, currentModalVideoMime);
+      if (currentVideoObjectUrl && currentVideoObjectUrl.startsWith("blob:")) {
+        try { URL.revokeObjectURL(currentVideoObjectUrl); } catch {}
+      }
+      currentVideoObjectUrl = blobUrl;
+
+      videoModalPlayer.src = blobUrl;
+      videoModalLoading.classList.add("hidden");
+      videoModalPlayer.play().catch(() => {});
+    } catch {
+      videoModalLoading.classList.add("hidden");
+      if (!videoModal.classList.contains("hidden")) {
+        closeVideoModal(false);
+      }
+    }
+  }
+
+  async function toggleVideoModalFullscreen() {
+    if (videoModal.classList.contains("hidden")) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        videoFullscreenBtn.classList.remove("active");
+        videoFullscreenBtn.textContent = t().videoFullscreen;
+        return;
+      }
+      if (videoModal.requestFullscreen) {
+        await videoModal.requestFullscreen();
+        videoFullscreenBtn.classList.add("active");
+        videoFullscreenBtn.textContent = t().videoExitFullscreen;
+        return;
+      }
+      if (typeof videoModalPlayer.webkitEnterFullscreen === "function") {
+        videoModalPlayer.webkitEnterFullscreen();
+      }
+    } catch {
+      if (typeof videoModalPlayer.webkitEnterFullscreen === "function") {
+        try { videoModalPlayer.webkitEnterFullscreen(); } catch {}
+      }
+    }
+  }
+
+  async function toggleVideoModalRotate() {
+    if (videoModal.classList.contains("hidden")) return;
+
+    // iOS Safari에서는 애플 정책상 웹 코드 단독 회전 대신 네이티브 플레이어로 가로 회전 지원
+    if (isIOSDevice() && typeof videoModalPlayer.webkitEnterFullscreen === "function") {
+      try { videoModalPlayer.webkitEnterFullscreen(); } catch {}
+      return;
+    }
+
+    isVideoModalLandscape = !isVideoModalLandscape;
+    const targetOrient = isVideoModalLandscape ? "landscape" : "portrait";
+
+    try {
+      if (screen.orientation && typeof screen.orientation.lock === "function") {
+        if (isVideoModalLandscape && !document.fullscreenElement && videoModal.requestFullscreen) {
+          await videoModal.requestFullscreen().catch(() => {});
+        }
+        await screen.orientation.lock(targetOrient);
+        videoModal.classList.remove("force-landscape");
+        videoRotateBtn.classList.toggle("active", isVideoModalLandscape);
+        return;
+      }
+    } catch {}
+
+    // 브라우저가 orientation.lock을 지원하지 않는 환경에서는 CSS 90도 회전 모드로 전환
+    videoModal.classList.toggle("force-landscape", isVideoModalLandscape);
+    videoRotateBtn.classList.toggle("active", isVideoModalLandscape);
+  }
+
+  document.addEventListener("fullscreenchange", () => {
+    const isFs = Boolean(document.fullscreenElement);
+    if (videoFullscreenBtn) {
+      videoFullscreenBtn.classList.toggle("active", isFs);
+      videoFullscreenBtn.textContent = isFs ? t().videoExitFullscreen : t().videoFullscreen;
+    }
+  });
+
+  function downloadCurrentVideo() {
+    if (!currentVideoObjectUrl) return;
+    const ext = currentModalVideoMime.includes("webm") ? "webm" : "mp4";
+    const a = document.createElement("a");
+    a.href = currentVideoObjectUrl;
+    a.download = `video_${currentModalVideoTs || Date.now()}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function closeVideoModal(fromPopState = false) {
+    if (videoModal.classList.contains("hidden")) return;
+    try {
+      videoModalPlayer.pause();
+      videoModalPlayer.removeAttribute("src");
+      videoModalPlayer.load();
+    } catch {}
+    if (currentVideoObjectUrl && currentVideoObjectUrl.startsWith("blob:")) {
+      try { URL.revokeObjectURL(currentVideoObjectUrl); } catch {}
+    }
+    currentVideoObjectUrl = "";
+    currentModalVideoTs = 0;
+    isVideoModalLandscape = false;
+    videoModal.classList.remove("force-landscape");
+    videoRotateBtn.classList.remove("active");
+    videoFullscreenBtn.classList.remove("active");
+    videoFullscreenBtn.textContent = t().videoFullscreen;
+
+    try {
+      if (screen.orientation && typeof screen.orientation.unlock === "function") {
+        screen.orientation.unlock();
+      }
+    } catch {}
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+
+    videoModal.classList.add("hidden");
+    if (!fromPopState) releaseModalHistoryIfNoneOpen();
   }
 
   /* ================= 실시간 이모티콘 팝업 ================= */
@@ -4492,7 +5708,54 @@ ${getHonorificRule(myRole)}
         div.appendChild(quoteDiv);
       }
 
-      if (m.hasPhoto) {
+      if (m.hasVideo && !isVideoExpiredMsg(m)) {
+        const videoWrap = document.createElement("div");
+        const jobSt = videoJobStatusMap[m.ts];
+        const isPlayable = Boolean(m.videoReady);
+        videoWrap.className = "msg-video-wrap" + (isPlayable ? "" : " disabled");
+
+        if (m.videoThumb) {
+          const thumbImg = document.createElement("img");
+          thumbImg.className = "msg-video-thumb";
+          thumbImg.src = m.videoThumb;
+          videoWrap.appendChild(thumbImg);
+        }
+
+        const overlay = document.createElement("div");
+        overlay.className = "msg-video-overlay";
+
+        if (isPlayable) {
+          const playCircle = document.createElement("div");
+          playCircle.className = "msg-video-play-circle";
+          playCircle.textContent = "▶";
+          overlay.appendChild(playCircle);
+
+          const durBadge = document.createElement("div");
+          durBadge.className = "msg-video-badge";
+          durBadge.textContent = formatDuration(m.videoDuration || 0, false);
+          overlay.appendChild(durBadge);
+
+          videoWrap.onclick = () => openVideoModal(m);
+        } else {
+          const stBadge = document.createElement("div");
+          stBadge.className = "msg-video-badge " + (jobSt && jobSt.state === "paused" ? "paused" : "working");
+          if (jobSt) {
+            if (jobSt.state === "paused") {
+              stBadge.textContent = t().videoPausedCall;
+            } else if (jobSt.state === "transcoding") {
+              stBadge.textContent = `${t().videoTranscoding} ${jobSt.progress || 0}%`;
+            } else {
+              stBadge.textContent = t().videoUploading;
+            }
+          } else {
+            stBadge.textContent = isMine ? t().videoUploading : t().videoPartnerPreparing;
+          }
+          overlay.appendChild(stBadge);
+        }
+
+        videoWrap.appendChild(overlay);
+        div.appendChild(videoWrap);
+      } else if (m.hasPhoto) {
         const photoWrap = document.createElement("div");
         photoWrap.className = "msg-photo-wrap";
 
@@ -4562,7 +5825,7 @@ ${getHonorificRule(myRole)}
       const actDiv = document.createElement("div");
       actDiv.className = "msg-actions";
 
-      if (isMine && !m.hasPhoto && m.original && !m.untranslated) {
+      if (isMine && !m.hasPhoto && !m.hasVideo && !m.videoExpired && m.original && !m.untranslated) {
         const retransBtn = document.createElement("button");
         retransBtn.className = "msg-act-btn";
         retransBtn.textContent = "🔄";
@@ -4570,7 +5833,7 @@ ${getHonorificRule(myRole)}
         actDiv.appendChild(retransBtn);
       }
 
-      if (!isMine && !m.hasPhoto && m.original && m.untranslated) {
+      if (!isMine && !m.hasPhoto && !m.hasVideo && !m.videoExpired && m.original && m.untranslated) {
         const transBtn = document.createElement("button");
         transBtn.className = "msg-act-btn";
         transBtn.textContent = "🌐";
@@ -5133,6 +6396,7 @@ ${getHonorificRule(myRole)}
 
   async function startSoloVideoTest() {
     closeSettingsMenu(false);
+    pauseVideoQueueForCall();
     abortActiveManualRecording();
     prepareLiveAudioContext();
     callState = "test";
@@ -5188,6 +6452,7 @@ ${getHonorificRule(myRole)}
   async function requestVideoCall() {
     if (callState !== "idle" || isStartingCall) return;
     closeSettingsMenu(false);
+    pauseVideoQueueForCall();
     abortActiveManualRecording();
     prepareLiveAudioContext();
     if (inAppName) alert(t().inAppVideoAlert);
@@ -5264,6 +6529,7 @@ ${getHonorificRule(myRole)}
   async function acceptVideoCall() {
     if (callState !== "incoming" || !activeCallId || isStartingCall) return;
     closeSettingsMenu(false);
+    pauseVideoQueueForCall();
     abortActiveManualRecording();
     prepareLiveAudioContext();
     if (inAppName) alert(t().inAppVideoAlert);
@@ -5765,6 +7031,7 @@ ${getHonorificRule(myRole)}
     if (resetRemote) patchRoom({ "callMeta/status": "idle" });
     updatePartnerStatusUI();
     flushPendingCallAudios();
+    resumeVideoQueueAfterCall();
   }
 
   async function switchCamera() {
@@ -5989,6 +7256,53 @@ ${getHonorificRule(myRole)}
     return until > Date.now();
   }
 
+  function formatErrorReasonLabel(errLabel) {
+    const raw = String(errLabel || "").trim();
+    if (!raw) return "";
+    const isKo = (myRole === "ko");
+    if (raw === "HTTP 429") return isKo ? "HTTP 429 (한도초과)" : "HTTP 429 (Quá giới hạn)";
+    if (raw === "HTTP 503" || raw === "HTTP 502" || raw === "HTTP 500") {
+      return isKo ? `${raw} (서버혼잡)` : `${raw} (Máy chủ bận)`;
+    }
+    if (raw === "HTTP 401" || raw === "HTTP 403") {
+      return isKo ? `${raw} (인증오류)` : `${raw} (Lỗi xác thực)`;
+    }
+    if (raw.startsWith("HTTP ")) {
+      return isKo ? `${raw} (요청오류)` : `${raw} (Lỗi yêu cầu)`;
+    }
+    if (raw === "timeout") return isKo ? "시간초과 (timeout)" : "Hết thời gian (timeout)";
+    if (raw === "network") return isKo ? "네트워크 오류" : "Lỗi mạng";
+    if (raw === "empty") return isKo ? "빈 응답" : "Phản hồi trống";
+    return raw;
+  }
+
+  function formatErrorTimestamp(ts) {
+    if (!ts || ts <= 0) return "";
+    const timePart = formatMsgTime(ts);
+    const diffSec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    let relPart = "";
+    if (myRole === "ko") {
+      if (diffSec < 60) relPart = "방금 전";
+      else if (diffSec < 3600) relPart = `${Math.floor(diffSec / 60)}분 전`;
+      else if (diffSec < 86400) relPart = `${Math.floor(diffSec / 3600)}시간 전`;
+      else relPart = `${Math.floor(diffSec / 86400)}일 전`;
+    } else {
+      if (diffSec < 60) relPart = "vừa xong";
+      else if (diffSec < 3600) relPart = `${Math.floor(diffSec / 60)} phút trước`;
+      else if (diffSec < 86400) relPart = `${Math.floor(diffSec / 3600)} giờ trước`;
+      else relPart = `${Math.floor(diffSec / 86400)} ngày trước`;
+    }
+    return `${timePart} (${relPart})`;
+  }
+
+  function buildLastErrorHtml(st) {
+    if (!st || !st.lastErr) return "";
+    const reason = formatErrorReasonLabel(st.lastErr);
+    const when = formatErrorTimestamp(st.lastFailAt);
+    const whenSuffix = when ? ` · ${when}` : "";
+    return `<br><span style="color:#ffab91;">${t().lastErrorPrefix}: ${reason}${whenSuffix}</span>`;
+  }
+
   function recordGroqResult(success, latencyMs, errLabel = "", forceCooldown = false) {
     if (!modelStats.groq) modelStats.groq = createEmptyGroqStats();
     const st = modelStats.groq;
@@ -5998,7 +7312,6 @@ ${getHonorificRule(myRole)}
       st.ok = (st.ok || 0) + 1;
       st.streakFail = 0;
       st.lastOkAt = now;
-      st.lastErr = "";
       st.cooldownUntil = 0;
       st.avgMs = st.avgMs > 0 ? Math.round(st.avgMs * 0.7 + latencyMs * 0.3) : Math.round(latencyMs);
     } else {
@@ -6160,7 +7473,6 @@ ${getHonorificRule(myRole)}
       st.ok = (st.ok || 0) + 1;
       st.streakFail = 0;
       st.lastOkAt = now;
-      st.lastErr = "";
       st.cooldownUntil = 0;
       st.avgMs = st.avgMs > 0 ? Math.round(st.avgMs * 0.7 + latencyMs * 0.3) : Math.round(latencyMs);
       modelStats.lastUsedModel = GROQ_TRANSLATE_MODEL;
@@ -6283,7 +7595,6 @@ ${getHonorificRule(myRole)}
       st.ok = (st.ok || 0) + 1;
       st.streakFail = 0;
       st.lastOkAt = now;
-      st.lastErr = "";
       st.avgMs = st.avgMs > 0 ? Math.round(st.avgMs * 0.7 + latencyMs * 0.3) : Math.round(latencyMs);
       modelStats.lastUsedModel = model;
       modelStats.lastUsedAt = now;
@@ -6325,7 +7636,7 @@ ${getHonorificRule(myRole)}
       const gStatLine = myRole === "ko"
         ? `성공 ${gOk} / 실패 ${gFail} (${gTotal > 0 ? gPct + "%" : "-"}) · 평균 ${gSpeed}`
         : `OK ${gOk} / Lỗi ${gFail} (${gTotal > 0 ? gPct + "%" : "-"}) · TB ${gSpeed}`;
-      const gErrLine = gs.lastErr ? `<br>최근 오류: ${gs.lastErr}` : "";
+      const gErrLine = buildLastErrorHtml(gs);
 
       groqBoxEl.innerHTML = `
         <div class="model-stat-item ${!inCooldown && gOk > 0 ? "rank-1" : ""}">
@@ -6367,7 +7678,7 @@ ${getHonorificRule(myRole)}
       const statLine = myRole === "ko"
         ? `성공 ${ok} / 실패 ${fail} (${total > 0 ? pct + "%" : "-"}) · 평균 ${speedText}`
         : `OK ${ok} / Lỗi ${fail} (${total > 0 ? pct + "%" : "-"}) · TB ${speedText}`;
-      const errLine = st.lastErr ? `<br>최근 오류: ${st.lastErr}` : "";
+      const errLine = buildLastErrorHtml(st);
       sub.innerHTML = statLine + errLine;
 
       item.appendChild(top);
@@ -6393,7 +7704,7 @@ ${getHonorificRule(myRole)}
     const gtStatLine = myRole === "ko"
       ? `성공 ${gtOk} / 실패 ${gtFail} (${gtTotal > 0 ? gtPct + "%" : "-"}) · 평균 ${gtSpeed}`
       : `OK ${gtOk} / Lỗi ${gtFail} (${gtTotal > 0 ? gtPct + "%" : "-"}) · TB ${gtSpeed}`;
-    const gtErrLine = gt.lastErr ? `<br>최근 오류: ${gt.lastErr}` : "";
+    const gtErrLine = buildLastErrorHtml(gt);
     const gtItem = document.createElement("div");
     gtItem.className = "model-stat-item";
     gtItem.innerHTML = `
@@ -6408,6 +7719,7 @@ ${getHonorificRule(myRole)}
     const msgs = roomState.messages || [];
     const audioCount = msgs.filter(m => m.hasAudio || m.audioData).length;
     const photoCount = msgs.filter(m => m.hasPhoto).length;
+    const videoCount = msgs.filter(m => m.hasVideo && !isVideoExpiredMsg(m)).length;
     const lastModelStr = modelStats.lastUsedModel
       ? `${modelStats.lastUsedModel} (${(modelStats.lastLatencyMs / 1000).toFixed(1)}s)`
       : text.infoNone;
@@ -6419,6 +7731,7 @@ ${getHonorificRule(myRole)}
       <div class="app-info-row"><span>${text.infoMsgs}</span><strong>${msgs.length} / ${MAX_STORED_MSGS}</strong></div>
       <div class="app-info-row"><span>${text.infoAudios}</span><strong>${audioCount} / ${MAX_AUDIO_MSGS}</strong></div>
       <div class="app-info-row"><span>${text.infoPhotos}</span><strong>${photoCount} / ${MAX_PHOTO_MSGS}</strong></div>
+      <div class="app-info-row"><span>${text.infoVideos}</span><strong>${videoCount} / ${MAX_VIDEO_MSGS}</strong></div>
       <div class="app-info-row"><span>${text.infoCodec}</span><strong>${codecStr}</strong></div>
     `;
   }
@@ -6895,10 +8208,18 @@ ${getHonorificRule(myRole)}
         delete photoCache[m.ts];
         idbDelete("photos", m.ts);
       }
+      if (m.hasVideo) {
+        fetch(`${getVideoBaseUrl()}/${m.ts}.json`, { method: "DELETE" }).catch(() => {});
+        delete videoCache[m.ts];
+        idbDelete("videos", m.ts);
+        idbDelete("video_queue", m.ts);
+      }
     });
 
     let audioCount = 0;
     let photoCount = 0;
+    let videoCount = 0;
+    const nowTs = Date.now();
     for (let i = updated.length - 1; i >= 0; i--) {
       if (updated[i].hasAudio) {
         audioCount++;
@@ -6918,6 +8239,25 @@ ${getHonorificRule(myRole)}
           delete photoCache[ts];
           idbDelete("photos", ts);
           updated[i] = { ...updated[i], hasPhoto: false, original: t().photoExpired, translated: t().photoExpired };
+        }
+      }
+      if (updated[i].hasVideo) {
+        const ts = updated[i].ts;
+        const isOlderThan7Days = ts && (nowTs - ts > VIDEO_TTL_MS);
+        videoCount++;
+        if (isOlderThan7Days || videoCount > MAX_VIDEO_MSGS) {
+          fetch(`${getVideoBaseUrl()}/${ts}.json`, { method: "DELETE" }).catch(() => {});
+          delete videoCache[ts];
+          idbDelete("videos", ts);
+          idbDelete("video_queue", ts);
+          updated[i] = {
+            ...updated[i],
+            hasVideo: false,
+            videoExpired: true,
+            videoThumb: "",
+            original: t().videoExpired,
+            translated: t().videoExpired
+          };
         }
       }
     }
