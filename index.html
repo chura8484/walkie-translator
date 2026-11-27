@@ -277,6 +277,136 @@
     #modelStatsResetBtn { background: #ef6c00; }
     #modelStatsCloseBtn { background: #555; }
 
+    #mediaGalleryModal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.82);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 92;
+      padding: 14px;
+    }
+    .gallery-card {
+      width: 100%;
+      max-width: 440px;
+      height: 84dvh;
+      max-height: 700px;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+    }
+    .gallery-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .gallery-header h3 { font-size: 16px; }
+    .gallery-close-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 8px;
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      font-size: 12.5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .gallery-tabs {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .gallery-tab-btn {
+      flex: 1;
+      padding: 8px 6px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface-2);
+      color: var(--text-sub);
+      font-size: 12.5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .gallery-tab-btn.active {
+      background: #0078ff;
+      color: #fff;
+      border-color: #0078ff;
+    }
+    .gallery-grid {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      align-content: start;
+      padding-right: 2px;
+    }
+    .gallery-item {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .gallery-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .gallery-item-placeholder {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 4px;
+    }
+    .gallery-video-badge {
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.72);
+      color: #fff;
+      font-size: 10.5px;
+      font-weight: bold;
+      pointer-events: none;
+    }
+    .gallery-date-badge {
+      position: absolute;
+      left: 4px;
+      top: 4px;
+      padding: 1px 5px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.58);
+      color: #fff;
+      font-size: 9.5px;
+      pointer-events: none;
+    }
+    .gallery-empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 48px 16px;
+      color: var(--text-muted);
+      font-size: 13.5px;
+    }
+
     #videoSection { position: relative; width: 100%; flex: 1; min-height: 0; background: #000; overflow: hidden; border-bottom: 1px solid var(--border); }
     #videoSection.split { flex: none; height: 42dvh; }
     body.in-video-call.video-fullscreen #videoSection { height: 100%; border-bottom: none; }
@@ -1258,6 +1388,21 @@
   </div>
 </div>
 
+<div id="mediaGalleryModal" class="hidden" onclick="if(event.target===this) closeMediaGalleryModal()">
+  <div class="gallery-card">
+    <div class="gallery-header">
+      <h3 id="mediaGalleryTitle">🖼️ 사진/영상 모아보기</h3>
+      <button id="mediaGalleryCloseBtn" class="gallery-close-btn" onclick="closeMediaGalleryModal()">닫기</button>
+    </div>
+    <div class="gallery-tabs">
+      <button id="galTabAll" class="gallery-tab-btn active" onclick="setMediaGalleryTab('all')">전체</button>
+      <button id="galTabPhoto" class="gallery-tab-btn" onclick="setMediaGalleryTab('photo')">사진</button>
+      <button id="galTabVideo" class="gallery-tab-btn" onclick="setMediaGalleryTab('video')">동영상</button>
+    </div>
+    <div id="mediaGalleryGrid" class="gallery-grid"></div>
+  </div>
+</div>
+
 <div id="photoModal" class="hidden">
   <div id="photoModalStage">
     <img id="photoModalImg" src="" alt="photo" />
@@ -1363,6 +1508,7 @@
     </div>
   </div>
   <button id="themeToggleBtn" class="setting-full-btn" onclick="toggleTheme()">☀️ 라이트 모드</button>
+  <button id="mediaGalleryBtn" class="setting-full-btn" onclick="openMediaGalleryModal()">🖼️ 사진/영상 모아보기</button>
   <button id="modelStatsBtn" class="setting-full-btn" onclick="openModelStatsModal()">📊 모델 순위 / 앱 정보</button>
   <button id="installSettingBtn" class="setting-full-btn hidden" onclick="triggerInstallPwa()">📲 홈 화면에 추가</button>
   <div id="settingLangRow" class="setting-row">
@@ -1470,7 +1616,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 75;
+  const APP_VERSION = 77;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -1660,6 +1806,12 @@
       installModalTitle: "📲 홈 화면에 앱으로 추가",
       installDoneBtn: "✅ 추가 완료",
       installCloseBtn: "닫기",
+      mediaGalleryBtn: "🖼️ 사진/영상 모아보기",
+      mediaGalleryTitle: "🖼️ 사진/영상 모아보기",
+      galleryTabAll: "전체",
+      galleryTabPhoto: "사진",
+      galleryTabVideo: "동영상",
+      galleryEmpty: "저장된 사진이나 동영상이 없습니다.",
       modelStatsBtn: "📊 모델 순위 / 앱 정보",
       modelStatsTitle: "📊 모델 순위 / 앱 정보",
       modelStatsSttTitle: "🎙️ 음성 인식 백업 (Groq Whisper)",
@@ -1784,6 +1936,12 @@
       installModalTitle: "📲 Thêm vào màn hình chính",
       installDoneBtn: "✅ Đã thêm xong",
       installCloseBtn: "Đóng",
+      mediaGalleryBtn: "🖼️ Kho ảnh & video",
+      mediaGalleryTitle: "🖼️ Kho ảnh & video",
+      galleryTabAll: "Tất cả",
+      galleryTabPhoto: "Ảnh",
+      galleryTabVideo: "Video",
+      galleryEmpty: "Chưa có ảnh hoặc video nào.",
       modelStatsBtn: "📊 Thứ tự AI & Trạng thái",
       modelStatsTitle: "📊 Thứ tự AI & Trạng thái",
       modelStatsSttTitle: "🎙️ Nhận diện giọng nói dự phòng (Groq Whisper)",
@@ -1820,12 +1978,14 @@
   function hasAnyOverlayOpen() {
     const installModal = document.getElementById("installGuideModal");
     const statsModal = document.getElementById("modelStatsModal");
+    const galleryModal = document.getElementById("mediaGalleryModal");
     const vModal = document.getElementById("videoModal");
     const vRecModal = document.getElementById("videoRecordModal");
     return !photoModal.classList.contains("hidden") ||
       !photoPreviewModal.classList.contains("hidden") ||
       (vModal && !vModal.classList.contains("hidden")) ||
       (vRecModal && !vRecModal.classList.contains("hidden")) ||
+      (galleryModal && !galleryModal.classList.contains("hidden")) ||
       (installModal && !installModal.classList.contains("hidden")) ||
       (statsModal && !statsModal.classList.contains("hidden")) ||
       !settingsMenu.classList.contains("hidden") ||
@@ -1856,6 +2016,7 @@
 
     const installModal = document.getElementById("installGuideModal");
     const statsModal = document.getElementById("modelStatsModal");
+    const galleryModal = document.getElementById("mediaGalleryModal");
     const vModal = document.getElementById("videoModal");
     const vRecModal = document.getElementById("videoRecordModal");
     if (vModal && !vModal.classList.contains("hidden")) {
@@ -1866,6 +2027,8 @@
       closePhotoModal(true);
     } else if (!photoPreviewModal.classList.contains("hidden")) {
       cancelPendingPhoto(true);
+    } else if (galleryModal && !galleryModal.classList.contains("hidden")) {
+      closeMediaGalleryModal(true);
     } else if (statsModal && !statsModal.classList.contains("hidden")) {
       closeModelStatsModal(true);
     } else if (installModal && !installModal.classList.contains("hidden")) {
@@ -3184,6 +3347,12 @@
     installModalTitle.textContent = text.installModalTitle;
     installDoneBtn.textContent = text.installDoneBtn;
     installCloseBtn.textContent = text.installCloseBtn;
+    const mgBtn = document.getElementById("mediaGalleryBtn");
+    if (mgBtn) mgBtn.textContent = text.mediaGalleryBtn;
+    const mgTitle = document.getElementById("mediaGalleryTitle");
+    if (mgTitle) mgTitle.textContent = text.mediaGalleryTitle;
+    const mgClose = document.getElementById("mediaGalleryCloseBtn");
+    if (mgClose) mgClose.textContent = text.photoClose;
     const msBtn = document.getElementById("modelStatsBtn");
     if (msBtn) msBtn.textContent = text.modelStatsBtn;
     const msTitle = document.getElementById("modelStatsTitle");
@@ -3732,31 +3901,26 @@
     }
 
     const now = new Date();
-    const tSec = now.getTime() / 1000;
 
-    // 센서 미지원/데스크톱 환경에서는 아주 느리고 미세한 자연 호흡 움직임 폴백
+    // 센서 미지원 환경에서는 흔들림 없이 안정적인 10시 방향 자연광 유지
     if (!sensorActive) {
-      targetTiltX = Math.sin(tSec * 0.45) * 0.22 - 0.12;
-      targetTiltY = Math.cos(tSec * 0.35) * 0.18 - 0.16;
+      targetTiltX = 0;
+      targetTiltY = 0;
     }
 
-    // 부드러운 관성 스무딩
-    smoothTiltX += (targetTiltX - smoothTiltX) * 0.14;
-    smoothTiltY += (targetTiltY - smoothTiltY) * 0.14;
-    const hDiff = Math.atan2(Math.sin(targetHeadingRad - smoothHeadingRad), Math.cos(targetHeadingRad - smoothHeadingRad));
-    smoothHeadingRad += hDiff * 0.12;
+    // 부드러운 관성 스무딩 (과도한 움직임 억제)
+    smoothTiltX += (targetTiltX - smoothTiltX) * 0.08;
+    smoothTiltY += (targetTiltY - smoothTiltY) * 0.08;
 
-    // 태양 위치 + 기기 방향·기울기를 결합한 최종 광원 벡터
-    const solar = getSolarLighting(now);
-    const relSolarAz = solar.azRad - smoothHeadingRad;
-    const solarWeight = solar.altDeg > -4 ? 0.55 : 0.28;
-    const lightX = Math.sin(relSolarAz) * solarWeight - smoothTiltX * 0.75;
-    const lightY = -Math.cos(relSolarAz) * solarWeight - smoothTiltY * 0.75;
+    // 고정된 10~11시 방향 스튜디오 자연광 + 기울기에 따른 아주 미세한 유리 반사만 반영
+    const solar = { r: 255, g: 253, b: 248, intensity: 0.85 };
+    const lightX = -0.52 - smoothTiltX * 0.14;
+    const lightY = -0.62 - smoothTiltY * 0.14;
     const lightAng = Math.atan2(lightY, lightX);
 
-    // 3D 시차(Parallax) 기준 변위 (px)
-    const pX = smoothTiltX * 5.2;
-    const pY = smoothTiltY * 5.2;
+    // 3D 시차(Parallax) 제거: 다이얼·인덱스·바늘이 중심축에서 들뜨지 않고 정확히 고정되도록 처리
+    const pX = 0;
+    const pY = 0;
 
     const dialKey = `${pxSize}|${now.getDate()}`;
     if (!cachedDialLayerCanvas || cachedDialLayerKey !== dialKey) {
@@ -3879,17 +4043,14 @@
     const dOffY = -pY * 0.35;
     ctx.drawImage(cachedDialLayerCanvas, dOffX, dOffY, cssSize, cssSize);
 
-    // 기울기 & 태양 방향에 맞춰 실시간 회전하는 실버 선버스트 원뿔 광택
+    // 아주 은은한 실버 오팔린 광택 (과한 회전 줄임)
     if (typeof ctx.createConicGradient === "function") {
-      const conic = ctx.createConicGradient(lightAng * 0.9 + smoothTiltX * 0.8, cx + dOffX, cy + dOffY);
-      const sCol = `${solar.r},${solar.g},${solar.b}`;
-      conic.addColorStop(0.00, `rgba(${sCol},${(0.24 * solar.intensity).toFixed(3)})`);
-      conic.addColorStop(0.16, "rgba(155,163,176,0.11)");
-      conic.addColorStop(0.32, `rgba(${sCol},${(0.30 * solar.intensity).toFixed(3)})`);
-      conic.addColorStop(0.50, "rgba(145,153,166,0.13)");
-      conic.addColorStop(0.68, `rgba(${sCol},${(0.22 * solar.intensity).toFixed(3)})`);
-      conic.addColorStop(0.84, "rgba(150,158,172,0.12)");
-      conic.addColorStop(1.00, `rgba(${sCol},${(0.24 * solar.intensity).toFixed(3)})`);
+      const conic = ctx.createConicGradient(lightAng * 0.35, cx, cy);
+      conic.addColorStop(0.00, "rgba(255,254,250,0.08)");
+      conic.addColorStop(0.25, "rgba(155,160,170,0.04)");
+      conic.addColorStop(0.50, "rgba(255,254,250,0.09)");
+      conic.addColorStop(0.75, "rgba(155,160,170,0.04)");
+      conic.addColorStop(1.00, "rgba(255,254,250,0.08)");
       ctx.fillStyle = conic;
       ctx.fillRect(cx - dialR, cy - dialR, dialR * 2, dialR * 2);
     }
@@ -4135,38 +4296,24 @@
     ctx.fillStyle = rimShadow;
     ctx.fillRect(cx - dialR, cy - dialR, dialR * 2, dialR * 2);
 
-    // ===== [레이어 5] 돔형 사파이어 글래스: IWC 블루 AR 코팅 광택 + 이동하는 태양/기울기 정반사 =====
-    // 5-1. IWC 특유의 블루/바이올렛 무반사(AR) 코팅 틴트
-    const arX = cx - lightX * dialR * 0.65;
-    const arY = cy - lightY * dialR * 0.65;
-    const arGrad = ctx.createRadialGradient(arX, arY, dialR * 0.05, arX, arY, dialR * 1.18);
-    arGrad.addColorStop(0.00, "rgba(74, 128, 255, 0.16)");
-    arGrad.addColorStop(0.38, "rgba(102, 118, 245, 0.08)");
-    arGrad.addColorStop(0.75, "rgba(60, 110, 230, 0.02)");
-    arGrad.addColorStop(1.00, "rgba(60, 110, 230, 0.0)");
+    // ===== [레이어 5] 은은한 사파이어 글래스 반사 (과도한 AR/스포트라이트 제거) =====
+    const arX = cx - lightX * dialR * 0.45;
+    const arY = cy - lightY * dialR * 0.45;
+    const arGrad = ctx.createRadialGradient(arX, arY, dialR * 0.08, arX, arY, dialR * 1.15);
+    arGrad.addColorStop(0.00, "rgba(85, 130, 235, 0.05)");
+    arGrad.addColorStop(0.50, "rgba(85, 130, 235, 0.02)");
+    arGrad.addColorStop(1.00, "rgba(85, 130, 235, 0.0)");
     ctx.fillStyle = arGrad;
     ctx.fillRect(cx - dialR, cy - dialR, dialR * 2, dialR * 2);
 
-    // 5-2. 돔형 유리를 타고 미끄러지는 태양·조명 스페큘러 반사광 (색온도 연동)
-    const specX = cx + lightX * dialR * 0.56;
-    const specY = cy + lightY * dialR * 0.56;
-    const specGrad = ctx.createRadialGradient(specX, specY, dialR * 0.02, specX, specY, dialR * 0.85);
-    specGrad.addColorStop(0.00, `rgba(${solar.r},${solar.g},${solar.b},${(0.34 * solar.intensity).toFixed(3)})`);
-    specGrad.addColorStop(0.28, `rgba(${solar.r},${solar.g},${solar.b},${(0.11 * solar.intensity).toFixed(3)})`);
-    specGrad.addColorStop(0.60, "rgba(255,255,255,0.0)");
+    const specX = cx + lightX * dialR * 0.48;
+    const specY = cy + lightY * dialR * 0.48;
+    const specGrad = ctx.createRadialGradient(specX, specY, dialR * 0.02, specX, specY, dialR * 0.78);
+    specGrad.addColorStop(0.00, "rgba(255,255,255,0.13)");
+    specGrad.addColorStop(0.35, "rgba(255,255,255,0.04)");
     specGrad.addColorStop(1.00, "rgba(255,255,255,0.0)");
     ctx.fillStyle = specGrad;
     ctx.fillRect(cx - dialR, cy - dialR, dialR * 2, dialR * 2);
-
-    // 5-3. 사파이어 돔 유리 가장자리 얇은 곡면 반사 호(Arc)
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, dialR * 0.965, lightAng - 0.65, lightAng + 0.65);
-    ctx.strokeStyle = `rgba(${solar.r},${solar.g},${solar.b},${(0.36 * solar.intensity).toFixed(3)})`;
-    ctx.lineWidth = Math.max(2, dialR * 0.018);
-    ctx.lineCap = "round";
-    ctx.stroke();
-    ctx.restore();
 
     ctx.restore(); // dial clip end
     ctx.restore(); // dpr scale end
@@ -9114,6 +9261,127 @@ ${getHonorificRule(myRole)}
         koSecEl.classList.add("hidden");
       }
     }
+  }
+
+  /* ================= 사진/영상 모아보기 (앨범) ================= */
+
+  let mediaGalleryTab = "all";
+
+  function openMediaGalleryModal() {
+    settingsMenu.classList.add("hidden");
+    const modal = document.getElementById("mediaGalleryModal");
+    if (!modal) return;
+    mediaGalleryTab = "all";
+    renderMediaGallery();
+    modal.classList.remove("hidden");
+    ensureModalHistory();
+  }
+
+  function closeMediaGalleryModal(fromPopState = false) {
+    const modal = document.getElementById("mediaGalleryModal");
+    if (!modal || modal.classList.contains("hidden")) return;
+    modal.classList.add("hidden");
+    if (!fromPopState) releaseModalHistoryIfNoneOpen();
+  }
+
+  function setMediaGalleryTab(tab) {
+    mediaGalleryTab = tab || "all";
+    renderMediaGallery();
+  }
+
+  function formatGalleryShortDate(ts) {
+    if (!ts) return "";
+    const d = new Date(ts);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  }
+
+  function renderMediaGallery() {
+    const gridEl = document.getElementById("mediaGalleryGrid");
+    if (!gridEl) return;
+    const text = t();
+
+    const msgs = (roomState.messages || []).slice().reverse();
+    const allPhotos = msgs.filter(m => m && m.hasPhoto);
+    const allVideos = msgs.filter(m => m && m.hasVideo && !isVideoExpiredMsg(m) && m.videoReady);
+    const allMedia = msgs.filter(m => m && (m.hasPhoto || (m.hasVideo && !isVideoExpiredMsg(m) && m.videoReady)));
+
+    const tabAllBtn = document.getElementById("galTabAll");
+    const tabPhotoBtn = document.getElementById("galTabPhoto");
+    const tabVideoBtn = document.getElementById("galTabVideo");
+    if (tabAllBtn) {
+      tabAllBtn.textContent = `${text.galleryTabAll} (${allMedia.length})`;
+      tabAllBtn.classList.toggle("active", mediaGalleryTab === "all");
+    }
+    if (tabPhotoBtn) {
+      tabPhotoBtn.textContent = `${text.galleryTabPhoto} (${allPhotos.length})`;
+      tabPhotoBtn.classList.toggle("active", mediaGalleryTab === "photo");
+    }
+    if (tabVideoBtn) {
+      tabVideoBtn.textContent = `${text.galleryTabVideo} (${allVideos.length})`;
+      tabVideoBtn.classList.toggle("active", mediaGalleryTab === "video");
+    }
+
+    const list = mediaGalleryTab === "photo" ? allPhotos : (mediaGalleryTab === "video" ? allVideos : allMedia);
+    gridEl.innerHTML = "";
+
+    if (list.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "gallery-empty";
+      empty.textContent = text.galleryEmpty;
+      gridEl.appendChild(empty);
+      return;
+    }
+
+    list.forEach(m => {
+      const cell = document.createElement("div");
+      cell.className = "gallery-item";
+
+      const dateBadge = document.createElement("div");
+      dateBadge.className = "gallery-date-badge";
+      dateBadge.textContent = formatGalleryShortDate(m.ts);
+
+      if (m.hasPhoto) {
+        const placeholder = document.createElement("div");
+        placeholder.className = "gallery-item-placeholder";
+        placeholder.textContent = "📷";
+
+        const img = document.createElement("img");
+        img.className = "hidden";
+        img.loading = "lazy";
+        cell.appendChild(placeholder);
+        cell.appendChild(img);
+        cell.appendChild(dateBadge);
+
+        cell.onclick = () => {
+          if (photoCache[m.ts]) {
+            openPhotoModal(m.ts);
+          }
+        };
+        loadPhotoIntoImg(m.ts, img, placeholder, false);
+      } else if (m.hasVideo) {
+        if (m.videoThumb) {
+          const img = document.createElement("img");
+          img.src = m.videoThumb;
+          img.loading = "lazy";
+          cell.appendChild(img);
+        } else {
+          const placeholder = document.createElement("div");
+          placeholder.className = "gallery-item-placeholder";
+          placeholder.textContent = "🎬";
+          cell.appendChild(placeholder);
+        }
+
+        const vBadge = document.createElement("div");
+        vBadge.className = "gallery-video-badge";
+        vBadge.textContent = `▶ ${formatDuration(m.videoDuration || 0, false)}`;
+        cell.appendChild(vBadge);
+        cell.appendChild(dateBadge);
+
+        cell.onclick = () => openVideoModal(m);
+      }
+
+      gridEl.appendChild(cell);
+    });
   }
 
   function openModelStatsModal() {
