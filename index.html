@@ -1470,7 +1470,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 73;
+  const APP_VERSION = 75;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -1662,7 +1662,7 @@
       installCloseBtn: "닫기",
       modelStatsBtn: "📊 모델 순위 / 앱 정보",
       modelStatsTitle: "📊 모델 순위 / 앱 정보",
-      modelStatsSttTitle: "🎙️ 음성 인식 1순위 (Groq Whisper)",
+      modelStatsSttTitle: "🎙️ 음성 인식 백업 (Groq Whisper)",
       modelStatsRankTitle: "🤖 AI 번역 모델 자동 순위 (성공률·속도 기준)",
       modelStatsOtherTitle: "ℹ️ 앱 및 저장 상태",
       modelStatsResetBtn: "🔄 순위 초기화",
@@ -1786,7 +1786,7 @@
       installCloseBtn: "Đóng",
       modelStatsBtn: "📊 Thứ tự AI & Trạng thái",
       modelStatsTitle: "📊 Thứ tự AI & Trạng thái",
-      modelStatsSttTitle: "🎙️ Nhận diện giọng nói (Groq Whisper)",
+      modelStatsSttTitle: "🎙️ Nhận diện giọng nói dự phòng (Groq Whisper)",
       modelStatsRankTitle: "🤖 Thứ tự mô hình AI tự động",
       modelStatsOtherTitle: "ℹ️ Thông tin ứng dụng & lưu trữ",
       modelStatsResetBtn: "🔄 Đặt lại thứ tự",
@@ -2728,6 +2728,7 @@
   let fontSizePx = Math.min(25, Math.max(13, Number(localStorage.getItem("wt_font_px")) || 17));
 
   let isRecording = false;
+  let isStartingRecording = false;
   let isProcessing = false;
   let processingStage = "idle"; // "idle" | "recognizing" | "translating" | "retrying"
   let stageSwitchTimer = null;
@@ -6696,18 +6697,10 @@ ${getHonorificRule(msgLang)}
 
       let orig = "";
       let trans = "";
+      let geminiDirectOk = false;
 
-      const groqRes = await transcribeWithGroq(audioBlob, cleanMime, slCode, { strictNoSpeech: true });
-      if (groqRes.ok) {
-        orig = groqRes.text;
-      } else if (speechHint) {
-        orig = speechHint;
-      }
-
-      if (orig) {
-        trans = await translateTextForLang(orig, myRole);
-      } else if (!groqRes.ok) {
-        // Groq 실패 시 Gemini 오디오 직접 청취 백업 (MIME 정규화 적용)
+      // 1순위: Gemini 오디오 직접 청취 + 문맥 번역
+      try {
         const base64Audio = await blobToBase64(audioBlob);
         const systemInstruction = `너는 한국어와 베트남어 실시간 전문 통역사야.
 [규칙]
@@ -6741,6 +6734,22 @@ ${getHonorificRule(myRole)}
         const parsed = JSON.parse(rawJson);
         orig = (parsed.original || "").trim();
         trans = (parsed.translated || "").trim();
+        geminiDirectOk = true;
+      } catch {
+        geminiDirectOk = false;
+      }
+
+      // 2순위 백업: Gemini 오류/지연 시 Groq Whisper STT + 텍스트 번역
+      if (!orig && !geminiDirectOk) {
+        const groqRes = await transcribeWithGroq(audioBlob, cleanMime, slCode, { strictNoSpeech: true });
+        if (groqRes.ok) {
+          orig = groqRes.text;
+        } else if (speechHint) {
+          orig = speechHint;
+        }
+        if (orig) {
+          trans = await translateTextForLang(orig, myRole);
+        }
       }
 
       if (!orig) return;
@@ -9223,7 +9232,7 @@ ${getHonorificRule(myRole)}
   /* ================= 무전기 / 음성 번역 로직 (32kbps + 하이브리드 업로드) ================= */
 
   micBtn.addEventListener("click", async () => {
-    if (isProcessing || !apiKey) return;
+    if (isProcessing || isRecording || isStartingRecording || !apiKey) return;
 
     if (isLockedByOther) {
       const nextVal = isReservedByMe ? "" : myRole;
@@ -9294,17 +9303,21 @@ ${getHonorificRule(myRole)}
     if (speechRec) {
       const r = speechRec;
       speechRec = null;
-      try { r.onresult = null; r.onerror = null; r.onend = null; r.stop(); } catch {}
+      try { r.onresult = null; r.onerror = null; r.onend = null; r.abort(); } catch { try { r.stop(); } catch {} }
     }
   }
 
   async function startRecording() {
+    if (isRecording || isStartingRecording) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === "undefined") {
       reportDiag("no_support");
       alert(t().diagNoSupport);
       return;
     }
 
+    isStartingRecording = true;
+    micBtn.disabled = true;
+    stopMeterAndStream();
     stopCurrentAudio();
     setMediaSessionState("playing", "Recording");
 
@@ -9413,6 +9426,7 @@ ${getHonorificRule(myRole)}
       }
       startSpeechBackup();
       isRecording = true;
+      isStartingRecording = false;
       isMyTurn = false;
       updateButtonUI();
 
@@ -9423,10 +9437,18 @@ ${getHonorificRule(myRole)}
         turnAt: 0
       });
     } catch (err) {
+      isStartingRecording = false;
+      isRecording = false;
       stopMeterAndStream();
+      updateButtonUI();
       const isDenied = err.name === "NotAllowedError" || err.name === "PermissionDeniedError";
       reportDiag(isDenied ? "mic_denied" : "rec_err");
       alert(isDenied ? t().micDenied : `Mic Error: ${err.message}`);
+    } finally {
+      if (isStartingRecording) {
+        isStartingRecording = false;
+        updateButtonUI();
+      }
     }
   }
 
@@ -9658,7 +9680,7 @@ ${getHonorificRule(myRole)}
       const slCode = myRole === "ko" ? "ko" : "vi";
       const tlCode = myRole === "ko" ? "vi" : "ko";
       const fallbackText = (backupTranscript || "").trim();
-      const preferGeminiAudio = (myRole === "vi" && callState === "idle");
+      const preferGeminiAudio = true; // 한·베 모두 Gemini 오디오 직접 청취 1순위 -> 문제 시 Groq Whisper 자동 백업
 
       const runGeminiDirectAudio = async (base64Audio) => {
         setProcessingStage("translating");
