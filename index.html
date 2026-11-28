@@ -1764,7 +1764,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 81;
+  const APP_VERSION = 82;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -3107,6 +3107,9 @@
   const photoCache = {};
   let currentModalPhotoDataUrl = "";
   let currentModalPhotoTs = 0;
+  const photoTranslatedCache = {};
+  const translatingPhotoSet = new Set();
+  let isShowingTranslatedPhoto = false;
 
   let photoScale = 1;
   let photoTx = 0;
@@ -5872,10 +5875,6 @@ ${getHonorificRule(msgLang)}
     photoScale += delta;
     applyPhotoTransform(false);
   }, { passive: false });
-
-  const photoTranslatedCache = {};
-  const translatingPhotoSet = new Set();
-  let isShowingTranslatedPhoto = false;
 
   function updatePhotoTranslateBtnUI() {
     const btn = document.getElementById("photoTranslateBtn");
