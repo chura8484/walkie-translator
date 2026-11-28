@@ -445,12 +445,75 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(0, 0, 0, 0.62);
+      background: rgba(0, 0, 0, 0.68);
       color: #fff;
-      font-size: 15px;
-      font-weight: bold;
       z-index: 4;
       pointer-events: none;
+      padding: 20px;
+    }
+    .media-progress-card {
+      width: 100%;
+      max-width: 280px;
+      background: rgba(22, 26, 34, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 14px;
+      padding: 16px 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+      text-align: center;
+    }
+    .media-progress-label {
+      font-size: 14px;
+      font-weight: bold;
+      color: #fff;
+      line-height: 1.35;
+    }
+    .media-progress-track {
+      width: 100%;
+      height: 9px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.16);
+      overflow: hidden;
+    }
+    body.light-theme .media-progress-inline .media-progress-track {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    .media-progress-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #29b6f6, #00e676);
+      transition: width 0.22s ease-out;
+    }
+    .media-progress-pct {
+      font-size: 13px;
+      font-weight: bold;
+      color: #80d8ff;
+      letter-spacing: 0.4px;
+    }
+    .media-progress-inline {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .media-progress-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      color: var(--text);
+    }
+    #analysisProgressPct {
+      color: #29b6f6;
+      white-space: nowrap;
     }
     #mediaAnalysisModal {
       position: fixed;
@@ -1539,10 +1602,17 @@
 
 <div id="mediaAnalysisModal" class="hidden" onclick="if(event.target===this) closeMediaAnalysisModal()">
   <div class="analysis-card">
-    <h3 id="mediaAnalysisTitle">🔍 내용 요약 및 번역</h3>
+    <h3 id="mediaAnalysisTitle">📝 내용 요약</h3>
+    <div id="mediaAnalysisProgress" class="media-progress-inline hidden">
+      <div class="media-progress-head">
+        <span id="analysisProgressText">⏳ 내용 요약 중...</span>
+        <span id="analysisProgressPct">0%</span>
+      </div>
+      <div class="media-progress-track"><div id="analysisProgressBar" class="media-progress-fill"></div></div>
+    </div>
     <div id="mediaAnalysisBody" class="analysis-body"></div>
     <div class="analysis-actions">
-      <button id="mediaReanalyzeBtn" onclick="reanalyzeCurrentMediaModal()">🔄 다시 분석</button>
+      <button id="mediaReanalyzeBtn" onclick="reanalyzeCurrentMediaModal()">🔄 다시 요약</button>
       <button id="mediaAnalysisCloseBtn" onclick="closeMediaAnalysisModal()">닫기</button>
     </div>
   </div>
@@ -1551,7 +1621,13 @@
 <div id="photoModal" class="hidden">
   <div id="photoModalStage">
     <img id="photoModalImg" src="" alt="photo" />
-    <div id="photoModalLoading" class="hidden">⏳ 사진 글자 번역 중...</div>
+    <div id="photoModalLoading" class="hidden">
+      <div class="media-progress-card">
+        <div id="photoProgressText" class="media-progress-label">⏳ 사진 글자 번역 중...</div>
+        <div class="media-progress-track"><div id="photoProgressBar" class="media-progress-fill"></div></div>
+        <div id="photoProgressPct" class="media-progress-pct">0%</div>
+      </div>
+    </div>
   </div>
   <div class="photo-modal-actions">
     <button id="photoTranslateBtn" onclick="togglePhotoOverlayTranslation()">🌐 번역</button>
@@ -1764,7 +1840,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 82;
+  const APP_VERSION = 84;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -1966,6 +2042,12 @@
       photoTranslateBtn: "🌐 번역",
       photoOriginalBtn: "🖼️ 원본",
       photoTranslating: "⏳ 사진 글자 번역 중...",
+      photoStepLoad: "📥 사진 불러오는 중...",
+      photoStepAi: "🤖 AI가 글자·금액 분석 중...",
+      photoStepRender: "🎨 번역 이미지 생성 중...",
+      videoStepLoad: "📥 동영상 불러오는 중...",
+      videoStepAi: "🤖 AI가 영상 장면·음성 분석 중...",
+      videoStepSave: "📝 요약 결과 정리 중...",
       photoNoText: "사진에 번역할 글자가 없습니다.",
       photoTranslateFail: "사진 글자 번역에 실패했습니다. 잠시 후 다시 시도해 주세요.",
       mediaAnalyzeBtn: "📝 요약",
@@ -2109,6 +2191,12 @@
       photoTranslateBtn: "🌐 Dịch ảnh",
       photoOriginalBtn: "🖼️ Ảnh gốc",
       photoTranslating: "⏳ Đang dịch chữ trong ảnh...",
+      photoStepLoad: "📥 Đang tải ảnh...",
+      photoStepAi: "🤖 AI đang nhận diện & dịch chữ...",
+      photoStepRender: "🎨 Đang ghép bản dịch lên ảnh...",
+      videoStepLoad: "📥 Đang tải video...",
+      videoStepAi: "🤖 AI đang phân tích hình ảnh & âm thanh...",
+      videoStepSave: "📝 Đang tổng hợp nội dung...",
       photoNoText: "Không tìm thấy chữ cần dịch trong ảnh.",
       photoTranslateFail: "Không thể dịch chữ trong ảnh. Vui lòng thử lại sau.",
       mediaAnalyzeBtn: "📝 Tóm tắt",
@@ -3110,6 +3198,10 @@
   const photoTranslatedCache = {};
   const translatingPhotoSet = new Set();
   let isShowingTranslatedPhoto = false;
+  let photoProgressTimer = null;
+  let photoProgressVal = 0;
+  let analysisProgressTimer = null;
+  let analysisProgressVal = 0;
 
   let photoScale = 1;
   let photoTx = 0;
@@ -3539,8 +3631,8 @@
     if (mgClose) mgClose.textContent = text.photoClose;
     const pTrBtn = document.getElementById("photoTranslateBtn");
     if (pTrBtn) pTrBtn.textContent = isShowingTranslatedPhoto ? text.photoOriginalBtn : text.photoTranslateBtn;
-    const pLoad = document.getElementById("photoModalLoading");
-    if (pLoad) pLoad.textContent = text.photoTranslating;
+    const pLoadTxt = document.getElementById("photoProgressText");
+    if (pLoadTxt) pLoadTxt.textContent = text.photoTranslating;
     const pAnBtn = document.getElementById("photoAnalyzeBtn");
     if (pAnBtn) pAnBtn.textContent = text.mediaAnalyzeBtn;
     const vAnBtn = document.getElementById("videoAnalyzeBtn");
@@ -5892,8 +5984,7 @@ ${getHonorificRule(msgLang)}
     isShowingTranslatedPhoto = false;
     resetPhotoTransform();
     photoModalImg.src = dataUrl;
-    const loadEl = document.getElementById("photoModalLoading");
-    if (loadEl) loadEl.classList.add("hidden");
+    stopPhotoProgress(true);
     updatePhotoTranslateBtnUI();
     photoModal.classList.remove("hidden");
     ensureModalHistory();
@@ -5909,11 +6000,49 @@ ${getHonorificRule(msgLang)}
     currentModalPhotoDataUrl = "";
     currentModalPhotoTs = 0;
     isShowingTranslatedPhoto = false;
-    const loadEl = document.getElementById("photoModalLoading");
-    if (loadEl) loadEl.classList.add("hidden");
+    stopPhotoProgress(true);
     updatePhotoTranslateBtnUI();
     resetPhotoTransform();
     if (!fromPopState) releaseModalHistoryIfNoneOpen();
+  }
+
+  function setPhotoProgressUI(pct, labelText) {
+    photoProgressVal = Math.max(0, Math.min(100, Math.round(pct)));
+    const loadEl = document.getElementById("photoModalLoading");
+    const txtEl = document.getElementById("photoProgressText");
+    const barEl = document.getElementById("photoProgressBar");
+    const pctEl = document.getElementById("photoProgressPct");
+    if (loadEl) loadEl.classList.remove("hidden");
+    if (txtEl && labelText) txtEl.textContent = labelText;
+    if (barEl) barEl.style.width = `${photoProgressVal}%`;
+    if (pctEl) pctEl.textContent = `${photoProgressVal}%`;
+  }
+
+  function startPhotoProgress(initialPct, labelText, maxAutoPct = 94, expectedMs = 14000) {
+    if (photoProgressTimer) { clearInterval(photoProgressTimer); photoProgressTimer = null; }
+    setPhotoProgressUI(initialPct, labelText);
+    const startedAt = Date.now();
+    photoProgressTimer = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      // 부드럽게 올라가되 maxAutoPct에 점근하도록 곡선 계산
+      const ratio = 1 - Math.exp(-elapsed / Math.max(2500, expectedMs * 0.55));
+      const target = Math.min(maxAutoPct, Math.max(photoProgressVal, Math.round(initialPct + (maxAutoPct - initialPct) * ratio)));
+      if (target > photoProgressVal) {
+        setPhotoProgressUI(target, null);
+      }
+    }, 180);
+  }
+
+  function advancePhotoProgress(minPct, labelText, maxAutoPct = 95, expectedMs = 16000) {
+    const nextVal = Math.max(photoProgressVal, minPct);
+    startPhotoProgress(nextVal, labelText, maxAutoPct, expectedMs);
+  }
+
+  function stopPhotoProgress(hideOverlay = true) {
+    if (photoProgressTimer) { clearInterval(photoProgressTimer); photoProgressTimer = null; }
+    photoProgressVal = 0;
+    const loadEl = document.getElementById("photoModalLoading");
+    if (hideOverlay && loadEl) loadEl.classList.add("hidden");
   }
 
   function downloadCurrentPhoto() {
@@ -6268,11 +6397,7 @@ ${getHonorificRule(msgLang)}
 
     if (translatingPhotoSet.has(ts)) return;
     translatingPhotoSet.add(ts);
-    const loadEl = document.getElementById("photoModalLoading");
-    if (loadEl) {
-      loadEl.textContent = t().photoTranslating;
-      loadEl.classList.remove("hidden");
-    }
+    startPhotoProgress(6, t().photoStepLoad, 22, 3000);
     updatePhotoTranslateBtnUI();
 
     try {
@@ -6284,25 +6409,26 @@ ${getHonorificRule(msgLang)}
       if (!ocrItems) {
         const payload = await loadPhotoPayloadForAnalysis(ts);
         if (!payload || !payload.data) throw new Error("photo_not_found");
+        advancePhotoProgress(20, t().photoStepAi, 88, 22000);
 
         const targetLangName = myRole === "ko" ? "자연스러운 한국어" : "tiếng Việt tự nhiên";
         const ocrPrompt = myRole === "ko"
           ? `이 사진 속에 있는 외국어(베트남어·영어 등) 글자와 금액/가격을 모두 찾아서 위치와 함께 ${targetLangName}로 번역해줘.
 규칙:
 - 같은 줄이나 한 문장/항목으로 이어진 글자는 단어별로 쪼개지 말고 하나의 블록으로 묶어줘.
-- 이미 한국어로만 적힌 글자나 의미 없는 단순 기호는 제외해. 단, 외국 통화 금액(예: 50k, 50.000đ, $10, 500엔 등)은 반드시 포함해.
+- 이미 한국어로만 적힌 글자, 단순 아이콘/기호, 상단 상태바 시간·배터리 숫자는 제외해. 단, 외국 통화 금액(예: 50k, 50.000đ, $10, 500엔 등)은 반드시 포함해.
 - 블록에 금액/가격이 포함되어 있으면 price_amount(숫자, 예: 50k는 50000)와 price_currency(3자리 통화코드: VND, USD, JPY, EUR, THB, CNY, KRW 등)를 함께 추출해. 금액이 없으면 null로 넣어.
 - 각 블록의 위치는 이미지 기준 0~1000 정규화 좌표 [ymin, xmin, ymax, xmax]로 정확하게 반환해.
 - 번역할 글자나 금액이 없으면 {"items": []} 만 반환해.
-- 반드시 JSON 형식으로만 응답: {"items": [{"original": "원문", "translated": "한국어 번역", "price_amount": 50000, "price_currency": "VND", "box_2d": [ymin, xmin, ymax, xmax]}]}`
+- 반드시 JSON 형식으로만 간결하게 응답(원문 필드 제외): {"items": [{"translated": "한국어 번역", "price_amount": 50000, "price_currency": "VND", "box_2d": [ymin, xmin, ymax, xmax]}]}`
           : `Hãy tìm tất cả chữ nước ngoài (tiếng Hàn, tiếng Anh...) và giá tiền trong bức ảnh này, dịch sang ${targetLangName} kèm tọa độ vị trí.
 Quy tắc:
 - Gom các từ cùng dòng/cùng cụm ý thành 1 khối, không tách rời từng từ đơn lẻ.
-- Bỏ qua chữ đã là tiếng Việt hoặc ký hiệu vô nghĩa. Nếu là giá tiền ngoại tệ (ví dụ: 10,000원, ₩10000, $10...) thì bắt buộc phải lấy.
+- Bỏ qua chữ đã là tiếng Việt, ký hiệu vô nghĩa, giờ/pin trên thanh trạng thái. Nếu là giá tiền ngoại tệ (ví dụ: 10,000원, ₩10000, $10...) thì bắt buộc phải lấy.
 - Nếu khối có giá tiền, trích xuất thêm price_amount (số, ví dụ 10,000원 là 10000) và price_currency (mã 3 chữ cái: KRW, USD, JPY, EUR, VND...). Nếu không có giá tiền thì để null.
 - Tọa độ chuẩn hóa 0~1000 theo ảnh: [ymin, xmin, ymax, xmax].
 - Nếu không có chữ/giá tiền cần dịch, trả về {"items": []}.
-- Chỉ trả lời bằng JSON: {"items": [{"original": "chữ gốc", "translated": "bản dịch tiếng Việt", "price_amount": 10000, "price_currency": "KRW", "box_2d": [ymin, xmin, ymax, xmax]}]}`;
+- Chỉ trả lời ngắn gọn bằng JSON (không cần ghi chữ gốc): {"items": [{"translated": "bản dịch tiếng Việt", "price_amount": 10000, "price_currency": "KRW", "box_2d": [ymin, xmin, ymax, xmax]}]}`;
 
         const data = await callGeminiWithFallback({
           contents: [{
@@ -6314,12 +6440,12 @@ Quy tắc:
           }],
           generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: 1200,
+            maxOutputTokens: 4096,
             responseMimeType: "application/json"
           }
         }, {
-          baseTimeoutMs: 12000,
-          fallbackTimeoutMs: 16000
+          baseTimeoutMs: 60000,
+          fallbackTimeoutMs: 70000
         });
 
         const parts = data.candidates?.[0]?.content?.parts || [];
@@ -6329,7 +6455,22 @@ Quy tắc:
           if (p.text && p.text.trim()) { rawJson = p.text.trim(); break; }
         }
         rawJson = rawJson.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-        const parsed = JSON.parse(rawJson);
+        let parsed = null;
+        try {
+          parsed = JSON.parse(rawJson);
+        } catch {
+          // 응답이 중간에 잘렸을 경우 완료된 JSON 객체들만 복구
+          const salvaged = [];
+          const objMatches = rawJson.match(/\{[^{}]*"translated"\s*:[^{}]*"box_2d"\s*:\s*\[[\d\s,.-]+\][^{}]*\}/g) || [];
+          for (const chunk of objMatches) {
+            try { salvaged.push(JSON.parse(chunk)); } catch {}
+          }
+          if (salvaged.length > 0) {
+            parsed = { items: salvaged };
+          } else {
+            throw new Error("json_parse_error");
+          }
+        }
         ocrItems = Array.isArray(parsed.items) ? parsed.items : (Array.isArray(parsed) ? parsed : []);
         ocrItems = ocrItems.filter(it => it && it.translated && String(it.translated).trim() && Array.isArray(it.box_2d) && it.box_2d.length === 4);
 
@@ -6357,6 +6498,7 @@ Quy tắc:
         return;
       }
 
+      advancePhotoProgress(88, t().photoStepRender, 97, 3000);
       const hasAnyPrice = ocrItems.some(it => Number(it.price_amount) > 0 && it.price_currency);
       const liveRates = hasAnyPrice ? await fetchLiveExchangeRates() : null;
       const enrichedItems = ocrItems.map(it => {
@@ -6374,17 +6516,21 @@ Quy tắc:
 
       const renderedDataUrl = await renderTranslatedPhotoCanvas(currentModalPhotoDataUrl, enrichedItems);
       photoTranslatedCache[cacheKey] = renderedDataUrl;
+      setPhotoProgressUI(100, t().photoStepRender);
 
       if (currentModalPhotoTs === ts && !photoModal.classList.contains("hidden")) {
         isShowingTranslatedPhoto = true;
         photoModalImg.src = renderedDataUrl;
         resetPhotoTransform();
       }
-    } catch {
-      alert(t().photoTranslateFail);
+    } catch (err) {
+      const reason = err && err.name === "AbortError"
+        ? "timeout"
+        : (err && err.message ? String(err.message).slice(0, 60) : "");
+      alert(reason ? `${t().photoTranslateFail}\n(${reason})` : t().photoTranslateFail);
     } finally {
       translatingPhotoSet.delete(ts);
-      if (loadEl) loadEl.classList.add("hidden");
+      stopPhotoProgress(true);
       updatePhotoTranslateBtnUI();
     }
   }
@@ -10032,13 +10178,59 @@ ${getHonorificRule(myRole)}
   const analyzingMediaSet = new Set();
   let currentAnalysisMsgTs = 0;
 
+  function setAnalysisProgressUI(pct, labelText) {
+    analysisProgressVal = Math.max(0, Math.min(100, Math.round(pct)));
+    const boxEl = document.getElementById("mediaAnalysisProgress");
+    const txtEl = document.getElementById("analysisProgressText");
+    const barEl = document.getElementById("analysisProgressBar");
+    const pctEl = document.getElementById("analysisProgressPct");
+    if (boxEl) boxEl.classList.remove("hidden");
+    if (txtEl && labelText) txtEl.textContent = labelText;
+    if (barEl) barEl.style.width = `${analysisProgressVal}%`;
+    if (pctEl) pctEl.textContent = `${analysisProgressVal}%`;
+  }
+
+  function startAnalysisProgress(initialPct, labelText, maxAutoPct = 95, expectedMs = 35000) {
+    if (analysisProgressTimer) { clearInterval(analysisProgressTimer); analysisProgressTimer = null; }
+    setAnalysisProgressUI(initialPct, labelText);
+    const startedAt = Date.now();
+    analysisProgressTimer = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      const ratio = 1 - Math.exp(-elapsed / Math.max(3000, expectedMs * 0.55));
+      const target = Math.min(maxAutoPct, Math.max(analysisProgressVal, Math.round(initialPct + (maxAutoPct - initialPct) * ratio)));
+      if (target > analysisProgressVal) {
+        setAnalysisProgressUI(target, null);
+      }
+    }, 200);
+  }
+
+  function advanceAnalysisProgress(minPct, labelText, maxAutoPct = 95, expectedMs = 40000) {
+    const nextVal = Math.max(analysisProgressVal, minPct);
+    startAnalysisProgress(nextVal, labelText, maxAutoPct, expectedMs);
+  }
+
+  function stopAnalysisProgress(hideBox = true) {
+    if (analysisProgressTimer) { clearInterval(analysisProgressTimer); analysisProgressTimer = null; }
+    analysisProgressVal = 0;
+    const boxEl = document.getElementById("mediaAnalysisProgress");
+    if (hideBox && boxEl) boxEl.classList.add("hidden");
+  }
+
   function showMediaAnalysisModal(msgTs, textContent, isLoading = false) {
     currentAnalysisMsgTs = msgTs;
     const modal = document.getElementById("mediaAnalysisModal");
     const bodyEl = document.getElementById("mediaAnalysisBody");
+    const progEl = document.getElementById("mediaAnalysisProgress");
     const reBtn = document.getElementById("mediaReanalyzeBtn");
     if (!modal || !bodyEl) return;
-    bodyEl.textContent = textContent || "";
+    if (isLoading) {
+      bodyEl.classList.add("hidden");
+      if (progEl) progEl.classList.remove("hidden");
+    } else {
+      stopAnalysisProgress(true);
+      bodyEl.textContent = textContent || "";
+      bodyEl.classList.remove("hidden");
+    }
     if (reBtn) reBtn.disabled = Boolean(isLoading);
     modal.classList.remove("hidden");
     ensureModalHistory();
@@ -10136,12 +10328,13 @@ ${getHonorificRule(myRole)}
     analyzingMediaSet.add(msgTs);
     lastRenderSig = "";
     renderMessages(true);
+    const isVideo = Boolean(target.hasVideo && !isVideoExpiredMsg(target));
     if (openModalAfter) {
-      showMediaAnalysisModal(msgTs, t().mediaAnalyzing, true);
+      showMediaAnalysisModal(msgTs, "", true);
+      startAnalysisProgress(5, isVideo ? t().videoStepLoad : t().photoStepLoad, 22, isVideo ? 6000 : 3000);
     }
 
     try {
-      const isVideo = Boolean(target.hasVideo && !isVideoExpiredMsg(target));
       const payload = isVideo
         ? await loadVideoPayloadForAnalysis(msgTs)
         : await loadPhotoPayloadForAnalysis(msgTs);
@@ -10150,12 +10343,16 @@ ${getHonorificRule(myRole)}
         throw new Error("media_not_found");
       }
 
+      if (openModalAfter && currentAnalysisMsgTs === msgTs) {
+        advanceAnalysisProgress(22, isVideo ? t().videoStepAi : t().photoStepAi, 92, isVideo ? 42000 : 18000);
+      }
+
       const promptText = myRole === "ko"
         ? (isVideo
-          ? "이 동영상을 보고 한국어로 간결하게 정리해줘.\n• 내용 요약: 어떤 장면/상황인지 1~2문장으로 설명\n• 말소리·자막 요약: 영상 속 말소리나 화면 자막에 외국어가 있으면 핵심 내용을 자연스러운 한국어로 번역·요약 (없으면 생략)"
-          : "이 사진이 대략 어떤 장면이나 내용인지 한국어로 2~3문장 이내로 알기 쉽게 요약해줘. 사진에 글자가 있더라도 일일이 번역하지 말고 전체적인 핵심 내용과 상황만 간결하게 설명해줘.")
+          ? "이 동영상을 직접 보지 않고도 무슨 내용인지 충분히 알 수 있도록 한국어로 자세하고 알기 쉽게 정리해줘.\n\n1) 전체 상황 및 장면 흐름:\n- 누구(또는 무엇)가 어디서 어떤 행동을 하는지 처음부터 끝까지 시간 순서대로 구체적으로 설명해줘.\n\n2) 말소리·대화 및 화면 글자 번역:\n- 영상 속 말소리(대화·내레이션)나 화면에 나오는 외국어 글자/자막이 있으면 빠뜨리지 말고 자연스러운 한국어로 자세히 번역해줘. (말소리나 글자가 전혀 없으면 '없음' 또는 생략)\n\n3) 핵심 포인트 / 분위기:\n- 영상의 분위기나 전달하려는 핵심 내용을 1~2문장으로 정리해줘."
+          : "이 사진이 대략 어떤 장면이나 내용인지 한국어로 2~3문장 이내로 알기 쉽게 요약해줘.")
         : (isVideo
-          ? "Hãy xem video này và tóm tắt ngắn gọn bằng tiếng Việt:\n• Tóm tắt: Mô tả ngắn gọn 1-2 câu nội dung/bối cảnh video\n• Lời nói & phụ đề: Nếu có tiếng nói hoặc chữ nước ngoài thì dịch tóm tắt ý chính sang tiếng Việt (nếu không có thì bỏ qua)"
+          ? "Hãy xem kỹ video này và mô tả thật chi tiết bằng tiếng Việt để người đọc không cần xem video vẫn hiểu rõ toàn bộ nội dung:\n\n1) Bối cảnh & Diễn biến:\n- Ai (hoặc vật gì) đang ở đâu, làm gì từ đầu đến cuối theo trình tự thời gian.\n\n2) Dịch lời nói & chữ trên màn hình:\n- Nếu có lời nói/hội thoại hoặc chữ/phụ đề nước ngoài, hãy dịch đầy đủ và tự nhiên sang tiếng Việt (nếu không có thì bỏ qua).\n\n3) Điểm chính / Không khí:\n- Tóm tắt ngắn 1-2 câu về không khí hoặc ý chính của video."
           : "Hãy xem bức ảnh này và tóm tắt ngắn gọn nội dung/bối cảnh chính trong 2-3 câu bằng tiếng Việt dễ hiểu.");
 
       const data = await callGeminiWithFallback({
@@ -10168,12 +10365,16 @@ ${getHonorificRule(myRole)}
         }],
         generationConfig: {
           temperature: 0.2,
-          maxOutputTokens: 520
+          maxOutputTokens: isVideo ? 2048 : 800
         }
       }, {
-        baseTimeoutMs: isVideo ? 20000 : 10000,
-        fallbackTimeoutMs: isVideo ? 25000 : 14000
+        baseTimeoutMs: isVideo ? 100000 : 40000,
+        fallbackTimeoutMs: isVideo ? 120000 : 50000
       });
+
+      if (openModalAfter && currentAnalysisMsgTs === msgTs) {
+        setAnalysisProgressUI(96, t().videoStepSave);
+      }
 
       const parts = data.candidates?.[0]?.content?.parts || [];
       let resultText = "";
@@ -10202,6 +10403,7 @@ ${getHonorificRule(myRole)}
         renderMessages(true);
 
         if (openModalAfter && currentAnalysisMsgTs === msgTs) {
+          setAnalysisProgressUI(100, t().videoStepSave);
           showMediaAnalysisModal(msgTs, resultText, false);
         }
 
@@ -10209,14 +10411,19 @@ ${getHonorificRule(myRole)}
         loadedMsgSyncTs = syncTs;
         await saveMessagesToDb(updated, syncTs, { upsertMsg: nextMsg });
       }
-    } catch {
+    } catch (err) {
       analyzingMediaSet.delete(msgTs);
+      stopAnalysisProgress(true);
       lastRenderSig = "";
       renderMessages(true);
+      const reason = err && err.name === "AbortError"
+        ? "timeout"
+        : (err && err.message ? String(err.message).slice(0, 60) : "");
+      const failMsg = reason ? `${t().mediaAnalyzeFail}\n(${reason})` : t().mediaAnalyzeFail;
       if (openModalAfter && currentAnalysisMsgTs === msgTs) {
-        showMediaAnalysisModal(msgTs, t().mediaAnalyzeFail, false);
+        showMediaAnalysisModal(msgTs, failMsg, false);
       } else {
-        alert(t().mediaAnalyzeFail);
+        alert(failMsg);
       }
     }
   }
