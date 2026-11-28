@@ -425,10 +425,32 @@
       color: var(--text-sub);
       border-left-color: #90caf9;
     }
+    #photoTranslateBtn {
+      background: #0078ff;
+      border: 1px solid rgba(255,255,255,0.22);
+      color: #fff;
+    }
+    #photoTranslateBtn.active {
+      background: #ef6c00;
+      border-color: #ffcc80;
+    }
     #photoAnalyzeBtn, #videoAnalyzeBtn {
       background: #00695c;
       border: 1px solid rgba(255,255,255,0.22);
       color: #fff;
+    }
+    #photoModalLoading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.62);
+      color: #fff;
+      font-size: 15px;
+      font-weight: bold;
+      z-index: 4;
+      pointer-events: none;
     }
     #mediaAnalysisModal {
       position: fixed;
@@ -776,18 +798,20 @@
       left: 50%;
       transform: translateX(-50%);
       display: flex;
-      gap: 10px;
-      padding: 6px 10px;
+      gap: 7px;
+      padding: 6px 9px;
       border-radius: 24px;
-      background: rgba(0, 0, 0, 0.58);
+      background: rgba(0, 0, 0, 0.66);
       backdrop-filter: blur(6px);
       z-index: 98;
       margin-top: 0;
+      max-width: 96vw;
     }
     #photoModal .photo-modal-actions button {
-      padding: 9px 18px;
+      padding: 8px 12px;
       border-radius: 18px;
-      font-size: 14px;
+      font-size: 13px;
+      white-space: nowrap;
     }
     #photoModal #photoDownloadBtn {
       background: #2e323c;
@@ -1067,7 +1091,35 @@
     .photo-loading { width: 150px; height: 110px; border-radius: 8px; background: rgba(128,128,128,0.18); display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--text-sub); }
 
     .bubble-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 5px; }
+    .msg-time-wrap { display: inline-flex; align-items: center; gap: 5px; }
     .msg-time { font-size: 10px; color: var(--text-muted); }
+    .unread-badge {
+      font-size: 10.5px;
+      font-weight: bold;
+      color: #ffd54f;
+      line-height: 1;
+    }
+    body.light-theme .unread-badge { color: #ef6c00; }
+    .msg-video-ttl {
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.62);
+      color: #ffe082;
+      font-size: 10.5px;
+      font-weight: bold;
+    }
+    .gallery-ttl-badge {
+      position: absolute;
+      left: 4px;
+      bottom: 4px;
+      padding: 2px 5px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.68);
+      color: #ffe082;
+      font-size: 9.5px;
+      font-weight: bold;
+      pointer-events: none;
+    }
     .msg-actions { display: flex; align-items: center; gap: 6px; }
     .msg-act-btn { border: none; background: transparent; color: var(--text-muted); font-size: 12px; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
     .msg-act-btn:active { opacity: 0.6; }
@@ -1499,9 +1551,10 @@
 <div id="photoModal" class="hidden">
   <div id="photoModalStage">
     <img id="photoModalImg" src="" alt="photo" />
+    <div id="photoModalLoading" class="hidden">⏳ 사진 글자 번역 중...</div>
   </div>
   <div class="photo-modal-actions">
-    <button id="photoAnalyzeBtn" onclick="analyzeCurrentPhotoInModal()">🔍 요약</button>
+    <button id="photoTranslateBtn" onclick="togglePhotoOverlayTranslation()">🌐 번역</button>
     <button id="photoDownloadBtn" onclick="downloadCurrentPhoto()">💾 저장</button>
     <button id="photoCloseBtn" onclick="closePhotoModal()">닫기</button>
   </div>
@@ -1513,7 +1566,7 @@
     <div id="videoModalLoading" class="hidden">⏳ 동영상 불러오는 중...</div>
   </div>
   <div class="photo-modal-actions video-modal-actions">
-    <button id="videoAnalyzeBtn" onclick="analyzeCurrentVideoInModal()">🔍 요약</button>
+    <button id="videoAnalyzeBtn" onclick="analyzeCurrentVideoInModal()">📝 요약</button>
     <button id="videoFullscreenBtn" onclick="toggleVideoModalFullscreen()">⛶ 전체화면</button>
     <button id="videoRotateBtn" onclick="toggleVideoModalRotate()">🔄 회전</button>
     <button id="videoDownloadBtn" onclick="downloadCurrentVideo()">💾 저장</button>
@@ -1577,7 +1630,7 @@
     <div id="partnerClock"></div>
   </div>
   <div class="role-select">
-    <button id="videoCallBtn" onclick="requestVideoCall()" disabled>📹 통화</button>
+    <button id="videoCallBtn" onclick="requestVideoCall()" disabled>영상통화</button>
     <button id="settingsBtn" onclick="toggleSettingsMenu(event)" title="설정">⚙️</button>
     <button id="logoutBtn" onclick="logoutRoom()" title="나가기">🚪</button>
   </div>
@@ -1711,7 +1764,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 79;
+  const APP_VERSION = 81;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -1811,7 +1864,7 @@
       partnerOnline: "🟢 접속 중",
       partnerOffline: "⚪ 대기 중",
       reconnecting: "🔴 연결 확인 중...",
-      videoBtn: "📹 통화",
+      videoBtn: "영상통화",
       micIdle: "🎤 말하기 (한국어)",
       micRecognizing: "🎙️ 음성 인식 중...",
       micTranslating: "🌐 번역 중...",
@@ -1869,6 +1922,9 @@
       videoLabel: "🎬 동영상",
       videoLoading: "⏳ 동영상 불러오는 중...",
       videoExpired: "만료된 동영상입니다",
+      videoRemainDays: "일 남음",
+      videoRemainHours: "시간 남음",
+      videoRemainSoon: "곧 만료",
       videoPartnerPreparing: "⏳ 상대방 동영상 준비 중...",
       videoPausedCall: "⏸️ 통화 종료 후 자동 전송",
       videoTranscoding: "⚙️ 변환 중",
@@ -1907,11 +1963,16 @@
       galleryTabPhoto: "사진",
       galleryTabVideo: "동영상",
       galleryEmpty: "저장된 사진이나 동영상이 없습니다.",
-      mediaAnalyzeBtn: "🔍 요약",
-      mediaAnalyzing: "⏳ 내용 분석 및 번역 중...",
-      mediaAnalysisTitle: "🔍 내용 요약 및 번역",
-      mediaReanalyzeBtn: "🔄 다시 분석",
-      mediaAnalyzeFail: "분석에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+      photoTranslateBtn: "🌐 번역",
+      photoOriginalBtn: "🖼️ 원본",
+      photoTranslating: "⏳ 사진 글자 번역 중...",
+      photoNoText: "사진에 번역할 글자가 없습니다.",
+      photoTranslateFail: "사진 글자 번역에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+      mediaAnalyzeBtn: "📝 요약",
+      mediaAnalyzing: "⏳ 내용 요약 중...",
+      mediaAnalysisTitle: "📝 내용 요약",
+      mediaReanalyzeBtn: "🔄 다시 요약",
+      mediaAnalyzeFail: "요약에 실패했습니다. 잠시 후 다시 시도해 주세요.",
       modelStatsBtn: "📊 모델 순위 / 앱 정보",
       modelStatsTitle: "📊 모델 순위 / 앱 정보",
       modelStatsSttTitle: "🎙️ 음성 인식 백업 (Groq Whisper)",
@@ -1946,7 +2007,7 @@
       partnerOnline: "🟢 Online",
       partnerOffline: "⚪ Đang chờ",
       reconnecting: "🔴 Đang kiểm tra...",
-      videoBtn: "📹 Video",
+      videoBtn: "Gọi video",
       micIdle: "🎤 Nói (Tiếng Việt)",
       micRecognizing: "🎙️ Đang nhận diện giọng nói...",
       micTranslating: "🌐 Đang dịch...",
@@ -2004,6 +2065,9 @@
       videoLabel: "🎬 Video",
       videoLoading: "⏳ Đang tải video...",
       videoExpired: "Video đã hết hạn",
+      videoRemainDays: "ngày",
+      videoRemainHours: "giờ",
+      videoRemainSoon: "Sắp hết hạn",
       videoPartnerPreparing: "⏳ Đối phương đang gửi video...",
       videoPausedCall: "⏸️ Tự động gửi sau cuộc gọi",
       videoTranscoding: "⚙️ Đang nén",
@@ -2042,11 +2106,16 @@
       galleryTabPhoto: "Ảnh",
       galleryTabVideo: "Video",
       galleryEmpty: "Chưa có ảnh hoặc video nào.",
-      mediaAnalyzeBtn: "🔍 Dịch/Tóm tắt",
-      mediaAnalyzing: "⏳ Đang phân tích & dịch...",
-      mediaAnalysisTitle: "🔍 Tóm tắt & Dịch nội dung",
-      mediaReanalyzeBtn: "🔄 Phân tích lại",
-      mediaAnalyzeFail: "Không thể phân tích. Vui lòng thử lại sau.",
+      photoTranslateBtn: "🌐 Dịch ảnh",
+      photoOriginalBtn: "🖼️ Ảnh gốc",
+      photoTranslating: "⏳ Đang dịch chữ trong ảnh...",
+      photoNoText: "Không tìm thấy chữ cần dịch trong ảnh.",
+      photoTranslateFail: "Không thể dịch chữ trong ảnh. Vui lòng thử lại sau.",
+      mediaAnalyzeBtn: "📝 Tóm tắt",
+      mediaAnalyzing: "⏳ Đang tóm tắt nội dung...",
+      mediaAnalysisTitle: "📝 Tóm tắt nội dung",
+      mediaReanalyzeBtn: "🔄 Tóm tắt lại",
+      mediaAnalyzeFail: "Không thể tóm tắt. Vui lòng thử lại sau.",
       modelStatsBtn: "📊 Thứ tự AI & Trạng thái",
       modelStatsTitle: "📊 Thứ tự AI & Trạng thái",
       modelStatsSttTitle: "🎙️ Nhận diện giọng nói dự phòng (Groq Whisper)",
@@ -3155,6 +3224,7 @@
   let lastHandledReconnectReqTs = 0;
   let wakeLockSentinel = null;
 
+  let lastSentReadTs = 0;
   let roomState = {
     lockedBy: "",
     lockedAt: 0,
@@ -3165,6 +3235,7 @@
     presence: {},
     typing: {},
     diagnostics: {},
+    readReceipt: {},
     callMeta: null
   };
   let lastRenderSig = "";
@@ -3463,6 +3534,10 @@
     if (mgTitle) mgTitle.textContent = text.mediaGalleryTitle;
     const mgClose = document.getElementById("mediaGalleryCloseBtn");
     if (mgClose) mgClose.textContent = text.photoClose;
+    const pTrBtn = document.getElementById("photoTranslateBtn");
+    if (pTrBtn) pTrBtn.textContent = isShowingTranslatedPhoto ? text.photoOriginalBtn : text.photoTranslateBtn;
+    const pLoad = document.getElementById("photoModalLoading");
+    if (pLoad) pLoad.textContent = text.photoTranslating;
     const pAnBtn = document.getElementById("photoAnalyzeBtn");
     if (pAnBtn) pAnBtn.textContent = text.mediaAnalyzeBtn;
     const vAnBtn = document.getElementById("videoAnalyzeBtn");
@@ -4624,11 +4699,64 @@
     subtitlesEl.scrollTop = prevTop + (subtitlesEl.scrollHeight - prevHeight);
   }
 
+  function getReplyDisplayText(replyObj) {
+    if (!replyObj) return "";
+    if (replyObj.isVideo) return t().videoLabel;
+    if (replyObj.isPhoto) return t().photoLabel;
+    if (myRole === "ko" && replyObj.ko) return replyObj.ko;
+    if (myRole === "vi" && replyObj.vi) return replyObj.vi;
+    return replyObj.text || replyObj.ko || replyObj.vi || "";
+  }
+
+  function formatVideoRemaining(ts) {
+    if (!ts) return "";
+    const remMs = VIDEO_TTL_MS - (Date.now() - ts);
+    if (remMs <= 0) return t().videoExpired;
+    const totalHours = Math.floor(remMs / (60 * 60 * 1000));
+    if (totalHours >= 24) {
+      const days = Math.floor(totalHours / 24);
+      return myRole === "ko" ? `${days}${t().videoRemainDays}` : `Còn ${days} ${t().videoRemainDays}`;
+    }
+    if (totalHours >= 1) {
+      return myRole === "ko" ? `${totalHours}${t().videoRemainHours}` : `Còn ${totalHours} ${t().videoRemainHours}`;
+    }
+    return t().videoRemainSoon;
+  }
+
+  function syncMyReadReceipt() {
+    if (!roomPass || document.hidden || !lockScreen.classList.contains("hidden")) return;
+    const latestTs = getLatestMessageTs();
+    if (!latestTs || latestTs <= lastSentReadTs) return;
+    lastSentReadTs = latestTs;
+    roomState.readReceipt = { ...(roomState.readReceipt || {}), [myRole]: latestTs };
+    patchRoom({ [`readReceipt/${myRole}`]: latestTs });
+  }
+
   function setReplyTarget(msg) {
-    const preview = msg.hasVideo
+    const isPhoto = Boolean(msg.hasPhoto);
+    const isVideo = Boolean(msg.hasVideo);
+    let koText = "";
+    let viText = "";
+    if (!isPhoto && !isVideo) {
+      if (msg.lang === "ko") {
+        koText = (msg.original || msg.translated || "").slice(0, 45);
+        viText = (msg.translated || msg.original || "").slice(0, 45);
+      } else {
+        viText = (msg.original || msg.translated || "").slice(0, 45);
+        koText = (msg.translated || msg.original || "").slice(0, 45);
+      }
+    }
+    const preview = isVideo
       ? t().videoLabel
-      : (msg.hasPhoto ? t().photoLabel : (msg.translated || msg.original || "").slice(0, 45));
-    replyTarget = { ts: msg.ts, text: preview, isPhoto: Boolean(msg.hasPhoto), isVideo: Boolean(msg.hasVideo) };
+      : (isPhoto ? t().photoLabel : (myRole === "ko" ? koText : viText));
+    replyTarget = {
+      ts: msg.ts,
+      ko: koText,
+      vi: viText,
+      text: preview,
+      isPhoto,
+      isVideo
+    };
     replyPreviewText.textContent = t().replyPrefix + preview;
     replyPreviewBar.classList.remove("hidden");
     textInput.focus();
@@ -4693,6 +4821,7 @@
     roomPass = "";
     apiKey = "";
     loadedMsgSyncTs = -1;
+    lastSentReadTs = 0;
     wasPartnerOnline = null;
     emojiInitialized = false;
     seenEmojiIds.clear();
@@ -4744,6 +4873,7 @@
     stopPolling();
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     loadedMsgSyncTs = -1;
+    lastSentReadTs = 0;
     wasPartnerOnline = null;
     emojiInitialized = false;
     seenEmojiIds.clear();
@@ -5059,7 +5189,8 @@ ${getHonorificRule(msgLang)}
     const total = msgs.length;
     const startIdx = Math.max(0, total - visibleMsgCount);
     const visibleSlice = msgs.slice(startIdx);
-    return `${startIdx}|${myRole}|${currentPlayingTs}|` + visibleSlice.map(m => {
+    const otherReadTs = Number(roomState.readReceipt?.[getOtherRole()] || 0);
+    return `${startIdx}|${myRole}|${currentPlayingTs}|${otherReadTs}|` + visibleSlice.map(m => {
       const vSt = videoJobStatusMap[m.ts];
       const vSig = vSt ? `${vSt.state}_${vSt.progress}` : "";
       const maText = (m.mediaAnalysis && m.mediaAnalysis[myRole]) ? m.mediaAnalysis[myRole] : "";
@@ -5742,15 +5873,34 @@ ${getHonorificRule(msgLang)}
     applyPhotoTransform(false);
   }, { passive: false });
 
-  function openPhotoModal(ts) {
+  const photoTranslatedCache = {};
+  const translatingPhotoSet = new Set();
+  let isShowingTranslatedPhoto = false;
+
+  function updatePhotoTranslateBtnUI() {
+    const btn = document.getElementById("photoTranslateBtn");
+    if (!btn) return;
+    btn.classList.toggle("active", isShowingTranslatedPhoto);
+    btn.textContent = isShowingTranslatedPhoto ? t().photoOriginalBtn : t().photoTranslateBtn;
+    btn.disabled = Boolean(currentModalPhotoTs && translatingPhotoSet.has(currentModalPhotoTs));
+  }
+
+  function openPhotoModal(ts, autoTranslate = false) {
     const dataUrl = photoCache[ts];
     if (!dataUrl) return;
     currentModalPhotoDataUrl = dataUrl;
     currentModalPhotoTs = ts;
+    isShowingTranslatedPhoto = false;
     resetPhotoTransform();
     photoModalImg.src = dataUrl;
+    const loadEl = document.getElementById("photoModalLoading");
+    if (loadEl) loadEl.classList.add("hidden");
+    updatePhotoTranslateBtnUI();
     photoModal.classList.remove("hidden");
     ensureModalHistory();
+    if (autoTranslate) {
+      togglePhotoOverlayTranslation();
+    }
   }
 
   function closePhotoModal(fromPopState = false) {
@@ -5758,19 +5908,486 @@ ${getHonorificRule(msgLang)}
     photoModal.classList.add("hidden");
     photoModalImg.src = "";
     currentModalPhotoDataUrl = "";
+    currentModalPhotoTs = 0;
+    isShowingTranslatedPhoto = false;
+    const loadEl = document.getElementById("photoModalLoading");
+    if (loadEl) loadEl.classList.add("hidden");
+    updatePhotoTranslateBtnUI();
     resetPhotoTransform();
     if (!fromPopState) releaseModalHistoryIfNoneOpen();
   }
 
   function downloadCurrentPhoto() {
-    if (!currentModalPhotoDataUrl) return;
+    const activeUrl = (isShowingTranslatedPhoto && photoTranslatedCache[`${currentModalPhotoTs}_${myRole}`])
+      ? photoTranslatedCache[`${currentModalPhotoTs}_${myRole}`]
+      : currentModalPhotoDataUrl;
+    if (!activeUrl) return;
     if (!confirm(t().confirmSavePhoto)) return;
     const a = document.createElement("a");
-    a.href = currentModalPhotoDataUrl;
-    a.download = `photo_${currentModalPhotoTs || Date.now()}.jpg`;
+    a.href = activeUrl;
+    const suffix = isShowingTranslatedPhoto ? "_translated" : "";
+    a.download = `photo_${currentModalPhotoTs || Date.now()}${suffix}.jpg`;
     document.body.appendChild(a);
     a.click();
     a.remove();
+  }
+
+  function loadImageElement(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
+
+  function wrapCanvasTextLines(ctx, text, maxWidth) {
+    const rawLines = String(text || "").split(/\r?\n/);
+    const out = [];
+    for (const raw of rawLines) {
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      let cur = "";
+      for (let i = 0; i < trimmed.length; i++) {
+        const ch = trimmed[i];
+        const test = cur + ch;
+        if (ctx.measureText(test).width > maxWidth && cur.length > 0) {
+          out.push(cur.trim());
+          cur = ch === " " ? "" : ch;
+        } else {
+          cur = test;
+        }
+      }
+      if (cur.trim()) out.push(cur.trim());
+    }
+    return out.length > 0 ? out : [String(text || "")];
+  }
+
+  function rectsOverlap(a, b, pad = 4) {
+    return !(
+      a.x + a.w + pad <= b.x ||
+      b.x + b.w + pad <= a.x ||
+      a.y + a.h + pad <= b.y ||
+      b.y + b.h + pad <= a.y
+    );
+  }
+
+  async function renderTranslatedPhotoCanvas(origDataUrl, rawItems) {
+    const img = await loadImageElement(origDataUrl);
+    const scale = Math.min(1400 / Math.max(img.width, 1), Math.max(1, 960 / Math.max(img.width, 1)));
+    const imgW = Math.max(320, Math.round(img.width * scale));
+    const imgH = Math.max(240, Math.round(img.height * scale));
+
+    const fontSize = Math.max(16, Math.min(26, Math.round(imgW * 0.022)));
+    const lineHeight = Math.round(fontSize * 1.32);
+    const padX = Math.round(fontSize * 0.55);
+    const padY = Math.round(fontSize * 0.38);
+    const gap = Math.max(10, Math.round(imgW * 0.012));
+    const maxInsideW = Math.min(340, Math.round(imgW * 0.40));
+
+    const measureCanvas = document.createElement("canvas");
+    const mCtx = measureCanvas.getContext("2d");
+    mCtx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+
+    const items = (rawItems || [])
+      .filter(it => it && it.translated && Array.isArray(it.box_2d) && it.box_2d.length === 4)
+      .map((it, idx) => {
+        const [ymin, xmin, ymax, xmax] = it.box_2d.map(v => Math.max(0, Math.min(1000, Number(v) || 0)));
+        const rx1 = (xmin / 1000) * imgW;
+        const ry1 = (ymin / 1000) * imgH;
+        const rx2 = Math.max(rx1 + 8, (xmax / 1000) * imgW);
+        const ry2 = Math.max(ry1 + 8, (ymax / 1000) * imgH);
+        const lines = wrapCanvasTextLines(mCtx, String(it.translated).trim(), maxInsideW - padX * 2);
+        const maxLineW = Math.max(...lines.map(l => mCtx.measureText(l).width), fontSize * 2);
+        const bw = Math.ceil(maxLineW + padX * 2);
+        const bh = Math.ceil(lines.length * lineHeight + padY * 2);
+        return {
+          idx,
+          translated: String(it.translated).trim(),
+          origRect: { x: rx1, y: ry1, w: rx2 - rx1, h: ry2 - ry1 },
+          lines,
+          bw,
+          bh,
+          placed: null,
+          external: false
+        };
+      })
+      .sort((a, b) => (a.origRect.y - b.origRect.y) || (a.origRect.x - b.origRect.x));
+
+    const origRects = items.map(it => it.origRect);
+    const placedRects = [];
+    const margin = 8;
+
+    for (const it of items) {
+      const o = it.origRect;
+      const midY = o.y + (o.h - it.bh) / 2;
+      const midX = o.x + (o.w - it.bw) / 2;
+      const nudge = Math.round(it.bh * 0.55);
+
+      const candidates = [
+        { x: o.x + o.w + gap, y: midY },
+        { x: o.x - gap - it.bw, y: midY },
+        { x: o.x + o.w + gap, y: midY - nudge },
+        { x: o.x + o.w + gap, y: midY + nudge },
+        { x: o.x - gap - it.bw, y: midY - nudge },
+        { x: o.x - gap - it.bw, y: midY + nudge },
+        { x: Math.max(margin, Math.min(imgW - margin - it.bw, midX)), y: o.y + o.h + gap },
+        { x: Math.max(margin, Math.min(imgW - margin - it.bw, midX)), y: o.y - gap - it.bh }
+      ];
+
+      let chosen = null;
+      for (const cand of candidates) {
+        const rect = { x: cand.x, y: cand.y, w: it.bw, h: it.bh };
+        if (rect.x < margin || rect.y < margin || rect.x + rect.w > imgW - margin || rect.y + rect.h > imgH - margin) {
+          continue;
+        }
+        const hitOrig = origRects.some(r => rectsOverlap(rect, r, 4));
+        if (hitOrig) continue;
+        const hitPlaced = placedRects.some(r => rectsOverlap(rect, r, 6));
+        if (hitPlaced) continue;
+        chosen = rect;
+        break;
+      }
+
+      if (chosen) {
+        it.placed = chosen;
+        placedRects.push(chosen);
+      } else {
+        it.external = true;
+      }
+    }
+
+    const externalItems = items.filter(it => it.external);
+    let sideW = 0;
+    let totalH = imgH;
+
+    if (externalItems.length > 0) {
+      sideW = Math.min(420, Math.max(240, Math.round(imgW * 0.44)));
+      const sidePad = 14;
+      const sideBoxMaxW = sideW - sidePad * 2;
+      let cursorY = 14;
+
+      for (const it of externalItems) {
+        it.lines = wrapCanvasTextLines(mCtx, it.translated, sideBoxMaxW - padX * 2);
+        const maxLineW = Math.max(...it.lines.map(l => mCtx.measureText(l).width), fontSize * 2);
+        it.bw = Math.min(sideBoxMaxW, Math.ceil(maxLineW + padX * 2));
+        it.bh = Math.ceil(it.lines.length * lineHeight + padY * 2);
+
+        const desiredY = Math.max(14, Math.round(it.origRect.y + (it.origRect.h - it.bh) / 2));
+        const finalY = Math.max(cursorY, desiredY);
+        it.placed = {
+          x: imgW + sidePad,
+          y: finalY,
+          w: it.bw,
+          h: it.bh
+        };
+        cursorY = finalY + it.bh + 10;
+      }
+      if (cursorY + 8 > totalH) {
+        totalH = cursorY + 8;
+      }
+    }
+
+    const outCanvas = document.createElement("canvas");
+    outCanvas.width = imgW + sideW;
+    outCanvas.height = totalH;
+    const ctx = outCanvas.getContext("2d");
+
+    ctx.fillStyle = "#12161f";
+    ctx.fillRect(0, 0, outCanvas.width, outCanvas.height);
+    ctx.drawImage(img, 0, 0, imgW, imgH);
+
+    if (sideW > 0) {
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(imgW + 1, 0);
+      ctx.lineTo(imgW + 1, totalH);
+      ctx.stroke();
+    }
+
+    const palette = ["#29b6f6", "#ffca28", "#66bb6a", "#ff8a65", "#ce93d8", "#4dd0e1"];
+
+    // 1. Draw original text highlights & leader lines first
+    items.forEach((it, idx) => {
+      const o = it.origRect;
+      const p = it.placed;
+      if (!p) return;
+      const accent = palette[idx % palette.length];
+
+      ctx.save();
+      ctx.fillStyle = "rgba(0, 0, 0, 0.14)";
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(o.x - 2, o.y - 2, o.w + 4, o.h + 4, 4);
+      else ctx.rect(o.x - 2, o.y - 2, o.w + 4, o.h + 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // Anchor from nearest edge of original box to nearest edge of translation pill
+      const oCx = o.x + o.w / 2;
+      const oCy = o.y + o.h / 2;
+      const pCx = p.x + p.w / 2;
+      const pCy = p.y + p.h / 2;
+
+      let sx = oCx, sy = oCy, ex = pCx, ey = pCy;
+      if (p.x >= o.x + o.w) {
+        sx = o.x + o.w + 2; sy = oCy;
+        ex = p.x; ey = Math.max(p.y + 8, Math.min(p.y + p.h - 8, oCy));
+      } else if (p.x + p.w <= o.x) {
+        sx = o.x - 2; sy = oCy;
+        ex = p.x + p.w; ey = Math.max(p.y + 8, Math.min(p.y + p.h - 8, oCy));
+      } else if (p.y >= o.y + o.h) {
+        sx = oCx; sy = o.y + o.h + 2;
+        ex = Math.max(p.x + 8, Math.min(p.x + p.w - 8, oCx)); ey = p.y;
+      } else {
+        sx = oCx; sy = o.y - 2;
+        ex = Math.max(p.x + 8, Math.min(p.x + p.w - 8, oCx)); ey = p.y + p.h;
+      }
+
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      if (it.external) {
+        const elbowX = imgW + 6;
+        ctx.lineTo(elbowX, sy);
+        ctx.lineTo(elbowX, ey);
+      }
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // 2. Draw crisp non-overlapping translation badges on top
+    ctx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    ctx.textBaseline = "top";
+    ctx.textAlign = "left";
+
+    items.forEach((it, idx) => {
+      const p = it.placed;
+      if (!p) return;
+      const accent = palette[idx % palette.length];
+
+      ctx.save();
+      ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 2;
+      ctx.fillStyle = "rgba(16, 20, 28, 0.93)";
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(p.x, p.y, p.w, p.h, 8);
+      else ctx.rect(p.x, p.y, p.w, p.h);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.fillStyle = "#ffffff";
+      it.lines.forEach((line, li) => {
+        ctx.fillText(line, p.x + padX, p.y + padY + li * lineHeight);
+      });
+    });
+
+    return outCanvas.toDataURL("image/jpeg", 0.90);
+  }
+
+  const CASH_BUY_SPREAD = {
+    VND: 0.118,
+    USD: 0.0175,
+    EUR: 0.0199,
+    JPY: 0.0175,
+    CNY: 0.05,
+    THB: 0.05,
+    KRW: 0.05,
+    DEFAULT: 0.04
+  };
+
+  async function fetchLiveExchangeRates() {
+    try {
+      const res = await fetchWithTimeout("https://open.er-api.com/v6/latest/USD", { method: "GET" }, 5000);
+      if (res.ok) {
+        const json = await res.json();
+        if (json && json.rates && json.rates.KRW && json.rates.VND) {
+          return json.rates;
+        }
+      }
+    } catch {}
+    // 네트워크 실패 시 보수적 기본 환율 폴백
+    return { USD: 1, KRW: 1400, VND: 25400, JPY: 152, EUR: 0.93, CNY: 7.25, THB: 34.5 };
+  }
+
+  function formatCashBuyConvertedPrice(amount, fromCur, role, rates) {
+    if (!amount || amount <= 0 || !fromCur || !rates) return "";
+    const targetCur = role === "ko" ? "KRW" : "VND";
+    if (fromCur === targetCur) return "";
+    const rFrom = Number(rates[fromCur]);
+    const rTarget = Number(rates[targetCur]);
+    if (!rFrom || !rTarget) return "";
+
+    const baseVal = (amount / rFrom) * rTarget;
+    const spread = (role === "ko" && fromCur === "VND")
+      ? CASH_BUY_SPREAD.VND
+      : (CASH_BUY_SPREAD[fromCur] ?? CASH_BUY_SPREAD.DEFAULT);
+    const withFee = baseVal * (1 + spread);
+
+    if (targetCur === "KRW") {
+      const rounded = withFee >= 1000 ? Math.round(withFee / 100) * 100 : Math.round(withFee / 10) * 10;
+      return `약 ${rounded.toLocaleString("ko-KR")}원`;
+    } else {
+      const rounded = withFee >= 10000 ? Math.round(withFee / 1000) * 1000 : Math.round(withFee / 100) * 100;
+      return `~${rounded.toLocaleString("vi-VN")}đ`;
+    }
+  }
+
+  async function togglePhotoOverlayTranslation() {
+    const ts = currentModalPhotoTs;
+    if (!ts || !apiKey || !roomPass) return;
+
+    const cacheKey = `${ts}_${myRole}`;
+    if (isShowingTranslatedPhoto) {
+      isShowingTranslatedPhoto = false;
+      photoModalImg.src = currentModalPhotoDataUrl;
+      resetPhotoTransform();
+      updatePhotoTranslateBtnUI();
+      return;
+    }
+
+    if (photoTranslatedCache[cacheKey]) {
+      isShowingTranslatedPhoto = true;
+      photoModalImg.src = photoTranslatedCache[cacheKey];
+      resetPhotoTransform();
+      updatePhotoTranslateBtnUI();
+      return;
+    }
+
+    if (translatingPhotoSet.has(ts)) return;
+    translatingPhotoSet.add(ts);
+    const loadEl = document.getElementById("photoModalLoading");
+    if (loadEl) {
+      loadEl.textContent = t().photoTranslating;
+      loadEl.classList.remove("hidden");
+    }
+    updatePhotoTranslateBtnUI();
+
+    try {
+      const target = (roomState.messages || []).find(m => m.ts === ts);
+      let ocrItems = (target && target.photoOcr && Array.isArray(target.photoOcr[myRole]))
+        ? target.photoOcr[myRole]
+        : null;
+
+      if (!ocrItems) {
+        const payload = await loadPhotoPayloadForAnalysis(ts);
+        if (!payload || !payload.data) throw new Error("photo_not_found");
+
+        const targetLangName = myRole === "ko" ? "자연스러운 한국어" : "tiếng Việt tự nhiên";
+        const ocrPrompt = myRole === "ko"
+          ? `이 사진 속에 있는 외국어(베트남어·영어 등) 글자와 금액/가격을 모두 찾아서 위치와 함께 ${targetLangName}로 번역해줘.
+규칙:
+- 같은 줄이나 한 문장/항목으로 이어진 글자는 단어별로 쪼개지 말고 하나의 블록으로 묶어줘.
+- 이미 한국어로만 적힌 글자나 의미 없는 단순 기호는 제외해. 단, 외국 통화 금액(예: 50k, 50.000đ, $10, 500엔 등)은 반드시 포함해.
+- 블록에 금액/가격이 포함되어 있으면 price_amount(숫자, 예: 50k는 50000)와 price_currency(3자리 통화코드: VND, USD, JPY, EUR, THB, CNY, KRW 등)를 함께 추출해. 금액이 없으면 null로 넣어.
+- 각 블록의 위치는 이미지 기준 0~1000 정규화 좌표 [ymin, xmin, ymax, xmax]로 정확하게 반환해.
+- 번역할 글자나 금액이 없으면 {"items": []} 만 반환해.
+- 반드시 JSON 형식으로만 응답: {"items": [{"original": "원문", "translated": "한국어 번역", "price_amount": 50000, "price_currency": "VND", "box_2d": [ymin, xmin, ymax, xmax]}]}`
+          : `Hãy tìm tất cả chữ nước ngoài (tiếng Hàn, tiếng Anh...) và giá tiền trong bức ảnh này, dịch sang ${targetLangName} kèm tọa độ vị trí.
+Quy tắc:
+- Gom các từ cùng dòng/cùng cụm ý thành 1 khối, không tách rời từng từ đơn lẻ.
+- Bỏ qua chữ đã là tiếng Việt hoặc ký hiệu vô nghĩa. Nếu là giá tiền ngoại tệ (ví dụ: 10,000원, ₩10000, $10...) thì bắt buộc phải lấy.
+- Nếu khối có giá tiền, trích xuất thêm price_amount (số, ví dụ 10,000원 là 10000) và price_currency (mã 3 chữ cái: KRW, USD, JPY, EUR, VND...). Nếu không có giá tiền thì để null.
+- Tọa độ chuẩn hóa 0~1000 theo ảnh: [ymin, xmin, ymax, xmax].
+- Nếu không có chữ/giá tiền cần dịch, trả về {"items": []}.
+- Chỉ trả lời bằng JSON: {"items": [{"original": "chữ gốc", "translated": "bản dịch tiếng Việt", "price_amount": 10000, "price_currency": "KRW", "box_2d": [ymin, xmin, ymax, xmax]}]}`;
+
+        const data = await callGeminiWithFallback({
+          contents: [{
+            role: "user",
+            parts: [
+              { text: ocrPrompt },
+              { inline_data: { mime_type: payload.mime, data: payload.data } }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 1200,
+            responseMimeType: "application/json"
+          }
+        }, {
+          baseTimeoutMs: 12000,
+          fallbackTimeoutMs: 16000
+        });
+
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        let rawJson = "{}";
+        for (const p of parts) {
+          if (p.thought) continue;
+          if (p.text && p.text.trim()) { rawJson = p.text.trim(); break; }
+        }
+        rawJson = rawJson.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+        const parsed = JSON.parse(rawJson);
+        ocrItems = Array.isArray(parsed.items) ? parsed.items : (Array.isArray(parsed) ? parsed : []);
+        ocrItems = ocrItems.filter(it => it && it.translated && String(it.translated).trim() && Array.isArray(it.box_2d) && it.box_2d.length === 4);
+
+        if (ocrItems.length > 0) {
+          const curIdx = (roomState.messages || []).findIndex(m => m.ts === ts);
+          if (curIdx !== -1) {
+            const prevOcr = (roomState.messages[curIdx].photoOcr && typeof roomState.messages[curIdx].photoOcr === "object")
+              ? roomState.messages[curIdx].photoOcr
+              : {};
+            const nextMsg = {
+              ...roomState.messages[curIdx],
+              photoOcr: { ...prevOcr, [myRole]: ocrItems }
+            };
+            const updated = roomState.messages.map((m, i) => (i === curIdx ? nextMsg : m));
+            roomState.messages = updated;
+            const syncTs = Date.now();
+            loadedMsgSyncTs = syncTs;
+            saveMessagesToDb(updated, syncTs, { upsertMsg: nextMsg });
+          }
+        }
+      }
+
+      if (!ocrItems || ocrItems.length === 0) {
+        alert(t().photoNoText);
+        return;
+      }
+
+      const hasAnyPrice = ocrItems.some(it => Number(it.price_amount) > 0 && it.price_currency);
+      const liveRates = hasAnyPrice ? await fetchLiveExchangeRates() : null;
+      const enrichedItems = ocrItems.map(it => {
+        let label = String(it.translated || "").trim();
+        const amt = Number(it.price_amount || 0);
+        const cur = String(it.price_currency || "").trim().toUpperCase();
+        if (amt > 0 && cur && liveRates) {
+          const convStr = formatCashBuyConvertedPrice(amt, cur, myRole, liveRates);
+          if (convStr && !label.includes(convStr)) {
+            label = `${label} (${convStr})`;
+          }
+        }
+        return { ...it, translated: label };
+      });
+
+      const renderedDataUrl = await renderTranslatedPhotoCanvas(currentModalPhotoDataUrl, enrichedItems);
+      photoTranslatedCache[cacheKey] = renderedDataUrl;
+
+      if (currentModalPhotoTs === ts && !photoModal.classList.contains("hidden")) {
+        isShowingTranslatedPhoto = true;
+        photoModalImg.src = renderedDataUrl;
+        resetPhotoTransform();
+      }
+    } catch {
+      alert(t().photoTranslateFail);
+    } finally {
+      translatingPhotoSet.delete(ts);
+      if (loadEl) loadEl.classList.add("hidden");
+      updatePhotoTranslateBtnUI();
+    }
   }
 
   /* ================= 동영상 촬영 (480p · 30초) & 갤러리 선택 (10MB · 1분) ================= */
@@ -7202,11 +7819,14 @@ ${getHonorificRule(myRole)}
       div.className = `bubble ${isMine ? "mine" : "other"}`;
       div.dataset.ts = String(m.ts);
 
-      if (m.replyTo && m.replyTo.text) {
-        const quoteDiv = document.createElement("div");
-        quoteDiv.className = "reply-quote";
-        quoteDiv.textContent = `↩ ${m.replyTo.text}`;
-        div.appendChild(quoteDiv);
+      if (m.replyTo) {
+        const quoteText = getReplyDisplayText(m.replyTo);
+        if (quoteText) {
+          const quoteDiv = document.createElement("div");
+          quoteDiv.className = "reply-quote";
+          quoteDiv.textContent = `↩ ${quoteText}`;
+          div.appendChild(quoteDiv);
+        }
       }
 
       if (m.hasVideo && !isVideoExpiredMsg(m)) {
@@ -7240,6 +7860,14 @@ ${getHonorificRule(myRole)}
           durBadge.className = "msg-video-badge";
           durBadge.textContent = formatDuration(m.videoDuration || 0, false);
           overlay.appendChild(durBadge);
+
+          const ttlText = formatVideoRemaining(m.ts);
+          if (ttlText) {
+            const ttlBadge = document.createElement("div");
+            ttlBadge.className = "msg-video-ttl";
+            ttlBadge.textContent = `⏳ ${ttlText}`;
+            overlay.appendChild(ttlBadge);
+          }
 
           videoWrap.onclick = () => openVideoModal(m);
         } else {
@@ -7320,49 +7948,28 @@ ${getHonorificRule(myRole)}
         div.appendChild(origDiv);
       }
 
-      const canAnalyzeMedia = Boolean(m.hasPhoto || (m.hasVideo && m.videoReady && !isVideoExpiredMsg(m)));
-      if (canAnalyzeMedia) {
-        const cachedAnalysis = (m.mediaAnalysis && m.mediaAnalysis[myRole]) ? m.mediaAnalysis[myRole] : "";
-        if (analyzingMediaSet.has(m.ts)) {
-          const box = document.createElement("div");
-          box.className = "media-analysis-box loading";
-          box.textContent = t().mediaAnalyzing;
-          div.appendChild(box);
-        } else if (cachedAnalysis) {
-          const box = document.createElement("div");
-          box.className = "media-analysis-box";
-          box.textContent = cachedAnalysis;
-          box.onclick = () => showMediaAnalysisModal(m.ts, cachedAnalysis);
-          div.appendChild(box);
-        }
-      }
-
       const footerDiv = document.createElement("div");
       footerDiv.className = "bubble-footer";
+
+      const timeWrap = document.createElement("div");
+      timeWrap.className = "msg-time-wrap";
 
       const timeDiv = document.createElement("div");
       timeDiv.className = "msg-time";
       timeDiv.textContent = m.ts ? formatMsgTime(m.ts) : "";
-      footerDiv.appendChild(timeDiv);
+      timeWrap.appendChild(timeDiv);
+
+      const otherReadTs = Number(roomState.readReceipt?.[getOtherRole()] || 0);
+      if (isMine && m.ts && m.ts > otherReadTs) {
+        const unreadEl = document.createElement("span");
+        unreadEl.className = "unread-badge";
+        unreadEl.textContent = "1";
+        timeWrap.appendChild(unreadEl);
+      }
+      footerDiv.appendChild(timeWrap);
 
       const actDiv = document.createElement("div");
       actDiv.className = "msg-actions";
-
-      if (canAnalyzeMedia) {
-        const anBtn = document.createElement("button");
-        anBtn.className = "msg-act-btn";
-        anBtn.textContent = analyzingMediaSet.has(m.ts) ? "⏳" : "🔍";
-        anBtn.disabled = analyzingMediaSet.has(m.ts);
-        anBtn.onclick = () => {
-          const existing = (m.mediaAnalysis && m.mediaAnalysis[myRole]) ? m.mediaAnalysis[myRole] : "";
-          if (existing) {
-            showMediaAnalysisModal(m.ts, existing);
-          } else {
-            analyzeMediaMessage(m.ts, false, false);
-          }
-        };
-        actDiv.appendChild(anBtn);
-      }
 
       if (isMine && !m.hasPhoto && !m.hasVideo && !m.videoExpired && m.original && !m.untranslated) {
         const retransBtn = document.createElement("button");
@@ -7740,6 +8347,7 @@ ${getHonorificRule(myRole)}
         lastOverlayMsgTs = getLatestMessageTs();
       }
       renderMessages(true);
+      syncMyReadReceipt();
       if (myRole === "ko") {
         translatePendingIncomingMessages();
       }
@@ -7778,6 +8386,7 @@ ${getHonorificRule(myRole)}
           roomState.presence = data.presence || {};
           roomState.typing = data.typing || {};
           roomState.diagnostics = data.diagnostics || {};
+          roomState.readReceipt = data.readReceipt || {};
           roomState.callMeta = data.callMeta || null;
 
           handleIncomingEmojiBurst(data.emojiBurst);
@@ -7823,6 +8432,8 @@ ${getHonorificRule(myRole)}
 
           handleCallMetaSync(roomState.callMeta, partnerOnline);
           updateButtonUI();
+          syncMyReadReceipt();
+          renderMessages(true);
         }
         updatePartnerStatusUI();
       }
@@ -9542,11 +10153,11 @@ ${getHonorificRule(myRole)}
 
       const promptText = myRole === "ko"
         ? (isVideo
-          ? "이 동영상을 보고 아래 형식으로 한국어로 간결하게 정리해줘.\n• 내용 요약: 어떤 장면/상황인지 1~2문장으로 설명\n• 글자·음성 번역: 영상 속 말소리나 화면에 보이는 외국어 글자/자막이 있으면 자연스러운 한국어로 번역 (없으면 이 항목은 생략)"
-          : "이 사진을 보고 아래 형식으로 한국어로 간결하게 정리해줘.\n• 내용 요약: 대략 어떤 사진/상황인지 1~2문장으로 설명\n• 글자 번역: 사진 속에 외국어(베트남어·영어 등) 글자가 있으면 자연스러운 한국어로 번역 (번역할 글자가 없으면 이 항목은 생략)")
+          ? "이 동영상을 보고 한국어로 간결하게 정리해줘.\n• 내용 요약: 어떤 장면/상황인지 1~2문장으로 설명\n• 말소리·자막 요약: 영상 속 말소리나 화면 자막에 외국어가 있으면 핵심 내용을 자연스러운 한국어로 번역·요약 (없으면 생략)"
+          : "이 사진이 대략 어떤 장면이나 내용인지 한국어로 2~3문장 이내로 알기 쉽게 요약해줘. 사진에 글자가 있더라도 일일이 번역하지 말고 전체적인 핵심 내용과 상황만 간결하게 설명해줘.")
         : (isVideo
-          ? "Hãy xem video này và tóm tắt ngắn gọn bằng tiếng Việt theo mẫu sau:\n• Tóm tắt: Mô tả ngắn gọn 1-2 câu nội dung/bối cảnh video\n• Dịch chữ & lời nói: Nếu có tiếng nói hoặc chữ/phụ đề nước ngoài (tiếng Hàn, Anh...) thì dịch tự nhiên sang tiếng Việt (nếu không có thì bỏ qua mục này)"
-          : "Hãy xem ảnh này và tóm tắt ngắn gọn bằng tiếng Việt theo mẫu sau:\n• Tóm tắt: Mô tả ngắn gọn 1-2 câu nội dung bức ảnh\n• Dịch chữ: Nếu trong ảnh có chữ nước ngoài (tiếng Hàn, Anh...) thì dịch tự nhiên sang tiếng Việt (nếu không có chữ thì bỏ qua mục này)");
+          ? "Hãy xem video này và tóm tắt ngắn gọn bằng tiếng Việt:\n• Tóm tắt: Mô tả ngắn gọn 1-2 câu nội dung/bối cảnh video\n• Lời nói & phụ đề: Nếu có tiếng nói hoặc chữ nước ngoài thì dịch tóm tắt ý chính sang tiếng Việt (nếu không có thì bỏ qua)"
+          : "Hãy xem bức ảnh này và tóm tắt ngắn gọn nội dung/bối cảnh chính trong 2-3 câu bằng tiếng Việt dễ hiểu.");
 
       const data = await callGeminiWithFallback({
         contents: [{
@@ -9723,6 +10334,13 @@ ${getHonorificRule(myRole)}
         vBadge.className = "gallery-video-badge";
         vBadge.textContent = `▶ ${formatDuration(m.videoDuration || 0, false)}`;
         cell.appendChild(vBadge);
+        const gTtl = formatVideoRemaining(m.ts);
+        if (gTtl) {
+          const gTtlBadge = document.createElement("div");
+          gTtlBadge.className = "gallery-ttl-badge";
+          gTtlBadge.textContent = gTtl;
+          cell.appendChild(gTtlBadge);
+        }
         cell.appendChild(dateBadge);
 
         cell.onclick = () => openVideoModal(m);
