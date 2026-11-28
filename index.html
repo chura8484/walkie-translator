@@ -1523,7 +1523,8 @@
 
     .text-row { display: flex; gap: 6px; align-items: center; }
     #photoBtn { width: 38px; height: 38px; border: none; border-radius: 10px; background: var(--btn-bg); color: var(--btn-text); font-size: 17px; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-    #textInput { flex: 1; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 14px; min-width: 0; }
+    #textInput { flex: 1; height: 38px; line-height: 18px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-size: 14px; min-width: 0; resize: none; overflow-x: auto; overflow-y: hidden; white-space: nowrap; scrollbar-width: none; }
+    #textInput::-webkit-scrollbar { display: none; }
     #textSendBtn { padding: 0 13px; height: 38px; border: none; border-radius: 10px; background: var(--btn-bg); color: #0078ff; font-weight: bold; font-size: 14px; cursor: pointer; white-space: nowrap; }
 
     .btn-row { display: flex; gap: 10px; }
@@ -1853,7 +1854,7 @@
     <input id="videoNativeCaptureInput" type="file" accept="video/*" capture="environment" class="hidden" />
     <input id="videoGalleryInput" type="file" accept="video/*" class="hidden" />
     <button id="photoBtn" onclick="togglePhotoMenu(event)" title="사진 보내기">📷</button>
-    <input id="textInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false" data-form-type="other" data-lpignore="true" placeholder="키보드로 직접 입력..." />
+    <textarea id="textInput" rows="1" enterkeyhint="send" autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false" data-form-type="other" data-lpignore="true" placeholder="키보드로 직접 입력..."></textarea>
     <button id="textSendBtn" onclick="sendTextMessage()">전송</button>
   </div>
 
@@ -1875,7 +1876,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 88;
+  const APP_VERSION = 89;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -4793,10 +4794,23 @@
   });
 
   textInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendTextMessage();
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (!e.isComposing) sendTextMessage();
+    }
+  });
+
+  textInput.addEventListener("beforeinput", (e) => {
+    if (e.inputType === "insertLineBreak") {
+      e.preventDefault();
+      sendTextMessage();
+    }
   });
 
   textInput.addEventListener("input", () => {
+    if (/[\r\n]/.test(textInput.value)) {
+      textInput.value = textInput.value.replace(/[\r\n]+/g, " ");
+    }
     if (!roomPass) return;
     const val = textInput.value.trim();
     const now = Date.now();
