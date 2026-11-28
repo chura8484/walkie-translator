@@ -434,6 +434,17 @@
       background: #ef6c00;
       border-color: #ffcc80;
     }
+    #photoRetranslateBtn {
+      background: #37474f;
+      border: 1px solid rgba(255,255,255,0.22);
+      color: #fff;
+      padding: 8px 10px !important;
+    }
+    #photoExplainBtn {
+      background: #00695c;
+      border: 1px solid rgba(255,255,255,0.22);
+      color: #fff;
+    }
     #photoAnalyzeBtn, #videoAnalyzeBtn {
       background: #00695c;
       border: 1px solid rgba(255,255,255,0.22);
@@ -1652,7 +1663,9 @@
     </div>
   </div>
   <div class="photo-modal-actions">
-    <button id="photoTranslateBtn" onclick="togglePhotoOverlayTranslation()">🌐 번역</button>
+    <button id="photoTranslateBtn" onclick="togglePhotoOverlayTranslation(false)">🌐 번역</button>
+    <button id="photoRetranslateBtn" class="hidden" onclick="retranslateCurrentPhoto()" title="다시 번역">🔄</button>
+    <button id="photoExplainBtn" onclick="analyzeCurrentPhotoInModal()">🔍 설명</button>
     <button id="photoDownloadBtn" onclick="downloadCurrentPhoto()">💾 저장</button>
     <button id="photoCloseBtn" onclick="closePhotoModal()">닫기</button>
   </div>
@@ -1862,7 +1875,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 86;
+  const APP_VERSION = 87;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -2063,6 +2076,8 @@
       galleryEmpty: "저장된 사진이나 동영상이 없습니다.",
       photoTranslateBtn: "🌐 번역",
       photoOriginalBtn: "🖼️ 원본",
+      photoRetranslateTitle: "다시 번역",
+      photoExplainBtn: "🔍 설명",
       photoTranslating: "⏳ 사진 글자 번역 중...",
       photoStepLoad: "📥 사진 불러오는 중...",
       photoStepAi: "🤖 AI가 글자·금액 분석 중...",
@@ -2212,6 +2227,8 @@
       galleryEmpty: "Chưa có ảnh hoặc video nào.",
       photoTranslateBtn: "🌐 Dịch ảnh",
       photoOriginalBtn: "🖼️ Ảnh gốc",
+      photoRetranslateTitle: "Dịch lại",
+      photoExplainBtn: "🔍 Giải thích",
       photoTranslating: "⏳ Đang dịch chữ trong ảnh...",
       photoStepLoad: "📥 Đang tải ảnh...",
       photoStepAi: "🤖 AI đang nhận diện & dịch chữ...",
@@ -3661,8 +3678,10 @@
     if (pTrBtn) pTrBtn.textContent = isShowingTranslatedPhoto ? text.photoOriginalBtn : text.photoTranslateBtn;
     const pLoadTxt = document.getElementById("photoProgressText");
     if (pLoadTxt) pLoadTxt.textContent = text.photoTranslating;
-    const pAnBtn = document.getElementById("photoAnalyzeBtn");
-    if (pAnBtn) pAnBtn.textContent = text.mediaAnalyzeBtn;
+    const pExBtn = document.getElementById("photoExplainBtn");
+    if (pExBtn) pExBtn.textContent = text.photoExplainBtn;
+    const pReTrBtn = document.getElementById("photoRetranslateBtn");
+    if (pReTrBtn) pReTrBtn.title = text.photoRetranslateTitle;
     const vAnBtn = document.getElementById("videoAnalyzeBtn");
     if (vAnBtn) vAnBtn.textContent = text.mediaAnalyzeBtn;
     const maTitle = document.getElementById("mediaAnalysisTitle");
@@ -6098,10 +6117,36 @@ ${getHonorificRule(msgLang)}
 
   function updatePhotoTranslateBtnUI() {
     const btn = document.getElementById("photoTranslateBtn");
-    if (!btn) return;
-    btn.classList.toggle("active", isShowingTranslatedPhoto);
-    btn.textContent = isShowingTranslatedPhoto ? t().photoOriginalBtn : t().photoTranslateBtn;
-    btn.disabled = Boolean(currentModalPhotoTs && translatingPhotoSet.has(currentModalPhotoTs));
+    const reBtn = document.getElementById("photoRetranslateBtn");
+    const busy = Boolean(currentModalPhotoTs && translatingPhotoSet.has(currentModalPhotoTs));
+    if (btn) {
+      btn.classList.toggle("active", isShowingTranslatedPhoto);
+      btn.textContent = isShowingTranslatedPhoto ? t().photoOriginalBtn : t().photoTranslateBtn;
+      btn.disabled = busy;
+    }
+    if (reBtn) {
+      const targetMsg = currentModalPhotoTs ? (roomState.messages || []).find(m => m.ts === currentModalPhotoTs) : null;
+      const hasCached = Boolean(
+        currentModalPhotoTs && (
+          photoTranslatedCache[`${currentModalPhotoTs}_${myRole}`] ||
+          (targetMsg && targetMsg.photoOcr && Array.isArray(targetMsg.photoOcr[myRole]) && targetMsg.photoOcr[myRole].length > 0)
+        )
+      );
+      reBtn.classList.toggle("hidden", !hasCached);
+      reBtn.disabled = busy;
+    }
+  }
+
+  async function retranslateCurrentPhoto() {
+    const ts = currentModalPhotoTs;
+    if (!ts || translatingPhotoSet.has(ts)) return;
+    const cacheKey = `${ts}_${myRole}`;
+    delete photoTranslatedCache[cacheKey];
+    isShowingTranslatedPhoto = false;
+    if (currentModalPhotoDataUrl) {
+      photoModalImg.src = currentModalPhotoDataUrl;
+    }
+    await togglePhotoOverlayTranslation(true);
   }
 
   async function openPhotoModal(ts, autoTranslate = false) {
@@ -6247,228 +6292,148 @@ ${getHonorificRule(msgLang)}
     );
   }
 
+  function sampleRegionBgAndTextColor(srcCtx, imgW, imgH, x, y, w, h) {
+    try {
+      const sx = Math.max(0, Math.min(imgW - 1, Math.floor(x)));
+      const sy = Math.max(0, Math.min(imgH - 1, Math.floor(y)));
+      const sw = Math.max(1, Math.min(imgW - sx, Math.ceil(w)));
+      const sh = Math.max(1, Math.min(imgH - sy, Math.ceil(h)));
+      const data = srcCtx.getImageData(sx, sy, sw, sh).data;
+      const samples = [];
+      const step = Math.max(1, Math.floor((sw * sh) / 90));
+      for (let i = 0; i < sw * sh; i += step) {
+        const idx = i * 4;
+        const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        samples.push({ r, g, b, lum });
+      }
+      if (samples.length === 0) {
+        return { bg: "rgba(22, 26, 34, 0.92)", fg: "#ffffff", border: "rgba(255,255,255,0.22)" };
+      }
+      samples.sort((a, b) => a.lum - b.lum);
+      const dark = samples[Math.floor(samples.length * 0.15)];
+      const light = samples[Math.floor(samples.length * 0.85)];
+      // 배경 픽셀이 더 많으므로 중앙값(median) 쪽 색상을 배경색으로 채택
+      const med = samples[Math.floor(samples.length * 0.5)];
+      const isLightBg = med.lum >= 135;
+      const bgPick = isLightBg ? light : dark;
+      const fgColor = isLightBg ? "#11161f" : "#ffffff";
+      const borderColor = isLightBg ? "rgba(0, 0, 0, 0.18)" : "rgba(255, 255, 255, 0.24)";
+      return {
+        bg: `rgba(${bgPick.r}, ${bgPick.g}, ${bgPick.b}, 0.94)`,
+        fg: fgColor,
+        border: borderColor
+      };
+    } catch {
+      return { bg: "rgba(22, 26, 34, 0.92)", fg: "#ffffff", border: "rgba(255,255,255,0.22)" };
+    }
+  }
+
   async function renderTranslatedPhotoCanvas(origDataUrl, rawItems) {
     const img = await loadImageElement(origDataUrl);
-    const scale = Math.min(1400 / Math.max(img.width, 1), Math.max(1, 960 / Math.max(img.width, 1)));
+    const scale = Math.min(1440 / Math.max(img.width, 1), Math.max(1, 1080 / Math.max(img.width, 1)));
     const imgW = Math.max(320, Math.round(img.width * scale));
     const imgH = Math.max(240, Math.round(img.height * scale));
 
-    const fontSize = Math.max(16, Math.min(26, Math.round(imgW * 0.022)));
-    const lineHeight = Math.round(fontSize * 1.32);
-    const padX = Math.round(fontSize * 0.55);
-    const padY = Math.round(fontSize * 0.38);
-    const gap = Math.max(10, Math.round(imgW * 0.012));
-    const maxInsideW = Math.min(340, Math.round(imgW * 0.40));
-
-    const measureCanvas = document.createElement("canvas");
-    const mCtx = measureCanvas.getContext("2d");
-    mCtx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+    const outCanvas = document.createElement("canvas");
+    outCanvas.width = imgW;
+    outCanvas.height = imgH;
+    const ctx = outCanvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, imgW, imgH);
 
     const items = (rawItems || [])
       .filter(it => it && it.translated && Array.isArray(it.box_2d) && it.box_2d.length === 4)
-      .map((it, idx) => {
+      .map((it) => {
         const [ymin, xmin, ymax, xmax] = it.box_2d.map(v => Math.max(0, Math.min(1000, Number(v) || 0)));
         const rx1 = (xmin / 1000) * imgW;
         const ry1 = (ymin / 1000) * imgH;
-        const rx2 = Math.max(rx1 + 8, (xmax / 1000) * imgW);
-        const ry2 = Math.max(ry1 + 8, (ymax / 1000) * imgH);
-        const lines = wrapCanvasTextLines(mCtx, String(it.translated).trim(), maxInsideW - padX * 2);
-        const maxLineW = Math.max(...lines.map(l => mCtx.measureText(l).width), fontSize * 2);
-        const bw = Math.ceil(maxLineW + padX * 2);
-        const bh = Math.ceil(lines.length * lineHeight + padY * 2);
+        const rx2 = Math.max(rx1 + 12, (xmax / 1000) * imgW);
+        const ry2 = Math.max(ry1 + 12, (ymax / 1000) * imgH);
         return {
-          idx,
           translated: String(it.translated).trim(),
-          origRect: { x: rx1, y: ry1, w: rx2 - rx1, h: ry2 - ry1 },
-          lines,
-          bw,
-          bh,
-          placed: null,
-          external: false
+          x: rx1,
+          y: ry1,
+          w: rx2 - rx1,
+          h: ry2 - ry1
         };
       })
-      .sort((a, b) => (a.origRect.y - b.origRect.y) || (a.origRect.x - b.origRect.x));
+      .sort((a, b) => (a.y - b.y) || (a.x - b.x));
 
-    const origRects = items.map(it => it.origRect);
-    const placedRects = [];
-    const margin = 8;
+    const placedBoxes = [];
 
     for (const it of items) {
-      const o = it.origRect;
-      const midY = o.y + (o.h - it.bh) / 2;
-      const midX = o.x + (o.w - it.bw) / 2;
-      const nudge = Math.round(it.bh * 0.55);
+      const style = sampleRegionBgAndTextColor(ctx, imgW, imgH, it.x, it.y, it.w, it.h);
+      const padX = Math.max(5, Math.round(Math.min(it.h * 0.16, 10)));
+      const padY = Math.max(3, Math.round(Math.min(it.h * 0.12, 7)));
 
-      const candidates = [
-        { x: o.x + o.w + gap, y: midY },
-        { x: o.x - gap - it.bw, y: midY },
-        { x: o.x + o.w + gap, y: midY - nudge },
-        { x: o.x + o.w + gap, y: midY + nudge },
-        { x: o.x - gap - it.bw, y: midY - nudge },
-        { x: o.x - gap - it.bw, y: midY + nudge },
-        { x: Math.max(margin, Math.min(imgW - margin - it.bw, midX)), y: o.y + o.h + gap },
-        { x: Math.max(margin, Math.min(imgW - margin - it.bw, midX)), y: o.y - gap - it.bh }
-      ];
+      // 원문 박스 높이에 맞춰 시작 폰트 크기를 정하고, 박스 안에 들어가도록 자동 축소/줄바꿈
+      let fontSize = Math.max(12, Math.min(34, Math.round(it.h * 0.68)));
+      const minFont = 11;
+      const targetMaxW = Math.min(imgW - 12, Math.max(it.w + padX * 2, Math.min(imgW * 0.88, it.w * 1.35)));
 
-      let chosen = null;
-      for (const cand of candidates) {
-        const rect = { x: cand.x, y: cand.y, w: it.bw, h: it.bh };
-        if (rect.x < margin || rect.y < margin || rect.x + rect.w > imgW - margin || rect.y + rect.h > imgH - margin) {
-          continue;
+      let lines = [it.translated];
+      let boxW = it.w;
+      let boxH = it.h;
+      let lineHeight = Math.round(fontSize * 1.24);
+
+      while (fontSize >= minFont) {
+        ctx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+        lineHeight = Math.round(fontSize * 1.24);
+        lines = wrapCanvasTextLines(ctx, it.translated, Math.max(40, targetMaxW - padX * 2));
+        const maxLineW = Math.max(...lines.map(l => ctx.measureText(l).width), fontSize * 1.5);
+        boxW = Math.max(it.w, Math.ceil(maxLineW + padX * 2));
+        boxH = Math.max(it.h, Math.ceil(lines.length * lineHeight + padY * 2));
+        if (boxH <= it.h * 1.45 || fontSize === minFont) {
+          break;
         }
-        const hitOrig = origRects.some(r => rectsOverlap(rect, r, 4));
-        if (hitOrig) continue;
-        const hitPlaced = placedRects.some(r => rectsOverlap(rect, r, 6));
-        if (hitPlaced) continue;
-        chosen = rect;
-        break;
+        fontSize -= 1;
       }
 
-      if (chosen) {
-        it.placed = chosen;
-        placedRects.push(chosen);
-      } else {
-        it.external = true;
+      // 원문 글자 위치 바로 위에 정확히 덮어쓰되 화면 밖으로 나가지 않게 보정
+      let bx = Math.max(4, Math.min(imgW - 4 - boxW, it.x));
+      let by = Math.max(4, Math.min(imgH - 4 - boxH, it.y));
+
+      // 바로 위 박스와 살짝 겹치면 아래쪽으로 미세 이동해 글자가 겹치지 않게 조정
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const curRect = { x: bx, y: by, w: boxW, h: boxH };
+        const overlap = placedBoxes.find(r => rectsOverlap(curRect, r, 2));
+        if (!overlap) break;
+        const shiftedY = overlap.y + overlap.h + 3;
+        if (shiftedY + boxH <= imgH - 4) {
+          by = shiftedY;
+        } else {
+          break;
+        }
       }
-    }
 
-    const externalItems = items.filter(it => it.external);
-    let sideW = 0;
-    let totalH = imgH;
-
-    if (externalItems.length > 0) {
-      sideW = Math.min(420, Math.max(240, Math.round(imgW * 0.44)));
-      const sidePad = 14;
-      const sideBoxMaxW = sideW - sidePad * 2;
-      let cursorY = 14;
-
-      for (const it of externalItems) {
-        it.lines = wrapCanvasTextLines(mCtx, it.translated, sideBoxMaxW - padX * 2);
-        const maxLineW = Math.max(...it.lines.map(l => mCtx.measureText(l).width), fontSize * 2);
-        it.bw = Math.min(sideBoxMaxW, Math.ceil(maxLineW + padX * 2));
-        it.bh = Math.ceil(it.lines.length * lineHeight + padY * 2);
-
-        const desiredY = Math.max(14, Math.round(it.origRect.y + (it.origRect.h - it.bh) / 2));
-        const finalY = Math.max(cursorY, desiredY);
-        it.placed = {
-          x: imgW + sidePad,
-          y: finalY,
-          w: it.bw,
-          h: it.bh
-        };
-        cursorY = finalY + it.bh + 10;
-      }
-      if (cursorY + 8 > totalH) {
-        totalH = cursorY + 8;
-      }
-    }
-
-    const outCanvas = document.createElement("canvas");
-    outCanvas.width = imgW + sideW;
-    outCanvas.height = totalH;
-    const ctx = outCanvas.getContext("2d");
-
-    ctx.fillStyle = "#12161f";
-    ctx.fillRect(0, 0, outCanvas.width, outCanvas.height);
-    ctx.drawImage(img, 0, 0, imgW, imgH);
-
-    if (sideW > 0) {
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(imgW + 1, 0);
-      ctx.lineTo(imgW + 1, totalH);
-      ctx.stroke();
-    }
-
-    const palette = ["#29b6f6", "#ffca28", "#66bb6a", "#ff8a65", "#ce93d8", "#4dd0e1"];
-
-    // 1. Draw original text highlights & leader lines first
-    items.forEach((it, idx) => {
-      const o = it.origRect;
-      const p = it.placed;
-      if (!p) return;
-      const accent = palette[idx % palette.length];
+      placedBoxes.push({ x: bx, y: by, w: boxW, h: boxH });
 
       ctx.save();
-      ctx.fillStyle = "rgba(0, 0, 0, 0.14)";
-      ctx.strokeStyle = accent;
-      ctx.lineWidth = 2;
+      ctx.shadowColor = "rgba(0, 0, 0, 0.28)";
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 1;
+      ctx.fillStyle = style.bg;
+      ctx.strokeStyle = style.border;
+      ctx.lineWidth = 1;
+      const radius = Math.min(7, Math.max(3, Math.round(boxH * 0.16)));
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(o.x - 2, o.y - 2, o.w + 4, o.h + 4, 4);
-      else ctx.rect(o.x - 2, o.y - 2, o.w + 4, o.h + 4);
-      ctx.fill();
-      ctx.stroke();
-
-      // Anchor from nearest edge of original box to nearest edge of translation pill
-      const oCx = o.x + o.w / 2;
-      const oCy = o.y + o.h / 2;
-      const pCx = p.x + p.w / 2;
-      const pCy = p.y + p.h / 2;
-
-      let sx = oCx, sy = oCy, ex = pCx, ey = pCy;
-      if (p.x >= o.x + o.w) {
-        sx = o.x + o.w + 2; sy = oCy;
-        ex = p.x; ey = Math.max(p.y + 8, Math.min(p.y + p.h - 8, oCy));
-      } else if (p.x + p.w <= o.x) {
-        sx = o.x - 2; sy = oCy;
-        ex = p.x + p.w; ey = Math.max(p.y + 8, Math.min(p.y + p.h - 8, oCy));
-      } else if (p.y >= o.y + o.h) {
-        sx = oCx; sy = o.y + o.h + 2;
-        ex = Math.max(p.x + 8, Math.min(p.x + p.w - 8, oCx)); ey = p.y;
-      } else {
-        sx = oCx; sy = o.y - 2;
-        ex = Math.max(p.x + 8, Math.min(p.x + p.w - 8, oCx)); ey = p.y + p.h;
-      }
-
-      ctx.strokeStyle = accent;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(sx, sy);
-      if (it.external) {
-        const elbowX = imgW + 6;
-        ctx.lineTo(elbowX, sy);
-        ctx.lineTo(elbowX, ey);
-      }
-      ctx.lineTo(ex, ey);
-      ctx.stroke();
-
-      ctx.fillStyle = accent;
-      ctx.beginPath();
-      ctx.arc(sx, sy, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    });
-
-    // 2. Draw crisp non-overlapping translation badges on top
-    ctx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
-    ctx.textBaseline = "top";
-    ctx.textAlign = "left";
-
-    items.forEach((it, idx) => {
-      const p = it.placed;
-      if (!p) return;
-      const accent = palette[idx % palette.length];
-
-      ctx.save();
-      ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
-      ctx.shadowBlur = 8;
-      ctx.shadowOffsetY = 2;
-      ctx.fillStyle = "rgba(16, 20, 28, 0.93)";
-      ctx.strokeStyle = accent;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(p.x, p.y, p.w, p.h, 8);
-      else ctx.rect(p.x, p.y, p.w, p.h);
+      if (ctx.roundRect) ctx.roundRect(bx, by, boxW, boxH, radius);
+      else ctx.rect(bx, by, boxW, boxH);
       ctx.fill();
       ctx.stroke();
       ctx.restore();
 
-      ctx.fillStyle = "#ffffff";
-      it.lines.forEach((line, li) => {
-        ctx.fillText(line, p.x + padX, p.y + padY + li * lineHeight);
+      ctx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      ctx.fillStyle = style.fg;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
+
+      const totalTextH = lines.length * lineHeight;
+      const startY = by + (boxH - totalTextH) / 2 + lineHeight / 2;
+      lines.forEach((line, li) => {
+        ctx.fillText(line, bx + padX, startY + li * lineHeight);
       });
-    });
+    }
 
     return outCanvas.toDataURL("image/jpeg", 0.90);
   }
@@ -6521,25 +6486,27 @@ ${getHonorificRule(msgLang)}
     }
   }
 
-  async function togglePhotoOverlayTranslation() {
+  async function togglePhotoOverlayTranslation(forceRetranslate = false) {
     const ts = currentModalPhotoTs;
     if (!ts || !apiKey || !roomPass) return;
 
     const cacheKey = `${ts}_${myRole}`;
-    if (isShowingTranslatedPhoto) {
-      isShowingTranslatedPhoto = false;
-      photoModalImg.src = currentModalPhotoDataUrl;
-      resetPhotoTransform();
-      updatePhotoTranslateBtnUI();
-      return;
-    }
+    if (!forceRetranslate) {
+      if (isShowingTranslatedPhoto) {
+        isShowingTranslatedPhoto = false;
+        photoModalImg.src = currentModalPhotoDataUrl;
+        resetPhotoTransform();
+        updatePhotoTranslateBtnUI();
+        return;
+      }
 
-    if (photoTranslatedCache[cacheKey]) {
-      isShowingTranslatedPhoto = true;
-      photoModalImg.src = photoTranslatedCache[cacheKey];
-      resetPhotoTransform();
-      updatePhotoTranslateBtnUI();
-      return;
+      if (photoTranslatedCache[cacheKey]) {
+        isShowingTranslatedPhoto = true;
+        photoModalImg.src = photoTranslatedCache[cacheKey];
+        resetPhotoTransform();
+        updatePhotoTranslateBtnUI();
+        return;
+      }
     }
 
     if (translatingPhotoSet.has(ts)) return;
@@ -6549,7 +6516,7 @@ ${getHonorificRule(msgLang)}
 
     try {
       const target = (roomState.messages || []).find(m => m.ts === ts);
-      let ocrItems = (target && target.photoOcr && Array.isArray(target.photoOcr[myRole]))
+      let ocrItems = (!forceRetranslate && target && target.photoOcr && Array.isArray(target.photoOcr[myRole]))
         ? target.photoOcr[myRole]
         : null;
 
@@ -10618,10 +10585,10 @@ ${getHonorificRule(myRole)}
       const promptText = myRole === "ko"
         ? (isVideo
           ? "이 동영상을 직접 보지 않고도 무슨 내용인지 충분히 알 수 있도록 한국어로 자세하고 알기 쉽게 정리해줘.\n\n1) 핵심 포인트 / 분위기:\n- 영상의 분위기나 전달하려는 핵심 내용을 1~2문장으로 제일 먼저 정리해줘.\n\n2) 전체 상황 및 장면 흐름:\n- 누구(또는 무엇)가 어디서 어떤 행동을 하는지 처음부터 끝까지 시간 순서대로 구체적으로 설명해줘.\n\n3) 말소리·대화 및 화면 글자 번역:\n- 영상 속 말소리(대화·내레이션)나 화면에 나오는 외국어 글자/자막이 있으면 빠뜨리지 말고 자연스러운 한국어로 자세히 번역해줘. (말소리나 글자가 전혀 없으면 '없음' 또는 생략)"
-          : "이 사진이 대략 어떤 장면이나 내용인지 한국어로 2~3문장 이내로 알기 쉽게 요약해줘.")
+          : "이 사진이 무엇인지 상대방과 대화할 수 있도록 한국어로 알기 쉽게 설명해줘.\n\n• 무엇인지 / 이름: 사진 속 음식, 물건, 장소, 상황 등의 정확한 명칭이나 종류 (예: 베트남 음식이면 요리 이름과 어떤 음식인지)\n• 특징 및 상세 설명: 어떤 재료·모습·분위기인지, 처음 보는 사람도 이해할 수 있게 3~4문장으로 친절하게 설명\n• 대화 팁: 이 사진을 보낸 상대방에게 건넬 만한 자연스러운 한마디 추천")
         : (isVideo
           ? "Hãy xem kỹ video này và mô tả thật chi tiết bằng tiếng Việt để người đọc không cần xem video vẫn hiểu rõ toàn bộ nội dung:\n\n1) Điểm chính / Không khí:\n- Tóm tắt ngắn 1-2 câu về không khí hoặc ý chính của video lên đầu tiên.\n\n2) Bối cảnh & Diễn biến:\n- Ai (hoặc vật gì) đang ở đâu, làm gì từ đầu đến cuối theo trình tự thời gian.\n\n3) Dịch lời nói & chữ trên màn hình:\n- Nếu có lời nói/hội thoại hoặc chữ/phụ đề nước ngoài, hãy dịch đầy đủ và tự nhiên sang tiếng Việt (nếu không có thì bỏ qua)."
-          : "Hãy xem bức ảnh này và tóm tắt ngắn gọn nội dung/bối cảnh chính trong 2-3 câu bằng tiếng Việt dễ hiểu.");
+          : "Hãy giải thích bức ảnh này bằng tiếng Việt dễ hiểu để người xem có thể trò chuyện với đối phương:\n\n• Đây là gì / Tên gọi: Tên món ăn, đồ vật, địa điểm hoặc bối cảnh trong ảnh\n• Đặc điểm chi tiết: Mô tả rõ thành phần, đặc trưng, ý nghĩa trong 3-4 câu dễ hiểu\n• Gợi ý câu nói: 1 câu gợi ý tự nhiên để trả lời người gửi ảnh");
 
       const data = await callGeminiWithFallback({
         contents: [{
@@ -10867,7 +10834,7 @@ ${getHonorificRule(myRole)}
     }
   }
 
-  const MEDIA_VISION_MODELS = ["gemini-3.8-flash", "gemini-2.5-flash"];
+  const MEDIA_VISION_MODELS = ["gemini-3.8-flash"];
 
   async function callGeminiWithFallback(bodyObj, opts = {}) {
     const baseTimeout = opts.baseTimeoutMs || 4500;
