@@ -407,6 +407,88 @@
       font-size: 13.5px;
     }
 
+    .media-analysis-box {
+      margin-top: 6px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: var(--quote-bg);
+      border-left: 3px solid #26c6da;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-width: 240px;
+      cursor: pointer;
+    }
+    .media-analysis-box.loading {
+      color: var(--text-sub);
+      border-left-color: #90caf9;
+    }
+    #photoAnalyzeBtn, #videoAnalyzeBtn {
+      background: #00695c;
+      border: 1px solid rgba(255,255,255,0.22);
+      color: #fff;
+    }
+    #mediaAnalysisModal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.78);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99;
+      padding: 18px;
+    }
+    .analysis-card {
+      width: 100%;
+      max-width: 360px;
+      max-height: 78dvh;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.55);
+    }
+    .analysis-card h3 {
+      font-size: 15.5px;
+      text-align: center;
+    }
+    .analysis-body {
+      flex: 1;
+      min-height: 60px;
+      overflow-y: auto;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--text);
+    }
+    .analysis-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .analysis-actions button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: bold;
+      color: #fff;
+      cursor: pointer;
+    }
+    #mediaReanalyzeBtn { background: #0078ff; }
+    #mediaAnalysisCloseBtn { background: #555; }
+
     #videoSection { position: relative; width: 100%; flex: 1; min-height: 0; background: #000; overflow: hidden; border-bottom: 1px solid var(--border); }
     #videoSection.split { flex: none; height: 42dvh; }
     body.in-video-call.video-fullscreen #videoSection { height: 100%; border-bottom: none; }
@@ -1403,11 +1485,23 @@
   </div>
 </div>
 
+<div id="mediaAnalysisModal" class="hidden" onclick="if(event.target===this) closeMediaAnalysisModal()">
+  <div class="analysis-card">
+    <h3 id="mediaAnalysisTitle">🔍 내용 요약 및 번역</h3>
+    <div id="mediaAnalysisBody" class="analysis-body"></div>
+    <div class="analysis-actions">
+      <button id="mediaReanalyzeBtn" onclick="reanalyzeCurrentMediaModal()">🔄 다시 분석</button>
+      <button id="mediaAnalysisCloseBtn" onclick="closeMediaAnalysisModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div id="photoModal" class="hidden">
   <div id="photoModalStage">
     <img id="photoModalImg" src="" alt="photo" />
   </div>
   <div class="photo-modal-actions">
+    <button id="photoAnalyzeBtn" onclick="analyzeCurrentPhotoInModal()">🔍 요약</button>
     <button id="photoDownloadBtn" onclick="downloadCurrentPhoto()">💾 저장</button>
     <button id="photoCloseBtn" onclick="closePhotoModal()">닫기</button>
   </div>
@@ -1419,6 +1513,7 @@
     <div id="videoModalLoading" class="hidden">⏳ 동영상 불러오는 중...</div>
   </div>
   <div class="photo-modal-actions video-modal-actions">
+    <button id="videoAnalyzeBtn" onclick="analyzeCurrentVideoInModal()">🔍 요약</button>
     <button id="videoFullscreenBtn" onclick="toggleVideoModalFullscreen()">⛶ 전체화면</button>
     <button id="videoRotateBtn" onclick="toggleVideoModalRotate()">🔄 회전</button>
     <button id="videoDownloadBtn" onclick="downloadCurrentVideo()">💾 저장</button>
@@ -1616,7 +1711,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 77;
+  const APP_VERSION = 78;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -1812,6 +1907,11 @@
       galleryTabPhoto: "사진",
       galleryTabVideo: "동영상",
       galleryEmpty: "저장된 사진이나 동영상이 없습니다.",
+      mediaAnalyzeBtn: "🔍 요약",
+      mediaAnalyzing: "⏳ 내용 분석 및 번역 중...",
+      mediaAnalysisTitle: "🔍 내용 요약 및 번역",
+      mediaReanalyzeBtn: "🔄 다시 분석",
+      mediaAnalyzeFail: "분석에 실패했습니다. 잠시 후 다시 시도해 주세요.",
       modelStatsBtn: "📊 모델 순위 / 앱 정보",
       modelStatsTitle: "📊 모델 순위 / 앱 정보",
       modelStatsSttTitle: "🎙️ 음성 인식 백업 (Groq Whisper)",
@@ -1942,6 +2042,11 @@
       galleryTabPhoto: "Ảnh",
       galleryTabVideo: "Video",
       galleryEmpty: "Chưa có ảnh hoặc video nào.",
+      mediaAnalyzeBtn: "🔍 Dịch/Tóm tắt",
+      mediaAnalyzing: "⏳ Đang phân tích & dịch...",
+      mediaAnalysisTitle: "🔍 Tóm tắt & Dịch nội dung",
+      mediaReanalyzeBtn: "🔄 Phân tích lại",
+      mediaAnalyzeFail: "Không thể phân tích. Vui lòng thử lại sau.",
       modelStatsBtn: "📊 Thứ tự AI & Trạng thái",
       modelStatsTitle: "📊 Thứ tự AI & Trạng thái",
       modelStatsSttTitle: "🎙️ Nhận diện giọng nói dự phòng (Groq Whisper)",
@@ -1979,10 +2084,12 @@
     const installModal = document.getElementById("installGuideModal");
     const statsModal = document.getElementById("modelStatsModal");
     const galleryModal = document.getElementById("mediaGalleryModal");
+    const analysisModal = document.getElementById("mediaAnalysisModal");
     const vModal = document.getElementById("videoModal");
     const vRecModal = document.getElementById("videoRecordModal");
     return !photoModal.classList.contains("hidden") ||
       !photoPreviewModal.classList.contains("hidden") ||
+      (analysisModal && !analysisModal.classList.contains("hidden")) ||
       (vModal && !vModal.classList.contains("hidden")) ||
       (vRecModal && !vRecModal.classList.contains("hidden")) ||
       (galleryModal && !galleryModal.classList.contains("hidden")) ||
@@ -2017,9 +2124,12 @@
     const installModal = document.getElementById("installGuideModal");
     const statsModal = document.getElementById("modelStatsModal");
     const galleryModal = document.getElementById("mediaGalleryModal");
+    const analysisModal = document.getElementById("mediaAnalysisModal");
     const vModal = document.getElementById("videoModal");
     const vRecModal = document.getElementById("videoRecordModal");
-    if (vModal && !vModal.classList.contains("hidden")) {
+    if (analysisModal && !analysisModal.classList.contains("hidden")) {
+      closeMediaAnalysisModal(true);
+    } else if (vModal && !vModal.classList.contains("hidden")) {
       closeVideoModal(true);
     } else if (vRecModal && !vRecModal.classList.contains("hidden")) {
       closeVideoRecordModal(true);
@@ -3353,6 +3463,16 @@
     if (mgTitle) mgTitle.textContent = text.mediaGalleryTitle;
     const mgClose = document.getElementById("mediaGalleryCloseBtn");
     if (mgClose) mgClose.textContent = text.photoClose;
+    const pAnBtn = document.getElementById("photoAnalyzeBtn");
+    if (pAnBtn) pAnBtn.textContent = text.mediaAnalyzeBtn;
+    const vAnBtn = document.getElementById("videoAnalyzeBtn");
+    if (vAnBtn) vAnBtn.textContent = text.mediaAnalyzeBtn;
+    const maTitle = document.getElementById("mediaAnalysisTitle");
+    if (maTitle) maTitle.textContent = text.mediaAnalysisTitle;
+    const maReBtn = document.getElementById("mediaReanalyzeBtn");
+    if (maReBtn) maReBtn.textContent = text.mediaReanalyzeBtn;
+    const maClBtn = document.getElementById("mediaAnalysisCloseBtn");
+    if (maClBtn) maClBtn.textContent = text.photoClose;
     const msBtn = document.getElementById("modelStatsBtn");
     if (msBtn) msBtn.textContent = text.modelStatsBtn;
     const msTitle = document.getElementById("modelStatsTitle");
@@ -4942,7 +5062,8 @@ ${getHonorificRule(msgLang)}
     return `${startIdx}|${myRole}|${currentPlayingTs}|` + visibleSlice.map(m => {
       const vSt = videoJobStatusMap[m.ts];
       const vSig = vSt ? `${vSt.state}_${vSt.progress}` : "";
-      return `${m.ts}:${m.type || ""}:${(m.hasAudio || m.audioData) ? 1 : 0}:${m.audioReady === false ? 0 : 1}:${m.audioDuration || audioDurationCache[m.ts] || 0}:${m.hasPhoto ? 1 : 0}:${m.hasVideo ? 1 : 0}:${m.videoReady ? 1 : 0}:${m.videoExpired ? 1 : 0}:${vSig}:${m.liked ? 1 : 0}:${m.untranslated ? 1 : 0}:${translatingIncomingSet.has(m.ts) ? 1 : 0}:${(m.original || "").length}:${(m.translated || "").length}`;
+      const maText = (m.mediaAnalysis && m.mediaAnalysis[myRole]) ? m.mediaAnalysis[myRole] : "";
+      return `${m.ts}:${m.type || ""}:${(m.hasAudio || m.audioData) ? 1 : 0}:${m.audioReady === false ? 0 : 1}:${m.audioDuration || audioDurationCache[m.ts] || 0}:${m.hasPhoto ? 1 : 0}:${m.hasVideo ? 1 : 0}:${m.videoReady ? 1 : 0}:${m.videoExpired ? 1 : 0}:${vSig}:${m.liked ? 1 : 0}:${m.untranslated ? 1 : 0}:${translatingIncomingSet.has(m.ts) ? 1 : 0}:${analyzingMediaSet.has(m.ts) ? 1 : 0}:${maText.length}:${(m.original || "").length}:${(m.translated || "").length}`;
     }).join("|");
   }
 
@@ -7199,6 +7320,23 @@ ${getHonorificRule(myRole)}
         div.appendChild(origDiv);
       }
 
+      const canAnalyzeMedia = Boolean(m.hasPhoto || (m.hasVideo && m.videoReady && !isVideoExpiredMsg(m)));
+      if (canAnalyzeMedia) {
+        const cachedAnalysis = (m.mediaAnalysis && m.mediaAnalysis[myRole]) ? m.mediaAnalysis[myRole] : "";
+        if (analyzingMediaSet.has(m.ts)) {
+          const box = document.createElement("div");
+          box.className = "media-analysis-box loading";
+          box.textContent = t().mediaAnalyzing;
+          div.appendChild(box);
+        } else if (cachedAnalysis) {
+          const box = document.createElement("div");
+          box.className = "media-analysis-box";
+          box.textContent = cachedAnalysis;
+          box.onclick = () => showMediaAnalysisModal(m.ts, cachedAnalysis);
+          div.appendChild(box);
+        }
+      }
+
       const footerDiv = document.createElement("div");
       footerDiv.className = "bubble-footer";
 
@@ -7209,6 +7347,22 @@ ${getHonorificRule(myRole)}
 
       const actDiv = document.createElement("div");
       actDiv.className = "msg-actions";
+
+      if (canAnalyzeMedia) {
+        const anBtn = document.createElement("button");
+        anBtn.className = "msg-act-btn";
+        anBtn.textContent = analyzingMediaSet.has(m.ts) ? "⏳" : "🔍";
+        anBtn.disabled = analyzingMediaSet.has(m.ts);
+        anBtn.onclick = () => {
+          const existing = (m.mediaAnalysis && m.mediaAnalysis[myRole]) ? m.mediaAnalysis[myRole] : "";
+          if (existing) {
+            showMediaAnalysisModal(m.ts, existing);
+          } else {
+            analyzeMediaMessage(m.ts, false, false);
+          }
+        };
+        actDiv.appendChild(anBtn);
+      }
 
       if (isMine && !m.hasPhoto && !m.hasVideo && !m.videoExpired && m.original && !m.untranslated) {
         const retransBtn = document.createElement("button");
@@ -9259,6 +9413,208 @@ ${getHonorificRule(myRole)}
         `;
       } else {
         koSecEl.classList.add("hidden");
+      }
+    }
+  }
+
+  /* ================= 사진/동영상 AI 내용 요약 및 글자·음성 번역 ================= */
+
+  const analyzingMediaSet = new Set();
+  let currentAnalysisMsgTs = 0;
+
+  function showMediaAnalysisModal(msgTs, textContent, isLoading = false) {
+    currentAnalysisMsgTs = msgTs;
+    const modal = document.getElementById("mediaAnalysisModal");
+    const bodyEl = document.getElementById("mediaAnalysisBody");
+    const reBtn = document.getElementById("mediaReanalyzeBtn");
+    if (!modal || !bodyEl) return;
+    bodyEl.textContent = textContent || "";
+    if (reBtn) reBtn.disabled = Boolean(isLoading);
+    modal.classList.remove("hidden");
+    ensureModalHistory();
+  }
+
+  function closeMediaAnalysisModal(fromPopState = false) {
+    const modal = document.getElementById("mediaAnalysisModal");
+    if (!modal || modal.classList.contains("hidden")) return;
+    modal.classList.add("hidden");
+    if (!fromPopState) releaseModalHistoryIfNoneOpen();
+  }
+
+  function reanalyzeCurrentMediaModal() {
+    if (!currentAnalysisMsgTs) return;
+    analyzeMediaMessage(currentAnalysisMsgTs, true, true);
+  }
+
+  function analyzeCurrentPhotoInModal() {
+    if (!currentModalPhotoTs) return;
+    analyzeMediaMessage(currentModalPhotoTs, false, true);
+  }
+
+  function analyzeCurrentVideoInModal() {
+    if (!currentModalVideoTs) return;
+    analyzeMediaMessage(currentModalVideoTs, false, true);
+  }
+
+  async function loadPhotoPayloadForAnalysis(ts) {
+    let dataUrl = photoCache[ts] || "";
+    if (!dataUrl) {
+      const fromIdb = await idbGet("photos", ts);
+      if (fromIdb && fromIdb.dataUrl) {
+        dataUrl = fromIdb.dataUrl;
+        photoCache[ts] = dataUrl;
+      }
+    }
+    if (!dataUrl) {
+      const res = await fetchWithTimeout(`${getPhotoBaseUrl()}/${ts}.json`, { method: "GET" }, 10000);
+      if (res.ok) {
+        const obj = await res.json();
+        if (obj && obj.dataUrl) {
+          dataUrl = obj.dataUrl;
+          photoCache[ts] = dataUrl;
+          idbPut("photos", { ts, dataUrl });
+        }
+      }
+    }
+    if (!dataUrl) return null;
+    const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+    if (!m) return null;
+    return { mime: m[1] || "image/jpeg", data: m[2] };
+  }
+
+  async function loadVideoPayloadForAnalysis(ts) {
+    let cached = videoCache[ts];
+    if (!cached) {
+      const fromIdb = await idbGet("videos", ts);
+      if (fromIdb && fromIdb.data) {
+        cached = { data: fromIdb.data, mime: fromIdb.mime || "video/mp4" };
+        videoCache[ts] = cached;
+      }
+    }
+    if (!cached) {
+      const res = await fetchWithTimeout(`${getVideoBaseUrl()}/${ts}.json`, { method: "GET" }, 35000);
+      if (res.ok) {
+        const obj = await res.json();
+        if (obj && obj.data) {
+          cached = { data: obj.data, mime: obj.mime || "video/mp4" };
+          videoCache[ts] = cached;
+          idbPut("videos", { ts, data: obj.data, mime: cached.mime });
+        }
+      }
+    }
+    if (!cached || !cached.data) return null;
+    const cleanMime = String(cached.mime || "video/mp4").split(";")[0].trim().toLowerCase();
+    return { mime: cleanMime, data: cached.data };
+  }
+
+  async function analyzeMediaMessage(msgTs, forceReanalyze = false, openModalAfter = false) {
+    if (!apiKey || !roomPass || !msgTs) return;
+    const target = (roomState.messages || []).find(m => m.ts === msgTs);
+    if (!target) return;
+
+    const existing = (target.mediaAnalysis && target.mediaAnalysis[myRole]) ? target.mediaAnalysis[myRole] : "";
+    if (existing && !forceReanalyze) {
+      if (openModalAfter) showMediaAnalysisModal(msgTs, existing, false);
+      return;
+    }
+
+    if (analyzingMediaSet.has(msgTs)) {
+      if (openModalAfter) showMediaAnalysisModal(msgTs, t().mediaAnalyzing, true);
+      return;
+    }
+
+    analyzingMediaSet.add(msgTs);
+    lastRenderSig = "";
+    renderMessages(true);
+    if (openModalAfter) {
+      showMediaAnalysisModal(msgTs, t().mediaAnalyzing, true);
+    }
+
+    try {
+      const isVideo = Boolean(target.hasVideo && !isVideoExpiredMsg(target));
+      const payload = isVideo
+        ? await loadVideoPayloadForAnalysis(msgTs)
+        : await loadPhotoPayloadForAnalysis(msgTs);
+
+      if (!payload || !payload.data) {
+        throw new Error("media_not_found");
+      }
+
+      const promptText = myRole === "ko"
+        ? (isVideo
+          ? "이 동영상을 보고 아래 형식으로 한국어로 간결하게 정리해줘.
+• 내용 요약: 어떤 장면/상황인지 1~2문장으로 설명
+• 글자·음성 번역: 영상 속 말소리나 화면에 보이는 외국어 글자/자막이 있으면 자연스러운 한국어로 번역 (없으면 이 항목은 생략)"
+          : "이 사진을 보고 아래 형식으로 한국어로 간결하게 정리해줘.
+• 내용 요약: 대략 어떤 사진/상황인지 1~2문장으로 설명
+• 글자 번역: 사진 속에 외국어(베트남어·영어 등) 글자가 있으면 자연스러운 한국어로 번역 (번역할 글자가 없으면 이 항목은 생략)")
+        : (isVideo
+          ? "Hãy xem video này và tóm tắt ngắn gọn bằng tiếng Việt theo mẫu sau:
+• Tóm tắt: Mô tả ngắn gọn 1-2 câu nội dung/bối cảnh video
+• Dịch chữ & lời nói: Nếu có tiếng nói hoặc chữ/phụ đề nước ngoài (tiếng Hàn, Anh...) thì dịch tự nhiên sang tiếng Việt (nếu không có thì bỏ qua mục này)"
+          : "Hãy xem ảnh này và tóm tắt ngắn gọn bằng tiếng Việt theo mẫu sau:
+• Tóm tắt: Mô tả ngắn gọn 1-2 câu nội dung bức ảnh
+• Dịch chữ: Nếu trong ảnh có chữ nước ngoài (tiếng Hàn, Anh...) thì dịch tự nhiên sang tiếng Việt (nếu không có chữ thì bỏ qua mục này)");
+
+      const data = await callGeminiWithFallback({
+        contents: [{
+          role: "user",
+          parts: [
+            { text: promptText },
+            { inline_data: { mime_type: payload.mime, data: payload.data } }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 520
+        }
+      }, {
+        baseTimeoutMs: isVideo ? 20000 : 10000,
+        fallbackTimeoutMs: isVideo ? 25000 : 14000
+      });
+
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      let resultText = "";
+      for (const p of parts) {
+        if (p.thought) continue;
+        if (p.text && p.text.trim()) {
+          resultText = p.text.trim();
+          break;
+        }
+      }
+      if (!resultText) throw new Error("empty_analysis");
+
+      const curIdx = (roomState.messages || []).findIndex(m => m.ts === msgTs);
+      if (curIdx !== -1) {
+        const prevMap = (roomState.messages[curIdx].mediaAnalysis && typeof roomState.messages[curIdx].mediaAnalysis === "object")
+          ? roomState.messages[curIdx].mediaAnalysis
+          : {};
+        const nextMsg = {
+          ...roomState.messages[curIdx],
+          mediaAnalysis: { ...prevMap, [myRole]: resultText }
+        };
+        const updated = roomState.messages.map((m, i) => (i === curIdx ? nextMsg : m));
+        roomState.messages = updated;
+        analyzingMediaSet.delete(msgTs);
+        lastRenderSig = "";
+        renderMessages(true);
+
+        if (openModalAfter && currentAnalysisMsgTs === msgTs) {
+          showMediaAnalysisModal(msgTs, resultText, false);
+        }
+
+        const syncTs = Date.now();
+        loadedMsgSyncTs = syncTs;
+        await saveMessagesToDb(updated, syncTs, { upsertMsg: nextMsg });
+      }
+    } catch {
+      analyzingMediaSet.delete(msgTs);
+      lastRenderSig = "";
+      renderMessages(true);
+      if (openModalAfter && currentAnalysisMsgTs === msgTs) {
+        showMediaAnalysisModal(msgTs, t().mediaAnalyzeFail, false);
+      } else {
+        alert(t().mediaAnalyzeFail);
       }
     }
   }
