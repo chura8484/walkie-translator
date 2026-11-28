@@ -1711,7 +1711,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 78;
+  const APP_VERSION = 79;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -9542,19 +9542,11 @@ ${getHonorificRule(myRole)}
 
       const promptText = myRole === "ko"
         ? (isVideo
-          ? "이 동영상을 보고 아래 형식으로 한국어로 간결하게 정리해줘.
-• 내용 요약: 어떤 장면/상황인지 1~2문장으로 설명
-• 글자·음성 번역: 영상 속 말소리나 화면에 보이는 외국어 글자/자막이 있으면 자연스러운 한국어로 번역 (없으면 이 항목은 생략)"
-          : "이 사진을 보고 아래 형식으로 한국어로 간결하게 정리해줘.
-• 내용 요약: 대략 어떤 사진/상황인지 1~2문장으로 설명
-• 글자 번역: 사진 속에 외국어(베트남어·영어 등) 글자가 있으면 자연스러운 한국어로 번역 (번역할 글자가 없으면 이 항목은 생략)")
+          ? "이 동영상을 보고 아래 형식으로 한국어로 간결하게 정리해줘.\n• 내용 요약: 어떤 장면/상황인지 1~2문장으로 설명\n• 글자·음성 번역: 영상 속 말소리나 화면에 보이는 외국어 글자/자막이 있으면 자연스러운 한국어로 번역 (없으면 이 항목은 생략)"
+          : "이 사진을 보고 아래 형식으로 한국어로 간결하게 정리해줘.\n• 내용 요약: 대략 어떤 사진/상황인지 1~2문장으로 설명\n• 글자 번역: 사진 속에 외국어(베트남어·영어 등) 글자가 있으면 자연스러운 한국어로 번역 (번역할 글자가 없으면 이 항목은 생략)")
         : (isVideo
-          ? "Hãy xem video này và tóm tắt ngắn gọn bằng tiếng Việt theo mẫu sau:
-• Tóm tắt: Mô tả ngắn gọn 1-2 câu nội dung/bối cảnh video
-• Dịch chữ & lời nói: Nếu có tiếng nói hoặc chữ/phụ đề nước ngoài (tiếng Hàn, Anh...) thì dịch tự nhiên sang tiếng Việt (nếu không có thì bỏ qua mục này)"
-          : "Hãy xem ảnh này và tóm tắt ngắn gọn bằng tiếng Việt theo mẫu sau:
-• Tóm tắt: Mô tả ngắn gọn 1-2 câu nội dung bức ảnh
-• Dịch chữ: Nếu trong ảnh có chữ nước ngoài (tiếng Hàn, Anh...) thì dịch tự nhiên sang tiếng Việt (nếu không có chữ thì bỏ qua mục này)");
+          ? "Hãy xem video này và tóm tắt ngắn gọn bằng tiếng Việt theo mẫu sau:\n• Tóm tắt: Mô tả ngắn gọn 1-2 câu nội dung/bối cảnh video\n• Dịch chữ & lời nói: Nếu có tiếng nói hoặc chữ/phụ đề nước ngoài (tiếng Hàn, Anh...) thì dịch tự nhiên sang tiếng Việt (nếu không có thì bỏ qua mục này)"
+          : "Hãy xem ảnh này và tóm tắt ngắn gọn bằng tiếng Việt theo mẫu sau:\n• Tóm tắt: Mô tả ngắn gọn 1-2 câu nội dung bức ảnh\n• Dịch chữ: Nếu trong ảnh có chữ nước ngoài (tiếng Hàn, Anh...) thì dịch tự nhiên sang tiếng Việt (nếu không có chữ thì bỏ qua mục này)");
 
       const data = await callGeminiWithFallback({
         contents: [{
