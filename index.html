@@ -1853,7 +1853,7 @@
     <input id="videoNativeCaptureInput" type="file" accept="video/*" capture="environment" class="hidden" />
     <input id="videoGalleryInput" type="file" accept="video/*" class="hidden" />
     <button id="photoBtn" onclick="togglePhotoMenu(event)" title="사진 보내기">📷</button>
-    <input id="textInput" type="text" placeholder="키보드로 직접 입력..." />
+    <input id="textInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false" data-form-type="other" data-lpignore="true" placeholder="키보드로 직접 입력..." />
     <button id="textSendBtn" onclick="sendTextMessage()">전송</button>
   </div>
 
@@ -1875,7 +1875,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 87;
+  const APP_VERSION = 88;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
