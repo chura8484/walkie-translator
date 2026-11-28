@@ -960,8 +960,29 @@
       font-size: 12.5px;
       white-space: nowrap;
     }
-    #videoFullscreenBtn, #videoRotateBtn, #videoDownloadBtn { background: #2e323c; border: 1px solid rgba(255,255,255,0.22); }
-    #videoFullscreenBtn.active, #videoRotateBtn.active { background: #0078ff; border-color: #64b5f6; }
+    #videoRotateBtn, #videoDownloadBtn { background: #2e323c; border: 1px solid rgba(255,255,255,0.22); }
+    #videoRotateBtn.active { background: #0078ff; border-color: #64b5f6; }
+    .media-modal-counter {
+      position: fixed;
+      top: calc(14px + env(safe-area-inset-top, 0px));
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 4px 11px;
+      border-radius: 14px;
+      background: rgba(0, 0, 0, 0.58);
+      color: rgba(255, 255, 255, 0.92);
+      font-size: 12px;
+      font-weight: bold;
+      z-index: 98;
+      pointer-events: none;
+      letter-spacing: 0.4px;
+    }
+    #videoModalCounter {
+      top: calc(64px + env(safe-area-inset-top, 0px));
+    }
+    #videoModal.force-landscape #videoModalCounter {
+      display: none !important;
+    }
     #videoCloseBtn { background: #555; }
 
     #videoRecordModal {
@@ -1619,6 +1640,7 @@
 </div>
 
 <div id="photoModal" class="hidden">
+  <div id="photoModalCounter" class="media-modal-counter hidden"></div>
   <div id="photoModalStage">
     <img id="photoModalImg" src="" alt="photo" />
     <div id="photoModalLoading" class="hidden">
@@ -1637,13 +1659,13 @@
 </div>
 
 <div id="videoModal" class="hidden">
+  <div id="videoModalCounter" class="media-modal-counter hidden"></div>
   <div id="videoModalStage">
     <video id="videoModalPlayer" playsinline webkit-playsinline controls></video>
     <div id="videoModalLoading" class="hidden">⏳ 동영상 불러오는 중...</div>
   </div>
   <div class="photo-modal-actions video-modal-actions">
     <button id="videoAnalyzeBtn" onclick="analyzeCurrentVideoInModal()">📝 요약</button>
-    <button id="videoFullscreenBtn" onclick="toggleVideoModalFullscreen()">⛶ 전체화면</button>
     <button id="videoRotateBtn" onclick="toggleVideoModalRotate()">🔄 회전</button>
     <button id="videoDownloadBtn" onclick="downloadCurrentVideo()">💾 저장</button>
     <button id="videoCloseBtn" onclick="closeVideoModal()">닫기</button>
@@ -1840,7 +1862,7 @@
 </footer>
 
 <script>
-  const APP_VERSION = 84;
+  const APP_VERSION = 86;
   const MAX_VIDEO_MSGS = 30;
   const VIDEO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   const VIDEO_RECORD_MAX_SEC = 30;
@@ -3214,6 +3236,14 @@
   let panOriginTy = 0;
   let isPanningPhoto = false;
   let lastPhotoTapAt = 0;
+  let photoSwipeTracking = false;
+  let photoSwipeStartX = 0;
+  let photoSwipeStartY = 0;
+  let photoSwipeLastX = 0;
+  let photoSwipeLastY = 0;
+  let videoSwipeTracking = false;
+  let videoSwipeStartX = 0;
+  let videoSwipeStartY = 0;
 
   let pendingPhotoImg = null;
   let pendingPhotoBaseW = 0;
@@ -3601,8 +3631,6 @@
     if (mVRec) mVRec.textContent = text.menuVideoRec;
     const mVGal = document.getElementById("menuVideoGalBtn");
     if (mVGal) mVGal.textContent = text.menuVideoGal;
-    const vFsBtn = document.getElementById("videoFullscreenBtn");
-    if (vFsBtn) vFsBtn.textContent = text.videoFullscreen;
     const vRotBtn = document.getElementById("videoRotateBtn");
     if (vRotBtn) vRotBtn.textContent = text.videoRotate;
     const vDlBtn = document.getElementById("videoDownloadBtn");
@@ -5573,7 +5601,7 @@ ${getHonorificRule(msgLang)}
   async function handlePhotoFileSelected(file) {
     if (!file) return;
     try {
-      const { img, w, h } = await loadImageFromFile(file, 800);
+      const { img, w, h } = await loadImageFromFile(file, 1280);
       pendingPhotoImg = img;
       pendingPhotoBaseW = w;
       pendingPhotoBaseH = h;
@@ -5769,7 +5797,7 @@ ${getHonorificRule(msgLang)}
   async function confirmSendPendingPhoto() {
     if (!pendingPhotoImg || isProcessing) return;
     renderPhotoPreviewCanvas(false);
-    const finalDataUrl = photoPreviewCanvas.toDataURL("image/jpeg", 0.68);
+    const finalDataUrl = photoPreviewCanvas.toDataURL("image/jpeg", 0.78);
     cancelPendingPhoto(false);
     await sendCompressedPhoto(finalDataUrl);
   }
@@ -5900,15 +5928,66 @@ ${getHonorificRule(msgLang)}
     return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
   }
 
+  function getNavigableMediaList() {
+    return (roomState.messages || []).filter(m =>
+      m && (m.hasPhoto || (m.hasVideo && m.videoReady && !isVideoExpiredMsg(m)))
+    );
+  }
+
+  function updateMediaModalCounter(ts, isVideo = false) {
+    const counterEl = document.getElementById(isVideo ? "videoModalCounter" : "photoModalCounter");
+    if (!counterEl) return;
+    const list = getNavigableMediaList();
+    const idx = list.findIndex(m => m.ts === ts);
+    if (list.length > 1 && idx !== -1) {
+      counterEl.textContent = `${idx + 1} / ${list.length}`;
+      counterEl.classList.remove("hidden");
+    } else {
+      counterEl.classList.add("hidden");
+    }
+  }
+
+  async function navigateMediaModal(delta) {
+    if (!delta) return;
+    const inPhoto = !photoModal.classList.contains("hidden");
+    const inVideo = !videoModal.classList.contains("hidden");
+    if (!inPhoto && !inVideo) return;
+
+    const curTs = inPhoto ? currentModalPhotoTs : currentModalVideoTs;
+    if (!curTs) return;
+    if (inPhoto && translatingPhotoSet.has(curTs)) return;
+
+    const list = getNavigableMediaList();
+    const curIdx = list.findIndex(m => m.ts === curTs);
+    if (curIdx === -1) return;
+
+    const nextIdx = curIdx + delta;
+    if (nextIdx < 0 || nextIdx >= list.length) {
+      if (inPhoto) applyPhotoTransform(true);
+      return;
+    }
+
+    const nextMsg = list[nextIdx];
+    if (nextMsg.hasPhoto) {
+      if (inVideo) closeVideoModal(true);
+      await openPhotoModal(nextMsg.ts, false);
+    } else if (nextMsg.hasVideo) {
+      if (inPhoto) closePhotoModal(true);
+      await openVideoModal(nextMsg);
+    }
+  }
+
   photoModalStage.addEventListener("touchstart", (e) => {
     if (e.touches.length === 2) {
       isPanningPhoto = false;
+      photoSwipeTracking = false;
       pinchStartDist = getTouchDist(e.touches[0], e.touches[1]);
       pinchStartScale = photoScale;
     } else if (e.touches.length === 1) {
       const now = Date.now();
       if (now - lastPhotoTapAt < 280) {
         lastPhotoTapAt = 0;
+        photoSwipeTracking = false;
         if (photoScale > 1.1) {
           photoScale = 1;
           photoTx = 0;
@@ -5923,12 +6002,20 @@ ${getHonorificRule(msgLang)}
       }
       lastPhotoTapAt = now;
 
-      if (photoScale > 1) {
+      if (photoScale > 1.05) {
+        photoSwipeTracking = false;
         isPanningPhoto = true;
         panStartX = e.touches[0].clientX;
         panStartY = e.touches[0].clientY;
         panOriginTx = photoTx;
         panOriginTy = photoTy;
+      } else {
+        isPanningPhoto = false;
+        photoSwipeTracking = true;
+        photoSwipeStartX = e.touches[0].clientX;
+        photoSwipeStartY = e.touches[0].clientY;
+        photoSwipeLastX = photoSwipeStartX;
+        photoSwipeLastY = photoSwipeStartY;
       }
     }
   }, { passive: true });
@@ -5936,23 +6023,45 @@ ${getHonorificRule(msgLang)}
   photoModalStage.addEventListener("touchmove", (e) => {
     if (e.touches.length === 2 && pinchStartDist > 0) {
       e.preventDefault();
+      photoSwipeTracking = false;
       const dist = getTouchDist(e.touches[0], e.touches[1]);
       photoScale = pinchStartScale * (dist / pinchStartDist);
       applyPhotoTransform(false);
-    } else if (e.touches.length === 1 && isPanningPhoto && photoScale > 1) {
+    } else if (e.touches.length === 1 && isPanningPhoto && photoScale > 1.05) {
       e.preventDefault();
       photoTx = panOriginTx + (e.touches[0].clientX - panStartX);
       photoTy = panOriginTy + (e.touches[0].clientY - panStartY);
       applyPhotoTransform(false);
+    } else if (e.touches.length === 1 && photoSwipeTracking && photoScale <= 1.05) {
+      photoSwipeLastX = e.touches[0].clientX;
+      photoSwipeLastY = e.touches[0].clientY;
+      const dx = photoSwipeLastX - photoSwipeStartX;
+      const dy = photoSwipeLastY - photoSwipeStartY;
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+        e.preventDefault();
+        photoModalImg.style.transition = "none";
+        photoModalImg.style.transform = `translate3d(${Math.round(dx * 0.45)}px, 0, 0) scale(1)`;
+      }
     }
   }, { passive: false });
 
   photoModalStage.addEventListener("touchend", (e) => {
     if (e.touches.length < 2) pinchStartDist = 0;
     if (e.touches.length === 0) {
+      if (photoSwipeTracking && photoScale <= 1.05) {
+        const dx = photoSwipeLastX - photoSwipeStartX;
+        const dy = photoSwipeLastY - photoSwipeStartY;
+        photoSwipeTracking = false;
+        if (Math.abs(dx) >= 55 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+          navigateMediaModal(dx < 0 ? 1 : -1);
+          return;
+        }
+      }
+      photoSwipeTracking = false;
       isPanningPhoto = false;
       applyPhotoTransform(true);
-    } else if (e.touches.length === 1 && photoScale > 1) {
+    } else if (e.touches.length === 1 && photoScale > 1.05) {
+      photoSwipeTracking = false;
       isPanningPhoto = true;
       panStartX = e.touches[0].clientX;
       panStartY = e.touches[0].clientY;
@@ -5960,6 +6069,25 @@ ${getHonorificRule(msgLang)}
       panOriginTy = photoTy;
     }
   }, { passive: true });
+
+  photoModalStage.addEventListener("mousedown", (e) => {
+    if (photoScale > 1.05 || e.button !== 0) return;
+    photoSwipeTracking = true;
+    photoSwipeStartX = e.clientX;
+    photoSwipeStartY = e.clientY;
+    photoSwipeLastX = e.clientX;
+    photoSwipeLastY = e.clientY;
+  });
+
+  photoModalStage.addEventListener("mouseup", (e) => {
+    if (!photoSwipeTracking) return;
+    photoSwipeTracking = false;
+    const dx = e.clientX - photoSwipeStartX;
+    const dy = e.clientY - photoSwipeStartY;
+    if (Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+      navigateMediaModal(dx < 0 ? 1 : -1);
+    }
+  });
 
   photoModalStage.addEventListener("wheel", (e) => {
     e.preventDefault();
@@ -5976,18 +6104,34 @@ ${getHonorificRule(msgLang)}
     btn.disabled = Boolean(currentModalPhotoTs && translatingPhotoSet.has(currentModalPhotoTs));
   }
 
-  function openPhotoModal(ts, autoTranslate = false) {
-    const dataUrl = photoCache[ts];
-    if (!dataUrl) return;
-    currentModalPhotoDataUrl = dataUrl;
+  async function openPhotoModal(ts, autoTranslate = false) {
+    if (!ts) return;
     currentModalPhotoTs = ts;
     isShowingTranslatedPhoto = false;
     resetPhotoTransform();
-    photoModalImg.src = dataUrl;
     stopPhotoProgress(true);
     updatePhotoTranslateBtnUI();
+    updateMediaModalCounter(ts, false);
     photoModal.classList.remove("hidden");
     ensureModalHistory();
+
+    let dataUrl = photoCache[ts] || "";
+    if (!dataUrl) {
+      photoModalImg.src = "";
+      setPhotoProgressUI(35, t().photoLoading);
+      await loadPhotoPayloadForAnalysis(ts);
+      dataUrl = photoCache[ts] || "";
+      stopPhotoProgress(true);
+    }
+
+    if (photoModal.classList.contains("hidden") || currentModalPhotoTs !== ts) return;
+    if (!dataUrl) {
+      closePhotoModal(false);
+      return;
+    }
+
+    currentModalPhotoDataUrl = dataUrl;
+    photoModalImg.src = dataUrl;
     if (autoTranslate) {
       togglePhotoOverlayTranslation();
     }
@@ -6000,7 +6144,10 @@ ${getHonorificRule(msgLang)}
     currentModalPhotoDataUrl = "";
     currentModalPhotoTs = 0;
     isShowingTranslatedPhoto = false;
+    photoSwipeTracking = false;
     stopPhotoProgress(true);
+    const cnt = document.getElementById("photoModalCounter");
+    if (cnt) cnt.classList.add("hidden");
     updatePhotoTranslateBtnUI();
     resetPhotoTransform();
     if (!fromPopState) releaseModalHistoryIfNoneOpen();
@@ -6430,6 +6577,42 @@ Quy tắc:
 - Nếu không có chữ/giá tiền cần dịch, trả về {"items": []}.
 - Chỉ trả lời ngắn gọn bằng JSON (không cần ghi chữ gốc): {"items": [{"translated": "bản dịch tiếng Việt", "price_amount": 10000, "price_currency": "KRW", "box_2d": [ymin, xmin, ymax, xmax]}]}`;
 
+        const normalizeOcrBox = (raw) => {
+          const box = raw.box_2d || raw.box || raw.bbox || raw.bounding_box;
+          if (Array.isArray(box) && box.length === 4) {
+            return box.map(v => Math.max(0, Math.min(1000, Number(v) || 0)));
+          }
+          if (box && typeof box === "object") {
+            const ymin = Number(box.ymin ?? box.top ?? 0);
+            const xmin = Number(box.xmin ?? box.left ?? 0);
+            const ymax = Number(box.ymax ?? box.bottom ?? 0);
+            const xmax = Number(box.xmax ?? box.right ?? 0);
+            if ([ymin, xmin, ymax, xmax].every(Number.isFinite)) {
+              return [ymin, xmin, ymax, xmax].map(v => Math.max(0, Math.min(1000, v)));
+            }
+          }
+          return null;
+        };
+
+        const normalizeOcrList = (arr) => {
+          if (!Array.isArray(arr)) return [];
+          const out = [];
+          for (const it of arr) {
+            if (!it || typeof it !== "object") continue;
+            const tr = String(it.translated || it.translation || it.text || it.ko || it.vi || "").trim();
+            const b2d = normalizeOcrBox(it);
+            if (tr && b2d) {
+              out.push({
+                translated: tr,
+                price_amount: it.price_amount ?? it.amount ?? null,
+                price_currency: it.price_currency ?? it.currency ?? null,
+                box_2d: b2d
+              });
+            }
+          }
+          return out;
+        };
+
         const data = await callGeminiWithFallback({
           contents: [{
             role: "user",
@@ -6441,38 +6624,98 @@ Quy tắc:
           generationConfig: {
             temperature: 0.1,
             maxOutputTokens: 4096,
-            responseMimeType: "application/json"
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                items: {
+                  type: "ARRAY",
+                  items: {
+                    type: "OBJECT",
+                    properties: {
+                      translated: { type: "STRING" },
+                      price_amount: { type: "NUMBER", nullable: true },
+                      price_currency: { type: "STRING", nullable: true },
+                      box_2d: {
+                        type: "ARRAY",
+                        items: { type: "NUMBER" }
+                      }
+                    },
+                    required: ["translated", "box_2d"]
+                  }
+                }
+              },
+              required: ["items"]
+            }
           }
         }, {
+          preferredModels: MEDIA_VISION_MODELS,
           baseTimeoutMs: 60000,
           fallbackTimeoutMs: 70000
         });
 
         const parts = data.candidates?.[0]?.content?.parts || [];
-        let rawJson = "{}";
+        let rawText = "";
         for (const p of parts) {
           if (p.thought) continue;
-          if (p.text && p.text.trim()) { rawJson = p.text.trim(); break; }
+          if (p.text && p.text.trim()) { rawText = p.text.trim(); break; }
         }
-        rawJson = rawJson.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+        const cleanedJson = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
         let parsed = null;
         try {
-          parsed = JSON.parse(rawJson);
+          parsed = JSON.parse(cleanedJson);
         } catch {
-          // 응답이 중간에 잘렸을 경우 완료된 JSON 객체들만 복구
           const salvaged = [];
-          const objMatches = rawJson.match(/\{[^{}]*"translated"\s*:[^{}]*"box_2d"\s*:\s*\[[\d\s,.-]+\][^{}]*\}/g) || [];
+          const objMatches = cleanedJson.match(/\{[^{}]*"translated"\s*:[^{}]*(?:"box_2d"|"box"|"bbox")\s*:[^{}]*\}/g) || [];
           for (const chunk of objMatches) {
             try { salvaged.push(JSON.parse(chunk)); } catch {}
           }
           if (salvaged.length > 0) {
             parsed = { items: salvaged };
-          } else {
-            throw new Error("json_parse_error");
           }
         }
-        ocrItems = Array.isArray(parsed.items) ? parsed.items : (Array.isArray(parsed) ? parsed : []);
-        ocrItems = ocrItems.filter(it => it && it.translated && String(it.translated).trim() && Array.isArray(it.box_2d) && it.box_2d.length === 4);
+
+        const rawItems = parsed
+          ? (Array.isArray(parsed.items) ? parsed.items : (Array.isArray(parsed.results) ? parsed.results : (Array.isArray(parsed) ? parsed : [])))
+          : [];
+        ocrItems = normalizeOcrList(rawItems);
+
+        // 좌표/JSON 추출에 실패했거나 빈 배열일 경우 일반 텍스트 번역 백업 실행
+        if (ocrItems.length === 0) {
+          const backupPrompt = myRole === "ko"
+            ? "이 사진 속의 외국어(베트남어·영어 등) 글자와 금액을 모두 자연스러운 한국어로 번역해줘. 금액이 있으면 현찰 살 때 수수료 감안한 대략적인 원화 금액도 함께 적어줘. 번역할 글자가 아예 없으면 '없음'이라고만 답해줘."
+            : "Hãy dịch tất cả chữ nước ngoài (tiếng Hàn, tiếng Anh...) và giá tiền trong bức ảnh này sang tiếng Việt tự nhiên. Nếu không có chữ cần dịch thì chỉ trả lời 'Không có'.";
+          const fbData = await callGeminiWithFallback({
+            contents: [{
+              role: "user",
+              parts: [
+                { text: backupPrompt },
+                { inline_data: { mime_type: payload.mime, data: payload.data } }
+              ]
+            }],
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 1200
+            }
+          }, {
+            preferredModels: MEDIA_VISION_MODELS,
+            baseTimeoutMs: 45000,
+            fallbackTimeoutMs: 55000
+          });
+          const fbParts = fbData.candidates?.[0]?.content?.parts || [];
+          let fbText = "";
+          for (const p of fbParts) {
+            if (p.thought) continue;
+            if (p.text && p.text.trim()) { fbText = p.text.trim(); break; }
+          }
+          const noTextWord = fbText.replace(/[.!\s]/g, "").toLowerCase();
+          if (fbText && noTextWord !== "없음" && noTextWord !== "khôngcó" && noTextWord !== "none") {
+            stopPhotoProgress(true);
+            updatePhotoTranslateBtnUI();
+            showMediaAnalysisModal(ts, fbText, false);
+            return;
+          }
+        }
 
         if (ocrItems.length > 0) {
           const curIdx = (roomState.messages || []).findIndex(m => m.ts === ts);
@@ -6834,12 +7077,12 @@ Quy tắc:
     }
   }
 
-  /* ================= 전체화면 동영상 플레이어 (전체화면 · 회전 버튼 분리) ================= */
+  /* ================= 전체화면 동영상 플레이어 ================= */
 
   const videoModal = document.getElementById("videoModal");
+  const videoModalStage = document.getElementById("videoModalStage");
   const videoModalPlayer = document.getElementById("videoModalPlayer");
   const videoModalLoading = document.getElementById("videoModalLoading");
-  const videoFullscreenBtn = document.getElementById("videoFullscreenBtn");
   const videoRotateBtn = document.getElementById("videoRotateBtn");
 
   let currentVideoObjectUrl = "";
@@ -6847,15 +7090,72 @@ Quy tắc:
   let currentModalVideoMime = "video/mp4";
   let isVideoModalLandscape = false;
 
+  if (videoModalStage) {
+    videoModalStage.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1) {
+        videoSwipeTracking = false;
+        return;
+      }
+      const touch = e.touches[0];
+      const h = window.innerHeight || 800;
+      // 하단 동영상 재생바(시크바) 및 상단 버튼 영역 터치는 스와이프 제외
+      if (!isVideoModalLandscape && (touch.clientY > h - 76 || touch.clientY < 68)) {
+        videoSwipeTracking = false;
+        return;
+      }
+      videoSwipeTracking = true;
+      videoSwipeStartX = touch.clientX;
+      videoSwipeStartY = touch.clientY;
+    }, { passive: true });
+
+    videoModalStage.addEventListener("touchend", (e) => {
+      if (!videoSwipeTracking || !e.changedTouches || e.changedTouches.length === 0) {
+        videoSwipeTracking = false;
+        return;
+      }
+      videoSwipeTracking = false;
+      const touch = e.changedTouches[0];
+      const rawDx = touch.clientX - videoSwipeStartX;
+      const rawDy = touch.clientY - videoSwipeStartY;
+      // 90도 회전(force-landscape) 상태에서는 화면 세로 드래그가 시각적 좌우 스와이프
+      const dx = isVideoModalLandscape ? rawDy : rawDx;
+      const dy = isVideoModalLandscape ? rawDx : rawDy;
+      if (Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+        navigateMediaModal(dx < 0 ? 1 : -1);
+      }
+    }, { passive: true });
+
+    videoModalStage.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      const h = window.innerHeight || 800;
+      if (!isVideoModalLandscape && (e.clientY > h - 76 || e.clientY < 68)) return;
+      videoSwipeTracking = true;
+      videoSwipeStartX = e.clientX;
+      videoSwipeStartY = e.clientY;
+    });
+
+    videoModalStage.addEventListener("mouseup", (e) => {
+      if (!videoSwipeTracking) return;
+      videoSwipeTracking = false;
+      const rawDx = e.clientX - videoSwipeStartX;
+      const rawDy = e.clientY - videoSwipeStartY;
+      const dx = isVideoModalLandscape ? rawDy : rawDx;
+      const dy = isVideoModalLandscape ? rawDx : rawDy;
+      if (Math.abs(dx) >= 65 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+        navigateMediaModal(dx < 0 ? 1 : -1);
+      }
+    });
+  }
+
   async function openVideoModal(msg) {
     if (!msg || !msg.ts || isVideoExpiredMsg(msg)) return;
     stopCurrentAudio();
+    try { videoModalPlayer.pause(); } catch {}
     currentModalVideoTs = msg.ts;
     isVideoModalLandscape = false;
     videoModal.classList.remove("force-landscape");
-    videoRotateBtn.classList.remove("active");
-    videoFullscreenBtn.classList.remove("active");
-    videoFullscreenBtn.textContent = t().videoFullscreen;
+    if (videoRotateBtn) videoRotateBtn.classList.remove("active");
+    updateMediaModalCounter(msg.ts, true);
 
     videoModalLoading.textContent = t().videoLoading;
     videoModalLoading.classList.remove("hidden");
@@ -6906,31 +7206,6 @@ Quy tắc:
     }
   }
 
-  async function toggleVideoModalFullscreen() {
-    if (videoModal.classList.contains("hidden")) return;
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-        videoFullscreenBtn.classList.remove("active");
-        videoFullscreenBtn.textContent = t().videoFullscreen;
-        return;
-      }
-      if (videoModal.requestFullscreen) {
-        await videoModal.requestFullscreen();
-        videoFullscreenBtn.classList.add("active");
-        videoFullscreenBtn.textContent = t().videoExitFullscreen;
-        return;
-      }
-      if (typeof videoModalPlayer.webkitEnterFullscreen === "function") {
-        videoModalPlayer.webkitEnterFullscreen();
-      }
-    } catch {
-      if (typeof videoModalPlayer.webkitEnterFullscreen === "function") {
-        try { videoModalPlayer.webkitEnterFullscreen(); } catch {}
-      }
-    }
-  }
-
   async function toggleVideoModalRotate() {
     if (videoModal.classList.contains("hidden")) return;
 
@@ -6950,23 +7225,15 @@ Quy tắc:
         }
         await screen.orientation.lock(targetOrient);
         videoModal.classList.remove("force-landscape");
-        videoRotateBtn.classList.toggle("active", isVideoModalLandscape);
+        if (videoRotateBtn) videoRotateBtn.classList.toggle("active", isVideoModalLandscape);
         return;
       }
     } catch {}
 
     // 브라우저가 orientation.lock을 지원하지 않는 환경에서는 CSS 90도 회전 모드로 전환
     videoModal.classList.toggle("force-landscape", isVideoModalLandscape);
-    videoRotateBtn.classList.toggle("active", isVideoModalLandscape);
+    if (videoRotateBtn) videoRotateBtn.classList.toggle("active", isVideoModalLandscape);
   }
-
-  document.addEventListener("fullscreenchange", () => {
-    const isFs = Boolean(document.fullscreenElement);
-    if (videoFullscreenBtn) {
-      videoFullscreenBtn.classList.toggle("active", isFs);
-      videoFullscreenBtn.textContent = isFs ? t().videoExitFullscreen : t().videoFullscreen;
-    }
-  });
 
   function downloadCurrentVideo() {
     if (!currentVideoObjectUrl) return;
@@ -6993,10 +7260,11 @@ Quy tắc:
     currentVideoObjectUrl = "";
     currentModalVideoTs = 0;
     isVideoModalLandscape = false;
+    videoSwipeTracking = false;
     videoModal.classList.remove("force-landscape");
-    videoRotateBtn.classList.remove("active");
-    videoFullscreenBtn.classList.remove("active");
-    videoFullscreenBtn.textContent = t().videoFullscreen;
+    if (videoRotateBtn) videoRotateBtn.classList.remove("active");
+    const cnt = document.getElementById("videoModalCounter");
+    if (cnt) cnt.classList.add("hidden");
 
     try {
       if (screen.orientation && typeof screen.orientation.unlock === "function") {
@@ -10349,10 +10617,10 @@ ${getHonorificRule(myRole)}
 
       const promptText = myRole === "ko"
         ? (isVideo
-          ? "이 동영상을 직접 보지 않고도 무슨 내용인지 충분히 알 수 있도록 한국어로 자세하고 알기 쉽게 정리해줘.\n\n1) 전체 상황 및 장면 흐름:\n- 누구(또는 무엇)가 어디서 어떤 행동을 하는지 처음부터 끝까지 시간 순서대로 구체적으로 설명해줘.\n\n2) 말소리·대화 및 화면 글자 번역:\n- 영상 속 말소리(대화·내레이션)나 화면에 나오는 외국어 글자/자막이 있으면 빠뜨리지 말고 자연스러운 한국어로 자세히 번역해줘. (말소리나 글자가 전혀 없으면 '없음' 또는 생략)\n\n3) 핵심 포인트 / 분위기:\n- 영상의 분위기나 전달하려는 핵심 내용을 1~2문장으로 정리해줘."
+          ? "이 동영상을 직접 보지 않고도 무슨 내용인지 충분히 알 수 있도록 한국어로 자세하고 알기 쉽게 정리해줘.\n\n1) 핵심 포인트 / 분위기:\n- 영상의 분위기나 전달하려는 핵심 내용을 1~2문장으로 제일 먼저 정리해줘.\n\n2) 전체 상황 및 장면 흐름:\n- 누구(또는 무엇)가 어디서 어떤 행동을 하는지 처음부터 끝까지 시간 순서대로 구체적으로 설명해줘.\n\n3) 말소리·대화 및 화면 글자 번역:\n- 영상 속 말소리(대화·내레이션)나 화면에 나오는 외국어 글자/자막이 있으면 빠뜨리지 말고 자연스러운 한국어로 자세히 번역해줘. (말소리나 글자가 전혀 없으면 '없음' 또는 생략)"
           : "이 사진이 대략 어떤 장면이나 내용인지 한국어로 2~3문장 이내로 알기 쉽게 요약해줘.")
         : (isVideo
-          ? "Hãy xem kỹ video này và mô tả thật chi tiết bằng tiếng Việt để người đọc không cần xem video vẫn hiểu rõ toàn bộ nội dung:\n\n1) Bối cảnh & Diễn biến:\n- Ai (hoặc vật gì) đang ở đâu, làm gì từ đầu đến cuối theo trình tự thời gian.\n\n2) Dịch lời nói & chữ trên màn hình:\n- Nếu có lời nói/hội thoại hoặc chữ/phụ đề nước ngoài, hãy dịch đầy đủ và tự nhiên sang tiếng Việt (nếu không có thì bỏ qua).\n\n3) Điểm chính / Không khí:\n- Tóm tắt ngắn 1-2 câu về không khí hoặc ý chính của video."
+          ? "Hãy xem kỹ video này và mô tả thật chi tiết bằng tiếng Việt để người đọc không cần xem video vẫn hiểu rõ toàn bộ nội dung:\n\n1) Điểm chính / Không khí:\n- Tóm tắt ngắn 1-2 câu về không khí hoặc ý chính của video lên đầu tiên.\n\n2) Bối cảnh & Diễn biến:\n- Ai (hoặc vật gì) đang ở đâu, làm gì từ đầu đến cuối theo trình tự thời gian.\n\n3) Dịch lời nói & chữ trên màn hình:\n- Nếu có lời nói/hội thoại hoặc chữ/phụ đề nước ngoài, hãy dịch đầy đủ và tự nhiên sang tiếng Việt (nếu không có thì bỏ qua)."
           : "Hãy xem bức ảnh này và tóm tắt ngắn gọn nội dung/bối cảnh chính trong 2-3 câu bằng tiếng Việt dễ hiểu.");
 
       const data = await callGeminiWithFallback({
@@ -10368,6 +10636,7 @@ ${getHonorificRule(myRole)}
           maxOutputTokens: isVideo ? 2048 : 800
         }
       }, {
+        preferredModels: MEDIA_VISION_MODELS,
         baseTimeoutMs: isVideo ? 100000 : 40000,
         fallbackTimeoutMs: isVideo ? 120000 : 50000
       });
@@ -10598,15 +10867,19 @@ ${getHonorificRule(myRole)}
     }
   }
 
+  const MEDIA_VISION_MODELS = ["gemini-3.8-flash", "gemini-2.5-flash"];
+
   async function callGeminiWithFallback(bodyObj, opts = {}) {
     const baseTimeout = opts.baseTimeoutMs || 4500;
     const fallbackTimeout = opts.fallbackTimeoutMs || 5500;
     const onRetry = typeof opts.onRetry === "function" ? opts.onRetry : null;
+    const extraModels = Array.isArray(opts.preferredModels) ? opts.preferredModels : [];
 
     modelStats.totalCalls = (modelStats.totalCalls || 0) + 1;
     const ranked = getRankedModels(true);
+    const combinedModels = Array.from(new Set([...extraModels, ...ranked]));
 
-    const fullPlan = ranked.map((model, idx) => ({
+    const fullPlan = combinedModels.map((model, idx) => ({
       model,
       timeout: idx === 0 ? baseTimeout : fallbackTimeout,
       delayBefore: idx === 0 ? 0 : 150
